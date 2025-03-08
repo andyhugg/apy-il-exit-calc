@@ -65,7 +65,7 @@ initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=1,
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1, min_value=1, step=1)
 current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", value=1, step=1)
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1, min_value=1, step=1)
-apy = st.sidebar.number_input("Current APY (%)", value=340, step=1)
+apy = st.sidebar.number_input("Current APY (%)", value=1, step=1)
 investment_amount = st.sidebar.number_input("Initial Investment ($)", value=1, step=1)
 
 if st.sidebar.button("Calculate"):
