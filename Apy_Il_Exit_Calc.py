@@ -30,6 +30,8 @@ def check_exit_conditions(apy: float, il: float):
     st.write(f"**Net Return:** {net_return:.2f}x")
     st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
     
+    break_even_months = float('inf')  # Default value in case APY is above the threshold
+    
     if apy < apy_exit_threshold:
         break_even_months = il / (apy / 12) if apy > 0 else float('inf')
         st.warning(f"APY is below the IL threshold! Consider exiting.")
