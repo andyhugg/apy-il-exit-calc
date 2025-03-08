@@ -3,13 +3,24 @@ import numpy as np
 import pandas as pd
 import requests
 
-# Function to fetch live price of a user-specified asset from CoinGecko
-def fetch_ticker_price(ticker):
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids={ticker}&vs_currencies=usd"
+# Function to fetch all available assets from CoinGecko API
+def fetch_available_assets():
+    url = "https://api.coingecko.com/api/v3/coins/list"
     response = requests.get(url)
     if response.status_code == 200:
-        return response.json().get(ticker, {}).get("usd", "N/A")
+        return {asset["symbol"].upper(): asset["id"] for asset in response.json()}
+    return {}
+
+# Function to fetch live price of a user-selected asset from CoinGecko
+def fetch_ticker_price(asset_id):
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={asset_id}&vs_currencies=usd"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json().get(asset_id, {}).get("usd", "N/A")
     return "N/A"
+
+# Load available assets from CoinGecko
+available_assets = fetch_available_assets()
 
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
@@ -61,12 +72,13 @@ def check_exit_conditions(apy: float, il: float):
 # Streamlit App UI
 st.title("DM APY vs IL Exit Calculator")
 
-# User-defined ticker input
+# User-defined asset selection from dropdown
 st.sidebar.header("Fetch Asset Price")
-ticker = st.sidebar.text_input("Enter asset ticker (e.g., bitcoin, ethereum, solana)", "bitcoin")
+selected_ticker = st.sidebar.selectbox("Select asset ticker", sorted(available_assets.keys()))
 if st.sidebar.button("Get Price"):
-    asset_price = fetch_ticker_price(ticker.lower())
-    st.sidebar.write(f"**{ticker.upper()} Price:** ${asset_price}")
+    asset_id = available_assets.get(selected_ticker, "")
+    asset_price = fetch_ticker_price(asset_id)
+    st.sidebar.write(f"**{selected_ticker} Price:** ${asset_price}")
 
 st.sidebar.header("Set Your Parameters")
 
