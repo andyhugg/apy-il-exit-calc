@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
@@ -55,17 +55,10 @@ if st.sidebar.button("Calculate"):
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
     break_even_months = check_exit_conditions(apy, il)
     
-    # Generate Break-even Duration vs. APY Chart
+    # Generate Break-even Duration Table
     st.subheader("Break-even Duration for Different APY Levels")
-    apy_values = np.linspace(10, 500, 50)  # Generate APY values from 10% to 500%
-    break_even_durations = [il / (apy_val / 12) if apy_val > 0 else float('inf') for apy_val in apy_values]
+    apy_values = [50, 75, 100, 150, 200]
+    break_even_durations = [round(il / (apy_val / 12), 2) if apy_val > 0 else float('inf') for apy_val in apy_values]
     
-    fig, ax = plt.subplots()
-    ax.plot(apy_values, break_even_durations, label="Break-even Duration (months)", color='blue')
-    ax.axhline(y=break_even_months, color='red', linestyle='--', label="Current Break-even")
-    ax.axvline(x=apy, color='green', linestyle='--', label="Current APY")
-    ax.set_xlabel("APY (%)")
-    ax.set_ylabel("Break-even Duration (Months)")
-    ax.set_title("Break-even Duration vs. APY")
-    ax.legend()
-    st.pyplot(fig)
+    df = pd.DataFrame({"APY (%)": apy_values, "Break-even Duration (Months)": break_even_durations})
+    st.table(df)
