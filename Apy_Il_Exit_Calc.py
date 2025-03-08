@@ -117,11 +117,3 @@ if st.sidebar.button("Calculate"):
         st.warning("⚠️ Moderate Risk: Monitor the pool closely to ensure IL does not surpass APY.")
     else:
         st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
-    
-    # Hold Comparison Section
-    st.subheader("Hold Comparison")
-    future_price = st.number_input("Future Asset Price", min_value=0.01, step=0.01, format="%.2f")
-    if future_price:
-        holding_pnl, holding_pnl_percent = calculate_holding_pnl(investment_amount, initial_price_asset1, future_price)
-        st.write(f"**Holding PnL:** ${holding_pnl:.2f}")
-        st.write(f"**Holding PnL % Increase:** {holding_pnl_percent:.2f}%")
