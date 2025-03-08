@@ -1,20 +1,31 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import requests
+
+# Function to fetch live prices of BTC, ETH, and SOL
+def fetch_crypto_prices():
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd"
+    response = requests.get(url)
+    if response.status_code == 200:
+        prices = response.json()
+        return {
+            "Bitcoin": prices.get("bitcoin", {}).get("usd", "N/A"),
+            "Ethereum": prices.get("ethereum", {}).get("usd", "N/A"),
+            "Solana": prices.get("solana", {}).get("usd", "N/A")
+        }
+    return {"Bitcoin": "N/A", "Ethereum": "N/A", "Solana": "N/A"}
+
+# Fetch live prices
+crypto_prices = fetch_crypto_prices()
 
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
     """
     Calculates Impermanent Loss (IL) based on initial and current asset prices.
     """
-    if initial_price_asset2 == 0 or current_price_asset2 == 0:
-        return 0  # Avoid division by zero
-    
     price_ratio_initial = initial_price_asset1 / initial_price_asset2
     price_ratio_current = current_price_asset1 / current_price_asset2
-    
-    if price_ratio_initial == 0:
-        return 0  # Avoid division by zero
     
     sqrt_ratio = (price_ratio_current / price_ratio_initial) ** 0.5
     il = 2 * (sqrt_ratio / (1 + sqrt_ratio)) - 1
@@ -58,13 +69,19 @@ def check_exit_conditions(apy: float, il: float):
 # Streamlit App UI
 st.title("DM APY vs IL Exit Calculator")
 
+# Display Live Crypto Prices
+st.subheader("Live Crypto Prices (USD)")
+st.write(f"**Bitcoin (BTC):** ${crypto_prices['Bitcoin']}")
+st.write(f"**Ethereum (ETH):** ${crypto_prices['Ethereum']}")
+st.write(f"**Solana (SOL):** ${crypto_prices['Solana']}")
+
 st.sidebar.header("Set Your Parameters")
 
 # Manual Entry for Asset Prices
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=86000)
-initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1, min_value=0.0001, format="%.4f")
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1)
 current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", value=86000)
-current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1, min_value=0.0001, format="%.4f")
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1)
 apy = st.sidebar.number_input("Current APY (%)", value=340)
 investment_amount = st.sidebar.number_input("Initial Investment ($)", value=10000)
 
@@ -80,7 +97,7 @@ if st.sidebar.button("Calculate"):
     st.table(df)
     
     # Generate Future Profit Projection Table
-    st.subheader("Projected Liquidity Pool Asset Value | Considers Yield and IL Only Not Asset Appreciation")
+    st.subheader("Projected Liquidity Pool Value | Considers yield and IL only not asset appreciation")
     time_periods = [3, 6, 12]  # Months
     future_values = [calculate_future_value(investment_amount, apy, il, months) for months in time_periods]
     
