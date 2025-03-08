@@ -2,21 +2,26 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import requests
+import time
 
-# Function to fetch all available assets from CoinGecko API
+# Function to fetch all available assets from CoinGecko API with retry mechanism
 def fetch_available_assets():
     url = "https://api.coingecko.com/api/v3/coins/list"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return {asset["name"]: asset["id"] for asset in response.json()}
+    for _ in range(3):  # Retry up to 3 times
+        response = requests.get(url)
+        if response.status_code == 200:
+            return {asset["name"]: asset["id"] for asset in response.json()}
+        time.sleep(2)  # Wait before retrying
     return {}
 
-# Function to fetch live crypto prices from CoinGecko API
+# Function to fetch live crypto prices from CoinGecko API with retry
 def fetch_crypto_price(asset: str):
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={asset}&vs_currencies=usd"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get(asset, {}).get("usd", None)
+    for _ in range(3):  # Retry up to 3 times
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json().get(asset, {}).get("usd", None)
+        time.sleep(2)  # Wait before retrying
     return None
 
 # APY vs IL Exit Calculator
