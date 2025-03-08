@@ -21,6 +21,7 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     
     return abs(il) * 100  # Convert to percentage
 
+
 def calculate_future_value(initial_investment: float, apy: float, il: float, months: int) -> float:
     """
     Projects future value based on APY and IL over time.
@@ -29,6 +30,7 @@ def calculate_future_value(initial_investment: float, apy: float, il: float, mon
     loss_factor = 1 - (il / 100)
     return round(initial_investment * ((1 + monthly_return) ** months) * loss_factor, 2)
 
+
 def calculate_holding_pnl(initial_investment: float, initial_price: float, future_price: float) -> float:
     """
     Calculates the profit or loss from simply holding the asset.
@@ -36,6 +38,7 @@ def calculate_holding_pnl(initial_investment: float, initial_price: float, futur
     num_assets = initial_investment / initial_price
     future_value = num_assets * future_price
     return round(future_value - initial_investment, 2), round(((future_value / initial_investment) - 1) * 100, 2)
+
 
 def check_exit_conditions(apy: float, il: float):
     """
