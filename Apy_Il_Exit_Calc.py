@@ -61,12 +61,12 @@ st.title("DM APY vs IL Exit Calculator")
 st.sidebar.header("Set Your Parameters")
 
 # Manual Entry for Asset Prices
-initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=86000, step=1)
-initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1, min_value=1, step=1)
-current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", value=86000, step=1)
-current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1, min_value=1, step=1)
-apy = st.sidebar.number_input("Current APY (%)", value=340, step=1)
-investment_amount = st.sidebar.number_input("Initial Investment ($)", value=10000, step=1)
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", , step=1)
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", , min_, step=1)
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", , step=1)
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", , min_, step=1)
+apy = st.sidebar.number_input("Current APY (%)", , step=1)
+investment_amount = st.sidebar.number_input("Initial Investment ($)", , step=1)
 
 if st.sidebar.button("Calculate"):
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
