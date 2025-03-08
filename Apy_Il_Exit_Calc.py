@@ -42,7 +42,7 @@ def check_exit_conditions(apy: float, il: float):
     return break_even_months
 
 # Streamlit App UI
-st.title("APY vs IL Exit Calculator")
+st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=86000)
