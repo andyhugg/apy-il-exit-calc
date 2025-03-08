@@ -74,7 +74,7 @@ if st.sidebar.button("Calculate"):
     st.table(df)
     
     # Generate Future Profit Projection Table
-    st.subheader("Projected Portfolio Value")
+    st.subheader("Projected Liquidity Pool Value | Considers yield and IL only not asset appreciation")
     time_periods = [3, 6, 12]  # Months
     future_values = [calculate_future_value(investment_amount, apy, il, months) for months in time_periods]
     
