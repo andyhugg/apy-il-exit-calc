@@ -121,13 +121,13 @@ if st.sidebar.button("Calculate"):
     df = pd.DataFrame({"APY (%)": apy_values, "Break-even Duration (Months)": break_even_durations})
     st.table(df)
     
-    # Generate Future Profit Projection Table with updated description
+    # Generate Future Profit Projection Table with updated description and formatting
     st.subheader("Projected Pool Value | Based on Yield (Your Earnings) and Impermanent Loss (Loss from Price Changes), Excluding Gains from Asset Price Rises")
     time_periods = [0, 3, 6, 12]  # Months
     future_values = [calculate_future_value(investment_amount, apy, il, months) for months in time_periods]
     df_projection = pd.DataFrame({
         "Time Period (Months)": time_periods,
-        "Projected Value ($)": future_values
+        "Projected Value ($)": [f"${value:,.2f}" for value in future_values]  # Format with commas for clarity
     })
     st.table(df_projection)
     
