@@ -1,4 +1,6 @@
 import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
 
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
@@ -34,6 +36,8 @@ def check_exit_conditions(apy: float, il: float):
         st.write(f"**Break-even Duration:** {break_even_months:.2f} months")
     else:
         st.success("You're still in profit. No need to exit yet.")
+    
+    return break_even_months
 
 # Streamlit App UI
 st.title("APY vs IL Exit Calculator")
@@ -47,4 +51,19 @@ apy = st.sidebar.number_input("Current APY (%)", value=340)
 
 if st.sidebar.button("Calculate"):
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
-    check_exit_conditions(apy, il)
+    break_even_months = check_exit_conditions(apy, il)
+    
+    # Generate Break-even Duration vs. APY Chart
+    st.subheader("Break-even Duration for Different APY Levels")
+    apy_values = np.linspace(10, 500, 50)  # Generate APY values from 10% to 500%
+    break_even_durations = [il / (apy_val / 12) if apy_val > 0 else float('inf') for apy_val in apy_values]
+    
+    fig, ax = plt.subplots()
+    ax.plot(apy_values, break_even_durations, label="Break-even Duration (months)", color='blue')
+    ax.axhline(y=break_even_months, color='red', linestyle='--', label="Current Break-even")
+    ax.axvline(x=apy, color='green', linestyle='--', label="Current APY")
+    ax.set_xlabel("APY (%)")
+    ax.set_ylabel("Break-even Duration (Months)")
+    ax.set_title("Break-even Duration vs. APY")
+    ax.legend()
+    st.pyplot(fig)
