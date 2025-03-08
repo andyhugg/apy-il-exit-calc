@@ -3,21 +3,13 @@ import numpy as np
 import pandas as pd
 import requests
 
-# Function to fetch live prices of BTC, ETH, and SOL
-def fetch_crypto_prices():
-    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd"
+# Function to fetch live price of a user-specified asset from CoinGecko
+def fetch_ticker_price(ticker):
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={ticker}&vs_currencies=usd"
     response = requests.get(url)
     if response.status_code == 200:
-        prices = response.json()
-        return {
-            "Bitcoin": prices.get("bitcoin", {}).get("usd", "N/A"),
-            "Ethereum": prices.get("ethereum", {}).get("usd", "N/A"),
-            "Solana": prices.get("solana", {}).get("usd", "N/A")
-        }
-    return {"Bitcoin": "N/A", "Ethereum": "N/A", "Solana": "N/A"}
-
-# Fetch live prices
-crypto_prices = fetch_crypto_prices()
+        return response.json().get(ticker, {}).get("usd", "N/A")
+    return "N/A"
 
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
@@ -69,11 +61,12 @@ def check_exit_conditions(apy: float, il: float):
 # Streamlit App UI
 st.title("DM APY vs IL Exit Calculator")
 
-# Display Live Crypto Prices
-st.subheader("Live Crypto Prices (USD)")
-st.write(f"**Bitcoin (BTC):** ${crypto_prices['Bitcoin']}")
-st.write(f"**Ethereum (ETH):** ${crypto_prices['Ethereum']}")
-st.write(f"**Solana (SOL):** ${crypto_prices['Solana']}")
+# User-defined ticker input
+st.sidebar.header("Fetch Asset Price")
+ticker = st.sidebar.text_input("Enter asset ticker (e.g., bitcoin, ethereum, solana)", "bitcoin")
+if st.sidebar.button("Get Price"):
+    asset_price = fetch_ticker_price(ticker.lower())
+    st.sidebar.write(f"**{ticker.upper()} Price:** ${asset_price}")
 
 st.sidebar.header("Set Your Parameters")
 
