@@ -80,24 +80,36 @@ st.sidebar.header("Set Your Parameters")
 st.sidebar.subheader("Live Crypto Prices")
 available_assets = fetch_available_assets()
 if available_assets:
-    selected_crypto_name = st.sidebar.selectbox("Select Asset 1", list(available_assets.keys()))
-    selected_crypto_id = available_assets[selected_crypto_name]
-    asset1_price = fetch_crypto_price(selected_crypto_id)
+    selected_crypto_name1 = st.sidebar.selectbox("Select Asset 1", list(available_assets.keys()))
+    selected_crypto_id1 = available_assets[selected_crypto_name1]
+    asset1_price = fetch_crypto_price(selected_crypto_id1)
+    
+    selected_crypto_name2 = st.sidebar.selectbox("Select Asset 2", list(available_assets.keys()))
+    selected_crypto_id2 = available_assets[selected_crypto_name2]
+    asset2_price = fetch_crypto_price(selected_crypto_id2)
 else:
     st.sidebar.write("⚠️ Could not fetch available assets. Using manual entry.")
-    selected_crypto_name = "Manual Entry"
+    selected_crypto_name1 = "Manual Entry"
     asset1_price = None
+    selected_crypto_name2 = "Manual Entry"
+    asset2_price = None
 
 if asset1_price:
-    st.sidebar.write(f"**{selected_crypto_name} Price:** ${asset1_price:.2f}")
+    st.sidebar.write(f"**{selected_crypto_name1} Price:** ${asset1_price:.2f}")
 else:
     st.sidebar.write("⚠️ Could not fetch live price.")
     asset1_price = st.sidebar.number_input("Enter Asset 1 Price Manually", value=86000)
 
+if asset2_price:
+    st.sidebar.write(f"**{selected_crypto_name2} Price:** ${asset2_price:.2f}")
+else:
+    st.sidebar.write("⚠️ Could not fetch live price.")
+    asset2_price = st.sidebar.number_input("Enter Asset 2 Price Manually", value=1)
+
 initial_price_asset1 = asset1_price
-initial_price_asset2 = 1  # Default to stablecoin
+initial_price_asset2 = asset2_price
 current_price_asset1 = asset1_price  # Assume same price initially
-current_price_asset2 = 1  # Default to stablecoin
+current_price_asset2 = asset2_price  # Assume same price initially
 apy = st.sidebar.number_input("Current APY (%)", value=340)
 investment_amount = st.sidebar.number_input("Initial Investment ($)", value=10000)
 
