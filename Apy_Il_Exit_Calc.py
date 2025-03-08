@@ -29,6 +29,14 @@ def calculate_future_value(initial_investment: float, apy: float, il: float, mon
     loss_factor = 1 - (il / 100)
     return round(initial_investment * ((1 + monthly_return) ** months) * loss_factor, 2)
 
+def calculate_holding_pnl(initial_investment: float, initial_price: float, future_price: float) -> float:
+    """
+    Calculates the profit or loss from simply holding the asset.
+    """
+    num_assets = initial_investment / initial_price
+    future_value = num_assets * future_price
+    return round(future_value - initial_investment, 2), round(((future_value / initial_investment) - 1) * 100, 2)
+
 def check_exit_conditions(apy: float, il: float):
     """
     Determines if IL is overtaking APY and suggests exit conditions.
@@ -107,11 +115,10 @@ if st.sidebar.button("Calculate"):
     else:
         st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
     
-    # New Section: Hold vs. LP Comparison
-    st.subheader("Hold vs. LP Comparison")
-    future_asset_price = st.sidebar.number_input("Future Asset Price", min_value=0.01, step=0.01, format="%.2f")
-    
-    hold_pnl = (future_asset_price / initial_price_asset1) * investment_amount
-    st.write(f"**Holding PnL:** ${hold_pnl:,.2f}")
-    
-    st.write("Compare the potential return of simply holding your asset versus providing liquidity in the pool.")
+    # Hold Comparison Section
+    st.subheader("Hold Comparison")
+    future_price = st.number_input("Future Asset Price", min_value=0.01, step=0.01, format="%.2f")
+    if future_price:
+        holding_pnl, holding_pnl_percent = calculate_holding_pnl(investment_amount, initial_price_asset1, future_price)
+        st.write(f"**Holding PnL:** ${holding_pnl:.2f}")
+        st.write(f"**Holding PnL % Increase:** {holding_pnl_percent:.2f}%")
