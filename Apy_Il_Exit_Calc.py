@@ -39,10 +39,10 @@ def check_exit_conditions(apy: float, il: float):
 st.title("APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
-initial_price_asset1 = st.sidebar.number_input("Initial BTC Price", value=86000)
-initial_price_asset2 = 1  # USDC assumed stable at 1
-current_price_asset1 = st.sidebar.number_input("Current BTC Price", value=180000)
-current_price_asset2 = 1  # USDC assumed stable at 1
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=86000)
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1)  # Default to stablecoin
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", value=180000)
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1)  # Default to stablecoin
 apy = st.sidebar.number_input("Current APY (%)", value=340)
 
 if st.sidebar.button("Calculate"):
