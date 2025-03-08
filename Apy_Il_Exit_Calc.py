@@ -5,69 +5,92 @@ import pandas as pd
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
     """
-    Calculates Impermanent Loss (IL) based on initial and current asset prices.
+    Calculates Impermanent Loss (IL) percentage based on initial and current asset prices.
+    IL is the loss compared to holding the assets, assuming a 50/50 initial pool.
     """
     if initial_price_asset2 == 0 or current_price_asset2 == 0:
         return 0  # Avoid division by zero
-    
+
+    # Price ratios
     price_ratio_initial = initial_price_asset1 / initial_price_asset2
     price_ratio_current = current_price_asset1 / current_price_asset2
-    
+
     if price_ratio_initial == 0:
         return 0  # Avoid division by zero
-    
+
+    # Price change factor (k)
     k = price_ratio_current / price_ratio_initial
-    sqrt_k = k ** 0.5
+
+    # IL formula for a 50/50 liquidity pool: (2 * sqrt(k) / (1 + k)) - 1
+    sqrt_k = np.sqrt(k) if k > 0 else 0
     if (1 + k) == 0:
         return 0
     il = 2 * (sqrt_k / (1 + k)) - 1
-    
-    return abs(il) * 100  # Convert to percentage
+
+    # Convert to percentage and ensure it's positive
+    il_percentage = abs(il) * 100
+
+    return il_percentage
 
 
-def calculate_future_value(initial_investment: float, apy: float, il: float, months: int, target_net_return: float = 1.63) -> float:
+def calculate_future_value(initial_investment: float, apy: float, il: float, months: int) -> float:
     """
-    Projects future value to match the target net return after 12 months, applying IL progressively.
+    Projects future value based on APY (compounded monthly) and applies IL at the end.
+    IL is assumed to be a one-time loss based on price changes over the period.
     """
-    # Calculate the effective monthly rate to achieve the target net return after 12 months
-    monthly_rate = target_net_return ** (1/12) - 1
-    monthly_il = (il / 100) / 12
-    
-    value = initial_investment
-    for _ in range(months):
-        value *= (1 + monthly_rate)  # Apply the effective rate
-        value *= (1 - monthly_il)    # Apply IL progressively
-    
-    return round(value, 2)
+    if months <= 0:
+        return initial_investment
+
+    # Monthly yield from APY
+    monthly_yield = (apy / 100) / 12  # Convert APY to monthly rate
+    # Compound growth from APY
+    value_after_apy = initial_investment * (1 + monthly_yield) ** months
+    # Apply IL as a one-time loss (simplified assumption)
+    loss_factor = 1 - (il / 100)
+    final_value = value_after_apy * loss_factor
+
+    return round(final_value, 2)
 
 
-def check_exit_conditions(initial_investment: float, apy: float, il: float, months: int = 12, target_net_return: float = 1.63):
+def calculate_break_even_months(apy: float, il: float) -> float:
+    """
+    Calculates the number of months required for APY to offset the IL.
+    Assumes monthly compounding and a simplified linear IL impact.
+    """
+    if apy <= 0:
+        return float('inf')
+    
+    monthly_apy = (apy / 100) / 12  # Monthly APY rate
+    # Break-even when cumulative APY gain equals IL
+    break_even_months = il / (monthly_apy * 100)  # Convert IL to decimal and divide
+    return round(break_even_months, 2) if break_even_months > 0 else float('inf')
+
+
+def check_exit_conditions(initial_investment: float, apy: float, il: float, months: int = 12):
     """
     Determines if IL is overtaking APY and suggests exit conditions.
-    Returns net return and APY exit threshold.
+    Uses the standard definition of net return (final value / initial investment).
     """
-    # Calculate future value after 12 months (default period for net return)
-    future_value = calculate_future_value(initial_investment, apy, il, months, target_net_return)
-    net_return = future_value / initial_investment
-    
-    # APY exit threshold: The APY needed to break even with IL over 12 months
-    apy_exit_threshold = il * 12  # Simplified threshold
-    
+    # Calculate future value
+    future_value = calculate_future_value(initial_investment, apy, il, months)
+    # Net return = Final Value / Initial Investment
+    net_return = future_value / initial_investment if initial_investment > 0 else 0
+
+    # APY exit threshold: The minimum APY needed to offset IL over 12 months
+    apy_exit_threshold = (il * 12) / months  # Annualized IL impact
+
     st.subheader("Results:")
     st.write(f"**Impermanent Loss:** {il:.2f}%")
     st.write(f"**Net Return:** {net_return:.2f}x")
     st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
-    
-    break_even_months = float('inf')  # Default value in case APY is above the threshold
+
+    break_even_months = calculate_break_even_months(apy, il)
     
     if apy < apy_exit_threshold:
-        monthly_apy = apy / 12 if apy > 0 else 0
-        break_even_months = (il / monthly_apy) if monthly_apy > 0 else float('inf')
-        st.warning(f"APY is below the IL threshold! Consider exiting.")
-        st.write(f"**Break-even Duration:** {break_even_months:.2f} months")
+        st.warning(f"APY is below the IL threshold! Consider exiting after {break_even_months:.2f} months.")
     else:
         st.success("You're still in profit. No need to exit yet.")
-    
+
     return break_even_months, net_return
 
 
@@ -76,7 +99,7 @@ st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
-# Manual Entry for Asset Prices
+# Manual Entry for Asset Prices and Investment
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, value=88000.23, step=0.01, format="%.2f")
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, value=1.00, step=0.01, format="%.2f")
 current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, value=120000.00, step=0.01, format="%.2f")
@@ -85,29 +108,23 @@ apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, value=92.86, st
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, value=200000.00, step=0.01, format="%.2f")
 
 if st.sidebar.button("Calculate"):
-    # Calculate Impermanent Loss
+    # Calculate Impermanent Loss based on price changes
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
     
     # Check exit conditions and get net return
     break_even_months, net_return = check_exit_conditions(investment_amount, apy, il)
     
-    # Generate Break-even Duration Table
+    # Generate Break-even Duration Table for different APY levels
     st.subheader("Break-even Duration for Different APY Levels")
     apy_values = [0, 50, 75, 100, 150, 200]
-    break_even_durations = []
-    for apy_val in apy_values:
-        monthly_apy = apy_val / 12 if apy_val > 0 else 0
-        duration = (il / monthly_apy) if monthly_apy > 0 else float('inf')
-        break_even_durations.append(round(duration, 2))
-    
+    break_even_durations = [calculate_break_even_months(apy_val, il) for apy_val in apy_values]
     df = pd.DataFrame({"APY (%)": apy_values, "Break-even Duration (Months)": break_even_durations})
     st.table(df)
     
-    # Generate Future Profit Projection Table
-    st.subheader("Projected Liquidity Pool Value | Considers yield and IL only, not asset appreciation")
+    # Generate Future Profit Projection Table with updated description
+    st.subheader("Projected Pool Value | Based on Yield (Your Earnings) and Impermanent Loss (Loss from Price Changes), Excluding Gains from Asset Price Rises")
     time_periods = [0, 3, 6, 12]  # Months
-    future_values = [calculate_future_value(investment_amount, apy, il, months, net_return) for months in time_periods]
-    
+    future_values = [calculate_future_value(investment_amount, apy, il, months) for months in time_periods]
     df_projection = pd.DataFrame({
         "Time Period (Months)": time_periods,
         "Projected Value ($)": future_values
@@ -117,9 +134,11 @@ if st.sidebar.button("Calculate"):
     # Risk Analysis
     st.subheader("Risk Analysis")
     risk_level = "Low"
-    if il > apy * 0.75:
+    # High risk if IL exceeds 75% of APY
+    if il > (apy * 0.75):
         risk_level = "High"
-    elif il > apy * 0.5:
+    # Moderate risk if IL exceeds 50% of APY
+    elif il > (apy * 0.5):
         risk_level = "Moderate"
     
     st.write(f"**Risk Level:** {risk_level}")
