@@ -27,7 +27,7 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
         return 0
     il = 2 * (sqrt_k / (1 + k)) - 1
 
-    # Convert to percentage and ensure it's positive
+    # Convert to percentage and ensure it's positive (IL is a loss, so take absolute value)
     il_percentage = abs(il) * 100
 
     return il_percentage
@@ -36,12 +36,12 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
 def calculate_future_value(initial_investment: float, apy: float, il: float, months: int) -> float:
     """
     Projects future value based on APY (compounded monthly) and applies IL at the end.
-    IL is assumed to be a one-time loss based on price changes over the period.
+    Uses standard financial compounding: FV = PV * (1 + monthly_rate)^months.
     """
     if months <= 0:
         return initial_investment
 
-    # Monthly yield from APY
+    # Monthly yield from APY (standard monthly compounding)
     monthly_yield = (apy / 100) / 12  # Convert APY to monthly rate
     # Compound growth from APY
     value_after_apy = initial_investment * (1 + monthly_yield) ** months
@@ -55,15 +55,27 @@ def calculate_future_value(initial_investment: float, apy: float, il: float, mon
 def calculate_break_even_months(apy: float, il: float) -> float:
     """
     Calculates the number of months required for APY to offset the IL.
-    Assumes monthly compounding and a simplified linear IL impact.
+    Uses iterative approximation based on monthly compounding until IL is offset.
     """
     if apy <= 0:
         return float('inf')
     
-    monthly_apy = (apy / 100) / 12  # Monthly APY rate
-    # Break-even when cumulative APY gain equals IL
-    break_even_months = il / (monthly_apy * 100)  # Convert IL to decimal and divide
-    return round(break_even_months, 2) if break_even_months > 0 else float('inf')
+    monthly_apy = (apy / 100) / 12  # Monthly APY rate as a decimal
+    il_decimal = il / 100  # IL as a decimal
+    
+    if il_decimal == 0:
+        return 0  # No IL to offset
+    
+    # Iterative approximation: Find months where compounded value offsets IL
+    months = 0
+    value = 1.0  # Start with initial value of 1
+    target = 1 / (1 - il_decimal)  # Value needed to break even after IL loss
+    
+    while value < target and months < 1000:  # Limit to 1000 months
+        value *= (1 + monthly_apy)
+        months += 1
+    
+    return round(months, 2) if months < 1000 else float('inf')
 
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, months: int = 12):
@@ -77,7 +89,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, mont
     net_return = future_value / initial_investment if initial_investment > 0 else 0
 
     # APY exit threshold: The minimum APY needed to offset IL over 12 months
-    apy_exit_threshold = (il * 12) / months  # Annualized IL impact
+    apy_exit_threshold = (il * 12) / months  # Annualized IL impact as a percentage
 
     st.subheader("Results:")
     st.write(f"**Impermanent Loss:** {il:.2f}%")
@@ -100,12 +112,12 @@ st.title("DM APY vs IL Exit Calculator")
 st.sidebar.header("Set Your Parameters")
 
 # Manual Entry for Asset Prices and Investment
-initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, value=88000.23, step=0.01, format="%.2f")
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, value=88000.00, step=0.01, format="%.2f")
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, value=1.00, step=0.01, format="%.2f")
-current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, value=120000.00, step=0.01, format="%.2f")
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, value=95000.00, step=0.01, format="%.2f")
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, value=1.00, step=0.01, format="%.2f")
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, value=92.86, step=0.01, format="%.2f")
-investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, value=200000.00, step=0.01, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, value=92.86, step=0.01, format="%.2f", help="APY is variable and user-defined.")
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, value=100.00, step=0.01, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     # Calculate Impermanent Loss based on price changes
