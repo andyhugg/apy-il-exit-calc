@@ -1,28 +1,6 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import requests
-import time
-
-# Function to fetch all available assets from CoinGecko API with retry mechanism
-def fetch_available_assets():
-    url = "https://api.coingecko.com/api/v3/coins/list"
-    for _ in range(3):  # Retry up to 3 times
-        response = requests.get(url)
-        if response.status_code == 200:
-            return {asset["name"]: asset["id"] for asset in response.json()}
-        time.sleep(2)  # Wait before retrying
-    return {}
-
-# Function to fetch live crypto prices from CoinGecko API with retry
-def fetch_crypto_price(asset: str):
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids={asset}&vs_currencies=usd"
-    for _ in range(3):  # Retry up to 3 times
-        response = requests.get(url)
-        if response.status_code == 200:
-            return response.json().get(asset, {}).get("usd", None)
-        time.sleep(2)  # Wait before retrying
-    return None
 
 # APY vs IL Exit Calculator
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
@@ -76,40 +54,11 @@ st.title("APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
-# Fetch all assets from CoinGecko
-st.sidebar.subheader("Live Crypto Prices")
-available_assets = fetch_available_assets()
-if available_assets:
-    selected_crypto_name1 = st.sidebar.selectbox("Select Asset 1", list(available_assets.keys()))
-    selected_crypto_id1 = available_assets[selected_crypto_name1]
-    asset1_price = fetch_crypto_price(selected_crypto_id1)
-    
-    selected_crypto_name2 = st.sidebar.selectbox("Select Asset 2", list(available_assets.keys()))
-    selected_crypto_id2 = available_assets[selected_crypto_name2]
-    asset2_price = fetch_crypto_price(selected_crypto_id2)
-else:
-    st.sidebar.write("⚠️ Could not fetch available assets. Using manual entry.")
-    selected_crypto_name1 = "Manual Entry"
-    asset1_price = None
-    selected_crypto_name2 = "Manual Entry"
-    asset2_price = None
-
-if asset1_price:
-    st.sidebar.write(f"**{selected_crypto_name1} Price:** ${asset1_price:.2f}")
-else:
-    st.sidebar.write("⚠️ Could not fetch live price.")
-    asset1_price = st.sidebar.number_input("Enter Asset 1 Price Manually", value=86000)
-
-if asset2_price:
-    st.sidebar.write(f"**{selected_crypto_name2} Price:** ${asset2_price:.2f}")
-else:
-    st.sidebar.write("⚠️ Could not fetch live price.")
-    asset2_price = st.sidebar.number_input("Enter Asset 2 Price Manually", value=1)
-
-initial_price_asset1 = asset1_price
-initial_price_asset2 = asset2_price
-current_price_asset1 = asset1_price  # Assume same price initially
-current_price_asset2 = asset2_price  # Assume same price initially
+# Manual Entry for Asset Prices
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=86000)
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1)
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", value=86000)
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1)
 apy = st.sidebar.number_input("Current APY (%)", value=340)
 investment_amount = st.sidebar.number_input("Initial Investment ($)", value=10000)
 
