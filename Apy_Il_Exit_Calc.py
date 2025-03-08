@@ -7,8 +7,14 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     """
     Calculates Impermanent Loss (IL) based on initial and current asset prices.
     """
+    if initial_price_asset2 == 0 or current_price_asset2 == 0:
+        return 0  # Avoid division by zero
+    
     price_ratio_initial = initial_price_asset1 / initial_price_asset2
     price_ratio_current = current_price_asset1 / current_price_asset2
+    
+    if price_ratio_initial == 0:
+        return 0  # Avoid division by zero
     
     sqrt_ratio = (price_ratio_current / price_ratio_initial) ** 0.5
     il = 2 * (sqrt_ratio / (1 + sqrt_ratio)) - 1
@@ -56,9 +62,9 @@ st.sidebar.header("Set Your Parameters")
 
 # Manual Entry for Asset Prices
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", value=86000)
-initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1)
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", value=1, min_value=0.0001, format="%.4f")
 current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", value=86000)
-current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1)
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", value=1, min_value=0.0001, format="%.4f")
 apy = st.sidebar.number_input("Current APY (%)", value=340)
 investment_amount = st.sidebar.number_input("Initial Investment ($)", value=10000)
 
