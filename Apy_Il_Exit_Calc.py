@@ -55,7 +55,7 @@ def calculate_future_value(initial_investment: float, apy: float, il: float, mon
 def calculate_break_even_months(apy: float, il: float) -> float:
     """
     Calculates the number of months required for APY to offset the IL.
-    Uses iterative approximation based on monthly compounding until IL is offset.
+    Uses logarithmic approximation with a minimum of 1 month for small IL values.
     """
     if apy <= 0:
         return float('inf')
@@ -66,16 +66,13 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     if il_decimal == 0:
         return 0  # No IL to offset
     
-    # Iterative approximation: Find months where compounded value offsets IL
-    months = 0
-    value = 1.0  # Start with initial value of 1
-    target = 1 / (1 - il_decimal)  # Value needed to break even after IL loss
+    # Logarithmic approximation
+    if monthly_apy > 0:
+        months = max(1, int(np.ceil(np.log(1 + il_decimal) / np.log(1 + monthly_apy))))
+    else:
+        months = float('inf')
     
-    while value < target and months < 1000:  # Limit to 1000 months
-        value *= (1 + monthly_apy)
-        months += 1
-    
-    return round(months, 2) if months < 1000 else float('inf')
+    return months
 
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, months: int = 12):
@@ -116,7 +113,7 @@ initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_valu
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, value=1.00, step=0.01, format="%.2f")
 current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, value=95000.00, step=0.01, format="%.2f")
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, value=1.00, step=0.01, format="%.2f")
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, value=92.86, step=0.01, format="%.2f", help="APY is variable and user-defined.")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, value=1.00, step=0.01, format="%.2f", help="APY is variable and user-defined.")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, value=100.00, step=0.01, format="%.2f")
 
 if st.sidebar.button("Calculate"):
