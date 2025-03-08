@@ -107,21 +107,11 @@ if st.sidebar.button("Calculate"):
     else:
         st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
     
-    st.markdown("""
-    ### How Risk Levels Are Determined:
-    - **High Risk:** IL is greater than **75% of APY** (`il > apy * 0.75`).
-      - Your profits are at serious risk, and you may face a **net loss**.
-      - Consider exiting or diversifying.
-    - **Moderate Risk:** IL is between **50% and 75% of APY** (`il > apy * 0.5`).
-      - IL is eating into a significant portion of profits but may still be viable.
-      - Monitor closely to ensure it doesn’t escalate.
-    - **Low Risk:** IL is **≤ 50% of APY** (default case).
-      - IL is manageable, and **your yield remains profitable**.
+    # New Section: Hold vs. LP Comparison
+    st.subheader("Hold vs. LP Comparison")
+    future_asset_price = st.sidebar.number_input("Future Asset Price", min_value=0.01, step=0.01, format="%.2f")
     
-    **Example Scenarios:**
-    | **APY (%)** | **IL (%)** | **Risk Level** | **Explanation** |
-    |------------|------------|-------------|----------------|
-    | 200%  | 160%  | **High**  | IL is 80% of APY, meaning most of your profits are eroded. |
-    | 100%  | 60%   | **Moderate** | IL is 60% of APY, a significant impact but not disastrous. |
-    | 150%  | 30%   | **Low**  | IL is only 20% of APY, leaving plenty of yield. |
-    """)
+    hold_pnl = (future_asset_price / initial_price_asset1) * investment_amount
+    st.write(f"**Holding PnL:** ${hold_pnl:,.2f}")
+    
+    st.write("Compare the potential return of simply holding your asset versus providing liquidity in the pool.")
