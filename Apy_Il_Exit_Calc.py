@@ -126,9 +126,24 @@ if st.sidebar.button("Calculate"):
     # Check exit conditions and get net return
     break_even_months, net_return = check_exit_conditions(investment_amount, apy, il)
     
-    # Generate Break-even Duration Table for different APY levels
-    st.subheader("Break-even Duration for Different APY Levels")
-    apy_values = [0, 50, 75, 100, 150, 200]
-    break_even_durations = [calculate_break_even_months(apy_val, il) for apy_val in apy_values]
-    df = pd.DataFrame({"APY (%)": apy_values, "Break-even Duration (Months)": break_even_durations})
-    st.table(df)
+    # Generate Future Profit Projection Table
+    st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss")
+    time_periods = [3, 6, 12]  # Months
+    future_values = [calculate_future_value(investment_amount, apy, il, months) for months in time_periods]
+    df_projection = pd.DataFrame({"Time Period (Months)": time_periods, "Projected Value ($)": future_values})
+    st.table(df_projection)
+    
+    # Risk Analysis
+    st.subheader("Risk Analysis")
+    risk_level = "Low"
+    if il > apy * 0.75:
+        risk_level = "High"
+    elif il > apy * 0.5:
+        risk_level = "Moderate"
+    st.write(f"**Risk Level:** {risk_level}")
+    if risk_level == "High":
+        st.warning("⚠️ High Risk: IL is significantly reducing your yield. Consider exiting or diversifying.")
+    elif risk_level == "Moderate":
+        st.warning("⚠️ Moderate Risk: Monitor the pool closely to ensure IL does not surpass APY.")
+    else:
+        st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
