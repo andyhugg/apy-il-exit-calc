@@ -37,7 +37,6 @@ def calculate_future_value(pool_value: float, apy: float, months: int) -> float:
     if months <= 0:
         return pool_value
     
-    # Apply APY with monthly compounding
     monthly_yield = (apy / 100) / 12
     value_after_apy = pool_value * (1 + monthly_yield) ** months
     return round(value_after_apy, 2)
@@ -62,7 +61,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     
     return round(months, 2) if months < 1000 else float('inf')
 
-def check_exit_conditions(initial_investment: float, apy: float, il: float,
+def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
@@ -82,12 +81,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float,
     break_even_months = calculate_break_even_months(apy, il)
     st.success("You're still in profit. No need to exit yet.")
     
-    # Exit Strategy Recommendations
+    # Exit Strategy Recommendations with TVL Decline
     st.subheader("Exit Strategy Recommendations")
-    if il > apy * 0.75:
-        st.warning("⚠️ IL is approaching APY! Monitor closely and consider exiting if IL exceeds APY within the next 3-6 months.")
-    elif net_return < 1:
-        st.warning("⚠️ Net return is negative! Exit immediately to minimize losses.")
+    if tvl_decline >= 50:
+        st.warning("⚠️ Critical Risk: TVL has dropped over 50%! Exit immediately to avoid potential total loss.")
+    elif tvl_decline >= 30:
+        st.warning("⚠️ High Risk: TVL has dropped 30%-50%! Reduce exposure or consider exiting.")
+    elif tvl_decline >= 15:
+        st.warning("⚠️ Moderate Risk: TVL has dropped 15%-30%! Monitor closely and consider partial withdrawal.")
     else:
         st.success("✅ Low risk. Hold for at least 6-12 months to maximize yields, or rebalance if market conditions change.")
     
@@ -104,15 +105,16 @@ current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_valu
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
+tvl_decline = st.sidebar.number_input("TVL Decline (%)", min_value=0.0, max_value=100.0, step=1.0, value=0.0, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
-        break_even_months, net_return = check_exit_conditions(investment_amount, apy, il,
+        break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, tvl_decline,
                                                             initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         
         # Projected Pool Value
-        st.subheader("Projected Pool Value Based on Yield and Impermanent Loss")
+        st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss")
         time_periods = [0, 3, 6, 12]
         pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                    current_price_asset1, current_price_asset2)
