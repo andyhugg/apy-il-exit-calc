@@ -65,12 +65,12 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, mont
     st.write(f"**Net Return:** {net_return:.2f}x")
     st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
     
-    break_even_months = calculate_break_even_months(apy, il)
-    
     if apy < apy_exit_threshold:
-        st.warning(f"APY is below the IL threshold! Consider exiting after {break_even_months:.2f} months.")
-    else:
-        st.success("You're still in profit. No need to exit yet.")
+        st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
+        return 0, net_return
+    
+    break_even_months = calculate_break_even_months(apy, il)
+    st.success("You're still in profit. No need to exit yet.")
     
     return break_even_months, net_return
 
@@ -90,7 +90,7 @@ if st.sidebar.button("Calculate"):
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
     break_even_months, net_return = check_exit_conditions(investment_amount, apy, il)
     
-    st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss, Without Asset Appreciation")
+    st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss")
     time_periods = [3, 6, 12]
     future_values = [calculate_future_value(investment_amount, apy, il, months) for months in time_periods]
     df_projection = pd.DataFrame({"Time Period (Months)": time_periods, "Projected Value ($)": future_values})
@@ -111,11 +111,9 @@ if st.sidebar.button("Calculate"):
     else:
         st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
     
-    # Breakeven Analysis Table
     st.subheader("Breakeven Analysis")
-    months_to_breakeven = calculate_break_even_months(apy, il)
     df_breakeven = pd.DataFrame({
         "Metric": ["Months to Breakeven"],
-        "Value": [months_to_breakeven]
+        "Value": [break_even_months]
     })
     st.table(df_breakeven)
