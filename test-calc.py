@@ -222,13 +222,17 @@ if st.sidebar.button("Calculate"):
         st.subheader("Maximum Drawdown Risk Scenarios")
         mdd_scenarios = [10, 30, 65, 100]  # Pool MDD percentages (100% is worst case)
         btc_mdd_scenarios = [10, 30, 65, 90]  # BTC MDD percentages (90% is worst case)
-        
+
+        # Pool MDD values (unchanged)
         pool_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
-        btc_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
-        
+
+        # BTC MDD values (corrected with edge case handling)
+        initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
+        btc_mdd_values = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
+
         formatted_pool_mdd = [f"{int(value):,}" for value in pool_mdd_values]
         formatted_btc_mdd = [f"{int(value):,}" for value in btc_mdd_values]
-        
+
         df_risk_scenarios = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
             "Pool Value ($)": formatted_pool_mdd,
