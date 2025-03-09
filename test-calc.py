@@ -106,56 +106,15 @@ st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
-# Custom HTML for formatted number inputs with fractional support
-html_code = """
-<script>
-function formatNumberInput(inputId) {
-    const input = document.getElementById(inputId);
-    input.addEventListener('input', function(e) {
-        let value = input.value.replace(/,/g, ''); // Remove existing commas
-        if (!isNaN(value) && value !== '') {
-            // Parse as float to handle decimals, then format with commas
-            let num = parseFloat(value);
-            if (!isNaN(num)) {
-                input.value = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-        } else {
-            input.value = ''; // Clear if invalid
-        }
-    });
-}
-</script>
-"""
-
-# Inject custom inputs
-st.sidebar.components.v1.html(html_code + """
-<input type="number" id="initial_price_asset1" value="80000.00" step="0.01" onchange="formatNumberInput('initial_price_asset1')">
-<label for="initial_price_asset1">Initial Asset 1 Price</label><br>
-<input type="number" id="initial_price_asset2" value="1.00" step="0.01" onchange="formatNumberInput('initial_price_asset2')">
-<label for="initial_price_asset2">Initial Asset 2 Price</label><br>
-<input type="number" id="current_price_asset1" value="50000.00" step="0.01" onchange="formatNumberInput('current_price_asset1')">
-<label for="current_price_asset1">Current Asset 1 Price</label><br>
-<input type="number" id="current_price_asset2" value="1.00" step="0.01" onchange="formatNumberInput('current_price_asset2')">
-<label for="current_price_asset2">Current Asset 2 Price</label><br>
-<input type="number" id="apy" value="40.00" step="0.01" onchange="formatNumberInput('apy')">
-<label for="apy">Current APY (%)</label><br>
-<input type="number" id="investment_amount" value="10000.00" step="0.01" onchange="formatNumberInput('investment_amount')">
-<label for="investment_amount">Initial Investment ($)</label><br>
-<input type="number" id="initial_tvl" value="1000000.00" step="0.01" onchange="formatNumberInput('initial_tvl')">
-<label for="initial_tvl">Initial TVL ($)</label><br>
-<input type="number" id="current_tvl" value="850000.00" step="0.01" onchange="formatNumberInput('current_tvl')">
-<label for="current_tvl">Current TVL ($)</label><br>
-""", height=300)
-
-# Retrieve values and clean commas
-initial_price_asset1 = float(st.sidebar.text_input("Initial Asset 1 Price (hidden)", value="80000.00").replace(",", ""))
-initial_price_asset2 = float(st.sidebar.text_input("Initial Asset 2 Price (hidden)", value="1.00").replace(",", ""))
-current_price_asset1 = float(st.sidebar.text_input("Current Asset 1 Price (hidden)", value="50000.00").replace(",", ""))
-current_price_asset2 = float(st.sidebar.text_input("Current Asset 2 Price (hidden)", value="1.00").replace(",", ""))
-apy = float(st.sidebar.text_input("Current APY (%) (hidden)", value="40.00").replace(",", ""))
-investment_amount = float(st.sidebar.text_input("Initial Investment ($) (hidden)", value="10000.00").replace(",", ""))
-initial_tvl = float(st.sidebar.text_input("Initial TVL ($) (hidden)", value="1000000.00").replace(",", ""))
-current_tvl = float(st.sidebar.text_input("Current TVL ($) (hidden)", value="850000.00").replace(",", ""))
+# Revert to st.sidebar.number_input with appropriate formatting
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.2f")
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=50000.00, format="%.2f")
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
+initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=1000000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
