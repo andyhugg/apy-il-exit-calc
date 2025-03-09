@@ -110,7 +110,7 @@ if st.sidebar.button("Calculate"):
     break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, initial_price_asset1, initial_price_asset2,
                                                         current_price_asset1, current_price_asset2)
     
-    st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss")
+    st.subheader("Projected Pool Profits | Based on Yield Compounded Monthly and Impermanent Loss")
     time_periods = [0, 3, 6, 12]
     pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                current_price_asset1, current_price_asset2)
