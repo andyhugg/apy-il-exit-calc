@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 
-# APY vs IL Exit Calculator
+# Pool Profit and Risk Analyzer
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0:
         return 0
@@ -69,7 +69,8 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     return round(tvl_decline, 2)
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
-                         initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, months: int = 12):
+                         initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
+                         current_tvl: float, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
     future_value = calculate_future_value(pool_value, apy, months)
@@ -77,9 +78,13 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     apy_exit_threshold = (il * 12) / months
 
-    # Calculate break_even_months upfront so it's always available
+    # Calculate break_even_months upfront
     break_even_months = calculate_break_even_months(apy, il)
 
+    # Calculate Pool Share
+    pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
+
+    # Display Results
     st.subheader("Results:")
     if initial_tvl <= 0:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
@@ -91,13 +96,22 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Net Return:** {net_return:.2f}x")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+    
+    # Display Pool Share with warnings
+    st.write(f"**Pool Share:** {pool_share:.2f}%")
+    if pool_share < 5:
+        st.success("✅ Low Liquidity Risk: Pool Share is < 5%. Safe to enter or exit in a $300K+ pool.")
+    elif 5 <= pool_share < 10:
+        st.warning("⚠️ Moderate Liquidity Risk: Pool Share is 5%-10%. Monitor closely, as a large exit could impact prices in a $300K+ pool.")
+    elif 10 <= pool_share < 20:
+        st.warning("⚠️ High Liquidity Risk: Pool Share is 10%-20%! Consider reducing exposure, as exiting could significantly impact prices in a $300K+ pool.")
+    else:
+        st.warning("⚠️ Critical Liquidity Risk: Pool Share exceeds 20%! Exit immediately to avoid severe price impact or total loss in a $300K+ pool.")
 
-    # First check if you're losing money (net return < 1.0x)
+    # Exit Conditions
     if net_return < 1.0:
         st.warning("⚠️ Warning: You're losing money (Net Return < 1.0x). Consider exiting or monitoring closely.")
         return 0, net_return
-
-    # Prioritize TVL decline as the next risk factor
     elif tvl_decline >= 50:
         st.warning("⚠️ Critical Risk: TVL has dropped over 50%! Exit immediately to avoid potential total loss.")
         return 0, net_return
@@ -108,8 +122,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.warning("⚠️ Moderate Risk: TVL has dropped 15%-30%! Monitor closely and consider partial withdrawal.")
         return break_even_months, net_return
     else:
-        # Check APY and IL if TVL decline is low and you're not losing money
-        if apy < apy_exit_threshold or net_return < 1.1:  # Added net return check for marginal profit
+        if apy < apy_exit_threshold or net_return < 1.1:
             st.warning("⚠️ APY is below the IL threshold or profit is marginal! Consider exiting or monitoring closely.")
             return 0, net_return
         else:
@@ -117,7 +130,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             return break_even_months, net_return
 
 # Streamlit App
-st.title("DM APY vs IL Exit Calculator")
+st.title("DM Pool Profit and Risk Analyzer")
 
 st.sidebar.header("Set Your Pool Parameters")
 
@@ -142,7 +155,7 @@ if st.sidebar.button("Calculate"):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, tvl_decline,
-                                                            initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+                                                            initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, current_tvl)
         
         # Projected Pool Value
         st.subheader("Projected Pool Value Based on Yield and Impermanent Loss")
@@ -162,77 +175,28 @@ if st.sidebar.button("Calculate"):
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, use_container_width=True)
         
-        # Hold vs. Pool Comparison
-        st.subheader("Hold vs. Pool Comparison")
-        # Calculate hold values
-        initial_amount_asset1 = (investment_amount / 2) / initial_price_asset1
-        initial_amount_asset2 = (investment_amount / 2) / initial_price_asset2
-        value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
-        
-        initial_amount_asset1_only = investment_amount / initial_price_asset1
-        value_if_held_asset1_only = initial_amount_asset1_only * current_price_asset1
-        
-        # Project hold values (no APY, static prices)
-        hold_values = [value_if_held] * len(time_periods)
-        hold_values_asset1_only = [value_if_held_asset1_only] * len(time_periods)
-        
-        # Calculate differences
-        diff_values = [future_value - hold_value for future_value, hold_value in zip(future_values, hold_values)]
-        diff_values_asset1_only = [future_value - hold_value for future_value, hold_value in zip(future_values, hold_values_asset1_only)]
-        
-        # Format values for display
-        formatted_hold_values = [f"{int(value):,}" for value in hold_values]
-        formatted_hold_values_asset1_only = [f"{int(value):,}" for value in hold_values_asset1_only]
-        formatted_diff_values = [f"{int(diff):,}" if diff >= 0 else f"({int(abs(diff)):,})" for diff in diff_values]
-        formatted_diff_values_asset1_only = [f"{int(diff):,}" if diff >= 0 else f"({int(abs(diff)):,})" for diff in diff_values_asset1_only]
-        
-        df_comparison = pd.DataFrame({
-            "Time Period (Months)": time_periods,
-            "Projected Pool Value ($)": formatted_pool_values,
-            "Value if Held (Asset Pair) ($)": formatted_hold_values,
-            "Value if Held (Asset 1 Only) ($)": formatted_hold_values_asset1_only,
-            "Difference (Pool - Asset Pair) ($)": formatted_diff_values,
-            "Difference (Pool - Asset 1 Only) ($)": formatted_diff_values_asset1_only
-        })
-        styled_df_comparison = df_comparison.style.set_properties(**{
-            'text-align': 'right'
-        }).apply(lambda x: ['color: red' if x.name == 'Difference (Pool - Asset Pair) ($)' and x[4].startswith('(') else '' for i in x],
-                 axis=1).apply(lambda x: ['color: red' if x.name == 'Difference (Pool - Asset 1 Only) ($)' and x[5].startswith('(') else '' for i in x],
-                 axis=1)
-        st.dataframe(styled_df_comparison, use_container_width=True)
-        
         # Pool vs. BTC Comparison (12 Months)
         st.subheader("Pool vs. BTC Comparison (12 Months)")
-        # Calculate BTC-only investment value
         projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
         
         if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
-            # New investment starting today
             initial_btc_amount = investment_amount / current_btc_price
             btc_value_12_months = initial_btc_amount * projected_btc_price
         else:
-            # Existing investment, adjust for past and future
             initial_btc_amount = investment_amount / initial_btc_price
             btc_value_12_months = initial_btc_amount * projected_btc_price
         
-        # Get pool value at 12 months
-        pool_value_12_months = future_values[-1]  # Last value in future_values list (12 months)
-        
-        # Calculate difference
+        pool_value_12_months = future_values[-1]
         difference = pool_value_12_months - btc_value_12_months
-        
-        # Calculate return percentages
         pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
         btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
         
-        # Format values
         formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
         formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
         formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
         formatted_pool_return = f"{pool_return_pct:.2f}%"
         formatted_btc_return = f"{btc_return_pct:.2f}%"
         
-        # Display comparison
         df_btc_comparison = pd.DataFrame({
             "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
             "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
@@ -242,10 +206,34 @@ if st.sidebar.button("Calculate"):
         }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
         st.dataframe(styled_df_btc, use_container_width=True)
         
+        # Risk Scenarios (Maximum Drawdown)
+        st.subheader("Risk Scenarios")
+        mdd_scenarios = [10, 30, 65, 100]  # Pool MDD percentages (100% is worst case)
+        btc_mdd_scenarios = [10, 30, 65, 90]  # BTC MDD percentages (90% is worst case)
+        
+        pool_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
+        btc_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
+        
+        formatted_pool_mdd = [f"{int(value):,}" for value in pool_mdd_values]
+        formatted_btc_mdd = [f"{int(value):,}" for value in btc_mdd_values]
+        
+        df_risk_scenarios = pd.DataFrame({
+            "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
+            "Pool Value ($)": formatted_pool_mdd,
+            "BTC Value ($)": formatted_btc_mdd
+        })
+        styled_df_risk = df_risk_scenarios.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Scenario"])
+        st.dataframe(styled_df_risk, use_container_width=True)
+        st.write("**Note:** Simulated maximum drawdowns based on plausible risk scenarios. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case). Actual losses may vary.")
+        
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
         df_breakeven = pd.DataFrame({
-            "Metric": ["Months to Breakeven"],
+            "Metric": ["Months to Breakeven Against IL"],
             "Value": [break_even_months]
         })
         st.table(df_breakeven)
