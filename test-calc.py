@@ -61,6 +61,12 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     
     return round(months, 2) if months < 1000 else float('inf')
 
+def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
+    if initial_tvl <= 0:
+        return 0.0
+    tvl_decline = (initial_tvl - current_tvl) / initial_tvl * 100
+    return round(tvl_decline, 2)
+
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
@@ -73,6 +79,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(f"**Impermanent Loss:** {il:.2f}%")
     st.write(f"**Net Return:** {net_return:.2f}x")
     st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
+    st.write(f"**TVL Decline:** {tvl_decline:.2f}%")  # Display TVL Decline
     
     if apy < apy_exit_threshold:
         st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
@@ -105,11 +112,13 @@ current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_valu
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
-tvl_decline = st.sidebar.number_input("TVL Decline (%)", min_value=0.0, max_value=100.0, step=1.0, value=0.0, format="%.2f")
+initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=1000000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, tvl_decline,
                                                             initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         
