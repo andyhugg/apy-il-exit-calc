@@ -79,7 +79,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(f"**Impermanent Loss:** {il:.2f}%")
     st.write(f"**Net Return:** {net_return:.2f}x")
     st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
-    st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+    st.write(f"**TVL Decline:** {tvl_decline:.2f}%")  # Display TVL Decline
     
     if apy < apy_exit_threshold:
         st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
@@ -106,25 +106,14 @@ st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
-# Format all numbers with commas as thousand separators
-initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.0f")
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.2f")
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=50000.00, format="%.0f")
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=50000.00, format="%.2f")
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
-investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.0f")
-initial_tvl = st.sidebar.number_input("Initial TVL", min_value=0.0, step=1000.0, value=750000.00, format="%.0f")
-current_tvl = st.sidebar.number_input("Current TVL", min_value=0.0, step=1000.0, value=637500.00, format="%.0f")
-
-# Display formatted values with commas as thousand separators
-st.sidebar.markdown(f"**Initial Asset 1 Price:** {initial_price_asset1:,.0f}")
-st.sidebar.markdown(f"**Initial Asset 2 Price:** {initial_price_asset2:.2f}")
-st.sidebar.markdown(f"**Current Asset 1 Price:** {current_price_asset1:,.0f}")
-st.sidebar.markdown(f"**Current Asset 2 Price:** {current_price_asset2:.2f}")
-st.sidebar.markdown(f"**Current APY (%):** {apy:.2f}")
-st.sidebar.markdown(f"**Initial Investment ($):** {investment_amount:,.0f}")
-st.sidebar.markdown(f"**Initial TVL:** {initial_tvl:,.0f}")
-st.sidebar.markdown(f"**Current TVL:** {current_tvl:,.0f}")
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
+initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=1000000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
