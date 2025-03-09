@@ -137,10 +137,10 @@ if st.sidebar.button("Calculate"):
         pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                    current_price_asset1, current_price_asset2)
         future_values = [calculate_future_value(pool_value, apy, months) for months in time_periods]
-        formatted_values = [f"{int(value):,}" for value in future_values]
+        formatted_pool_values = [f"{int(value):,}" for value in future_values]
         df_projection = pd.DataFrame({
             "Time Period (Months)": time_periods,
-            "Projected Value ($)": formatted_values
+            "Projected Value ($)": formatted_pool_values
         })
         styled_df = df_projection.style.set_properties(**{
             'text-align': 'right'
@@ -148,6 +148,45 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, use_container_width=True)
+        
+        # Hold vs. Pool Comparison
+        st.subheader("Hold vs. Pool Comparison")
+        # Calculate hold values
+        initial_amount_asset1 = (investment_amount / 2) / initial_price_asset1
+        initial_amount_asset2 = (investment_amount / 2) / initial_price_asset2
+        value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
+        
+        initial_amount_asset1_only = investment_amount / initial_price_asset1
+        value_if_held_asset1_only = initial_amount_asset1_only * current_price_asset1
+        
+        # Project hold values (no APY, static prices)
+        hold_values = [value_if_held] * len(time_periods)
+        hold_values_asset1_only = [value_if_held_asset1_only] * len(time_periods)
+        
+        # Calculate differences
+        diff_values = [future_value - hold_value for future_value, hold_value in zip(future_values, hold_values)]
+        diff_values_asset1_only = [future_value - hold_value for future_value, hold_value in zip(future_values, hold_values_asset1_only)]
+        
+        # Format values for display
+        formatted_hold_values = [f"{int(value):,}" for value in hold_values]
+        formatted_hold_values_asset1_only = [f"{int(value):,}" for value in hold_values_asset1_only]
+        formatted_diff_values = [f"{int(diff):,}" if diff >= 0 else f"({int(abs(diff)):,})" for diff in diff_values]
+        formatted_diff_values_asset1_only = [f"{int(diff):,}" if diff >= 0 else f"({int(abs(diff)):,})" for diff in diff_values_asset1_only]
+        
+        df_comparison = pd.DataFrame({
+            "Time Period (Months)": time_periods,
+            "Projected Pool Value ($)": formatted_pool_values,
+            "Value if Held (Asset Pair) ($)": formatted_hold_values,
+            "Value if Held (Asset 1 Only) ($)": formatted_hold_values_asset1_only,
+            "Difference (Pool - Asset Pair) ($)": formatted_diff_values,
+            "Difference (Pool - Asset 1 Only) ($)": formatted_diff_values_asset1_only
+        })
+        styled_df_comparison = df_comparison.style.set_properties(**{
+            'text-align': 'right'
+        }).apply(lambda x: ['color: red' if x.name == 'Difference (Pool - Asset Pair) ($)' and x[4].startswith('(') else '' for i in x],
+                 axis=1).apply(lambda x: ['color: red' if x.name == 'Difference (Pool - Asset 1 Only) ($)' and x[5].startswith('(') else '' for i in x],
+                 axis=1)
+        st.dataframe(styled_df_comparison, use_container_width=True)
         
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
