@@ -19,8 +19,9 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
         return 0
     
     il = 2 * (sqrt_k / (1 + k)) - 1
-    il_percentage = abs(il) * 100
-    return il_percentage
+    # Use higher precision to avoid rounding to 0% for small IL
+    il_percentage = round(abs(il) * 100, 2)  # Round to 2 decimal places
+    return il_percentage if il_percentage > 0.01 else il_percentage  # Minimum threshold of 0.01%
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> float:
@@ -88,7 +89,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     # First check if you're losing money (net return < 1.0x)
     if net_return < 1.0:
         st.warning("⚠️ Warning: You're losing money (Net Return < 1.0x). Consider exiting or monitoring closely.")
-        return 0, net_return  # Recommend exit or close monitoring
+        return 0, net_return
 
     # Prioritize TVL decline as the next risk factor
     elif tvl_decline >= 50:
@@ -102,8 +103,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         return break_even_months, net_return
     else:
         # Check APY and IL if TVL decline is low and you're not losing money
-        if apy < apy_exit_threshold:
-            st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
+        if apy < apy_exit_threshold or net_return < 1.1:  # Added net return check for marginal profit
+            st.warning("⚠️ APY is below the IL threshold or profit is marginal! Consider exiting or monitoring closely.")
             return 0, net_return
         else:
             st.success("✅ Low risk. You're still in profit. No need to exit yet.")
