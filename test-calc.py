@@ -124,6 +124,11 @@ investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=
 initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=875000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
 
+# New BTC-related inputs
+initial_btc_price = st.sidebar.number_input("Initial BTC Price ($)", min_value=0.01, step=100.0, value=73000.00, format="%.2f")
+current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=100.0, value=87000.00, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (%)", min_value=0.0, step=1.0, value=56.0, format="%.2f")
+
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
@@ -187,6 +192,34 @@ if st.sidebar.button("Calculate"):
                  axis=1).apply(lambda x: ['color: red' if x.name == 'Difference (Pool - Asset 1 Only) ($)' and x[5].startswith('(') else '' for i in x],
                  axis=1)
         st.dataframe(styled_df_comparison, use_container_width=True)
+        
+        # Pool vs. BTC Comparison (12 Months)
+        st.subheader("Pool vs. BTC Comparison (12 Months)")
+        # Calculate BTC-only investment value
+        initial_btc_amount = investment_amount / initial_btc_price
+        projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
+        btc_value_12_months = initial_btc_amount * projected_btc_price
+        
+        # Get pool value at 12 months
+        pool_value_12_months = future_values[-1]  # Last value in future_values list (12 months)
+        
+        # Calculate difference
+        difference = pool_value_12_months - btc_value_12_months
+        
+        # Format values
+        formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
+        formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
+        formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
+        
+        # Display comparison
+        df_btc_comparison = pd.DataFrame({
+            "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)"],
+            "Value ($)": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference]
+        })
+        styled_df_btc = df_btc_comparison.style.set_properties(**{
+            'text-align': 'right'
+        }).apply(lambda x: ['color: red' if x.name == 'Value ($)' and x[1].startswith('(') else '' for i in x], axis=1)
+        st.dataframe(styled_df_btc, use_container_width=True)
         
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
