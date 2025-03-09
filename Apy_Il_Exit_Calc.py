@@ -24,17 +24,12 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> float:
-    # Assume initial investment is split equally between two assets
     initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
     initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
     
-    # Current value if held outside pool (no IL)
     value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
-    
-    # Current value in pool (affected by IL)
     pool_value = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(initial_price_asset1 * initial_price_asset2)
     
-    # Impermanent loss as a percentage of the difference
     il_impact = (value_if_held - pool_value) / value_if_held * 100 if value_if_held > 0 else 0
     return pool_value, il_impact
 
@@ -42,11 +37,8 @@ def calculate_future_value(initial_investment: float, apy: float, il: float, mon
     if months <= 0:
         return initial_investment
     
-    # Apply APY with monthly compounding
     monthly_yield = (apy / 100) / 12
     value_after_apy = initial_investment * (1 + monthly_yield) ** months
-    
-    # Adjust for IL (assume IL is a one-time effect at the current price ratio)
     loss_factor = 1 - (il / 100)
     final_value = value_after_apy * loss_factor
     return round(final_value, 2)
@@ -63,7 +55,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     
     months = 0
     value = 1.0
-    target = 1 / (1 - il_decimal)  # Breakeven when APY compensates for IL
+    target = 1 / (1 - il_decimal)
     
     while value < target and months < 1000:
         value *= (1 + monthly_apy)
@@ -71,15 +63,54 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     
     return round(months, 2) if months < 1000 else float('inf')
 
-def check_exit_conditions(initial_investment: float, apy: float, il: float, initial_price_asset1, initial_price_asset2,
-                         current_price_asset1, current_price_asset2, months: int = 12):
+def calculate_risk_metrics(initial_price_asset1, current_price_asset1, initial_price_asset2, current_price_asset2, time_horizon_months=12):
+    # Simplified volatility calculation (price change over time)
+    price_change_asset1 = abs(current_price_asset1 - initial_price_asset1) / initial_price_asset1
+    price_change_asset2 = abs(current_price_asset2 - initial_price_asset2) / initial_price_asset2
+    avg_volatility = (price_change_asset1 + price_change_asset2) / 2 * 100  # In percentage
+    
+    # Simplified max drawdown (assume worst drop within the price change)
+    max_drawdown = max(price_change_asset1, price_change_asset2) * 100  # In percentage
+    
+    return avg_volatility, max_drawdown
+
+def simulate_scenarios(initial_investment, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, apy, months):
+    scenarios = {}
+    
+    # Best case: Asset 1 increases by 50%, Asset 2 stays same
+    best_price_asset1 = current_price_asset1 * 1.5
+    best_price_asset2 = current_price_asset2
+    best_pool_value, best_il = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                                   best_price_asset1, best_price_asset2)
+    best_future_value = calculate_future_value(best_pool_value, apy, best_il, months)
+    
+    # Worst case: Asset 1 decreases by 50%, Asset 2 stays same
+    worst_price_asset1 = current_price_asset1 * 0.5
+    worst_price_asset2 = current_price_asset2
+    worst_pool_value, worst_il = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                                     worst_price_asset1, worst_price_asset2)
+    worst_future_value = calculate_future_value(worst_pool_value, apy, worst_il, months)
+    
+    # Average case: Asset 1 increases by 10%, Asset 2 stays same
+    avg_price_asset1 = current_price_asset1 * 1.1
+    avg_price_asset2 = current_price_asset2
+    avg_pool_value, avg_il = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                                 avg_price_asset1, avg_price_asset2)
+    avg_future_value = calculate_future_value(avg_pool_value, apy, avg_il, months)
+    
+    scenarios["Best Case"] = (best_future_value, best_il)
+    scenarios["Worst Case"] = (worst_future_value, worst_il)
+    scenarios["Average Case"] = (avg_future_value, avg_il)
+    return scenarios
+
+def check_exit_conditions(initial_investment: float, apy: float, il: float, volatility: float, max_drawdown: float,
+                         initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
     future_value = calculate_future_value(pool_value, apy, il, months)
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
-    # APY exit threshold should be based on IL annualized impact
-    apy_exit_threshold = (il * 12) / months  # Annualized IL effect
+    apy_exit_threshold = (il * 12) / months
     st.subheader("Results:")
     st.write(f"**Impermanent Loss:** {il:.2f}%")
     st.write(f"**Net Return:** {net_return:.2f}x")
@@ -92,9 +123,21 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, init
     break_even_months = calculate_break_even_months(apy, il)
     st.success("You're still in profit. No need to exit yet.")
     
+    # Exit Strategy Recommendations
+    st.subheader("Exit Strategy Recommendations")
+    if volatility > 30 or max_drawdown > 50:
+        st.warning("⚠️ High volatility and drawdown risk! Consider exiting or reducing exposure within the next 1-3 months.")
+    elif il > apy * 0.75:
+        st.warning("⚠️ IL is approaching APY! Monitor closely and consider exiting if IL exceeds APY within the next 3-6 months.")
+    elif net_return < 1:
+        st.warning("⚠️ Net return is negative! Exit immediately to minimize losses.")
+    else:
+        st.success("✅ Low risk. Hold for at least 6-12 months to maximize yields, or rebalance if market conditions change.")
+    
     return break_even_months, net_return
 
-st.title("DM Pool Profit and Exit Calculator")
+# Streamlit App
+st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
@@ -106,51 +149,87 @@ apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, valu
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
 
 if st.sidebar.button("Calculate"):
-    il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
-    break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, initial_price_asset1, initial_price_asset2,
-                                                        current_price_asset1, current_price_asset2)
-    
-    st.subheader("Projected Pool Profits | Based on Yield Compounded Monthly and Impermanent Loss")
-    time_periods = [0, 3, 6, 12]
-    pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
-                                               current_price_asset1, current_price_asset2)
-    future_values = [calculate_future_value(pool_value, apy, il_impact, months) for months in time_periods]
-    
-    # Format the projected values with commas and no decimal places
-    formatted_values = [f"{int(value):,}" for value in future_values]
-    df_projection = pd.DataFrame({
-        "Time Period (Months)": time_periods,
-        "Projected Value ($)": formatted_values
-    })
-    
-    # Apply right alignment to both columns using pandas Styler
-    styled_df = df_projection.style.set_properties(**{
-        'text-align': 'right'
-    }, subset=["Projected Value ($)"]).set_properties(**{
-        'text-align': 'right'
-    }, subset=["Time Period (Months)"])
-    
-    # Display the styled DataFrame
-    st.dataframe(styled_df, use_container_width=True)
-    
-    st.subheader("Risk Analysis")
-    risk_level = "Low"
-    if il > apy * 0.75:
-        risk_level = "High"
-    elif il > apy * 0.5:
-        risk_level = "Moderate"
-    
-    st.write(f"**Risk Level:** {risk_level}")
-    if risk_level == "High":
-        st.warning("⚠️ High Risk: IL is significantly reducing your yield. Consider exiting or diversifying.")
-    elif risk_level == "Moderate":
-        st.warning("⚠️ Moderate Risk: Monitor the pool closely to ensure IL does not surpass APY.")
-    else:
-        st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
-    
-    st.subheader("Breakeven Analysis")
-    df_breakeven = pd.DataFrame({
-        "Metric": ["Months to Breakeven"],
-        "Value": [break_even_months]
-    })
-    st.table(df_breakeven)
+    with st.spinner("Calculating..."):
+        il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        volatility, max_drawdown = calculate_risk_metrics(initial_price_asset1, current_price_asset1, initial_price_asset2, current_price_asset2)
+        break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, volatility, max_drawdown,
+                                                            initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        
+        # Projected Pool Value
+        st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss")
+        time_periods = [0, 3, 6, 12]
+        pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
+                                                   current_price_asset1, current_price_asset2)
+        future_values = [calculate_future_value(pool_value, apy, il_impact, months) for months in time_periods]
+        formatted_values = [f"{int(value):,}" for value in future_values]
+        df_projection = pd.DataFrame({
+            "Time Period (Months)": time_periods,
+            "Projected Value ($)": formatted_values
+        })
+        styled_df = df_projection.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Projected Value ($)"]).set_properties(**{
+            'text-align': 'right'
+        }, subset=["Time Period (Months)"])
+        st.dataframe(styled_df, use_container_width=True)
+        
+        # Advanced IL and Yield Scenarios
+        st.subheader("Advanced IL and Yield Scenarios")
+        scenarios = simulate_scenarios(investment_amount, initial_price_asset1, initial_price_asset2,
+                                      current_price_asset1, current_price_asset2, apy, 12)
+        scenario_data = []
+        for scenario, (value, scenario_il) in scenarios.items():
+            scenario_data.append({
+                "Scenario": scenario,
+                "Projected Value ($)": f"{int(value):,}",
+                "Impermanent Loss (%)": f"{scenario_il:.2f}"
+            })
+        df_scenarios = pd.DataFrame(scenario_data)
+        st.table(df_scenarios)
+        
+        # Risk Analysis with Tooltips
+        st.subheader("Risk Analysis")
+        risk_level = "Low"
+        if il > apy * 0.75:
+            risk_level = "High"
+        elif il > apy * 0.5:
+            risk_level = "Moderate"
+        
+        st.write(f"**Risk Level:** {risk_level}")
+        
+        # Tooltip for Volatility
+        st.markdown(
+            f"""
+            <div style='display: flex; align-items: center;'>
+                <span style='margin-right: 10px;'>**Volatility:** {volatility:.2f}%</span>
+                <span title='Volatility measures the price fluctuation of the assets. Higher volatility indicates higher risk of price changes, which can increase impermanent loss.'>ℹ️</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Tooltip for Maximum Drawdown
+        st.markdown(
+            f"""
+            <div style='display: flex; align-items: center;'>
+                <span style='margin-right: 10px;'>**Maximum Drawdown:** {max_drawdown:.2f}%</span>
+                <span title='Maximum Drawdown represents the largest potential loss from a peak to a trough in the asset prices. It indicates the worst-case loss you might experience.'>ℹ️</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        if risk_level == "High":
+            st.warning("⚠️ High Risk: IL is significantly reducing your yield. Consider exiting or diversifying.")
+        elif risk_level == "Moderate":
+            st.warning("⚠️ Moderate Risk: Monitor the pool closely to ensure IL does not surpass APY.")
+        else:
+            st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
+        
+        # Breakeven Analysis
+        st.subheader("Breakeven Analysis")
+        df_breakeven = pd.DataFrame({
+            "Metric": ["Months to Breakeven"],
+            "Value": [break_even_months]
+        })
+        st.table(df_breakeven)
