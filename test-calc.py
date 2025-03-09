@@ -106,7 +106,7 @@ st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
-# Update number inputs with appropriate formats
+# Update number inputs with format to remove decimals where appropriate
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.0f")
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=50000.00, format="%.0f")
@@ -115,16 +115,6 @@ apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, valu
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.0f")
 initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=1000000.00, format="%.0f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.0f")
-
-# Display formatted values with commas as thousand separators
-st.sidebar.markdown(f"**Initial Asset 1 Price:** {initial_price_asset1:,.0f}")
-st.sidebar.markdown(f"**Initial Asset 2 Price:** {initial_price_asset2:.2f}")
-st.sidebar.markdown(f"**Current Asset 1 Price:** {current_price_asset1:,.0f}")
-st.sidebar.markdown(f"**Current Asset 2 Price:** {current_price_asset2:.2f}")
-st.sidebar.markdown(f"**Current APY (%):** {apy:.2f}")
-st.sidebar.markdown(f"**Initial Investment ($):** {investment_amount:,.0f}")
-st.sidebar.markdown(f"**Initial TVL ($):** {initial_tvl:,.0f}")
-st.sidebar.markdown(f"**Current TVL ($):** {current_tvl:,.0f}")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
