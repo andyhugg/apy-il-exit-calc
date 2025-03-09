@@ -115,7 +115,13 @@ if st.sidebar.button("Calculate"):
     pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                current_price_asset1, current_price_asset2)
     future_values = [calculate_future_value(pool_value, apy, il_impact, months) for months in time_periods]
-    df_projection = pd.DataFrame({"Time Period (Months)": time_periods, "Projected Value ($)": future_values})
+    
+    # Format the projected values with commas and no decimal places
+    formatted_values = [f"{int(value):,}" for value in future_values]
+    df_projection = pd.DataFrame({
+        "Time Period (Months)": time_periods,
+        "Projected Value ($)": formatted_values
+    })
     st.table(df_projection)
     
     st.subheader("Risk Analysis")
