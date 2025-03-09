@@ -94,7 +94,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, init
     
     return break_even_months, net_return
 
-st.title("DM Liquidity Pool Profit and Exit Calculator")
+st.title("DM Pool Profit and Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
