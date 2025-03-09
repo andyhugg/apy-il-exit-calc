@@ -111,7 +111,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             return break_even_months, net_return
 
 # Streamlit App
-st.title("DM Liquidity Pool Profit and Risk Analyzer")
+st.title("DM Liquidity Pool Profit & Risk Analyzer")
 
 st.sidebar.header("Set Your Pool Parameters")
 
