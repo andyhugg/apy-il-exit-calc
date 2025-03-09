@@ -111,9 +111,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             return break_even_months, net_return
 
 # Streamlit App
-st.title("DM LP Profit and Risk Analyzer")
+st.title("DM APY vs IL Exit Calculator")
 
-st.sidebar.header("Set Your Pool Parameters Here")
+st.sidebar.header("Set Your Pool Parameters")
 
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.2f")
 initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=225.00, format="%.2f")
@@ -124,10 +124,11 @@ investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=
 initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=875000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
 
-# New BTC-related inputs
-initial_btc_price = st.sidebar.number_input("Initial BTC Price ($)", min_value=0.01, step=100.0, value=73000.00, format="%.2f")
+# BTC-related inputs with clarified labels
+initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
+                                            min_value=0.0, step=100.0, value=0.0, format="%.2f")
 current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=100.0, value=87000.00, format="%.2f")
-btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (%)", min_value=0.0, step=1.0, value=56.0, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=1.0, value=56.0, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
@@ -196,9 +197,16 @@ if st.sidebar.button("Calculate"):
         # Pool vs. BTC Comparison (12 Months)
         st.subheader("Pool vs. BTC Comparison (12 Months)")
         # Calculate BTC-only investment value
-        initial_btc_amount = investment_amount / initial_btc_price
         projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
-        btc_value_12_months = initial_btc_amount * projected_btc_price
+        
+        if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
+            # New investment starting today
+            initial_btc_amount = investment_amount / current_btc_price
+            btc_value_12_months = initial_btc_amount * projected_btc_price
+        else:
+            # Existing investment, adjust for past and future
+            initial_btc_amount = investment_amount / initial_btc_price
+            btc_value_12_months = initial_btc_amount * projected_btc_price
         
         # Get pool value at 12 months
         pool_value_12_months = future_values[-1]  # Last value in future_values list (12 months)
@@ -206,19 +214,25 @@ if st.sidebar.button("Calculate"):
         # Calculate difference
         difference = pool_value_12_months - btc_value_12_months
         
+        # Calculate return percentages
+        pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
+        btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
+        
         # Format values
         formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
         formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
         formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
+        formatted_pool_return = f"{pool_return_pct:.2f}%"
+        formatted_btc_return = f"{btc_return_pct:.2f}%"
         
         # Display comparison
         df_btc_comparison = pd.DataFrame({
-            "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)"],
-            "Value ($)": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference]
+            "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
+            "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
         })
         styled_df_btc = df_btc_comparison.style.set_properties(**{
             'text-align': 'right'
-        }).apply(lambda x: ['color: red' if x.name == 'Value ($)' and x[1].startswith('(') else '' for i in x], axis=1)
+        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
         st.dataframe(styled_df_btc, use_container_width=True)
         
         # Breakeven Analysis
