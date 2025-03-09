@@ -97,36 +97,48 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
     
-    # Display Pool Share with warnings
+    # Display Pool Share with prefixed warnings
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     if pool_share < 5:
-        st.success("✅ Low Liquidity Risk: Pool Share is < 5%. Safe to enter or exit in a $300K+ pool.")
+        st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Safe to enter/exit in a $300K+ pool.")
     elif 5 <= pool_share < 10:
-        st.warning("⚠️ Moderate Liquidity Risk: Pool Share is 5%-10%. Monitor closely, as a large exit could impact prices in a $300K+ pool.")
+        st.warning(f"⚠️ Pool Share Risk: Moderate ({pool_share:.2f}%). Monitor closely, exit may impact prices.")
     elif 10 <= pool_share < 20:
-        st.warning("⚠️ High Liquidity Risk: Pool Share is 10%-20%! Consider reducing exposure, as exiting could significantly impact prices in a $300K+ pool.")
+        st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Reduce exposure, exit may impact prices.")
     else:
-        st.warning("⚠️ Critical Liquidity Risk: Pool Share exceeds 20%! Exit immediately to avoid severe price impact or total loss in a $300K+ pool.")
+        st.warning(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). Exit immediately to avoid severe impact.")
 
-    # Exit Conditions
-    if net_return < 1.0:
-        st.warning("⚠️ Warning: You're losing money (Net Return < 1.0x). Consider exiting or monitoring closely.")
-        return 0, net_return
-    elif tvl_decline >= 50:
-        st.warning("⚠️ Critical Risk: TVL has dropped over 50%! Exit immediately to avoid potential total loss.")
-        return 0, net_return
-    elif tvl_decline >= 30:
-        st.warning("⚠️ High Risk: TVL has dropped 30%-50%! Reduce exposure or consider exiting.")
-        return break_even_months, net_return
-    elif tvl_decline >= 15:
-        st.warning("⚠️ Moderate Risk: TVL has dropped 15%-30%! Monitor closely and consider partial withdrawal.")
-        return break_even_months, net_return
+    # TVL Risk and Exit Conditions with prefixed warnings
+    if initial_tvl > 0:  # Only display TVL Risk if TVL Decline is calculable
+        if net_return < 1.0:
+            st.warning(f"⚠️ TVL Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
+            return 0, net_return
+        elif tvl_decline >= 50:
+            st.warning(f"⚠️ TVL Risk: Critical ({tvl_decline:.2f}% decline). Exit immediately to avoid total loss.")
+            return 0, net_return
+        elif tvl_decline >= 30:
+            st.warning(f"⚠️ TVL Risk: High ({tvl_decline:.2f}% decline). Reduce exposure or exit.")
+            return break_even_months, net_return
+        elif tvl_decline >= 15:
+            st.warning(f"⚠️ TVL Risk: Moderate ({tvl_decline:.2f}% decline). Monitor closely, consider withdrawal.")
+            return break_even_months, net_return
+        else:
+            if apy < apy_exit_threshold or net_return < 1.1:
+                st.warning(f"⚠️ TVL Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
+                return 0, net_return
+            else:
+                st.success(f"✅ TVL Risk: Low ({tvl_decline:.2f}% decline). Still in profit, no exit needed.")
+                return break_even_months, net_return
     else:
-        if apy < apy_exit_threshold or net_return < 1.1:
-            st.warning("⚠️ APY is below the IL threshold or profit is marginal! Consider exiting or monitoring closely.")
+        # If TVL Decline isn't calculable, check net return and APY for basic risk assessment
+        if net_return < 1.0:
+            st.warning(f"⚠️ TVL Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
+            return 0, net_return
+        elif apy < apy_exit_threshold or net_return < 1.1:
+            st.warning(f"⚠️ TVL Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
             return 0, net_return
         else:
-            st.success("✅ Low risk. You're still in profit. No need to exit yet.")
+            st.success(f"✅ TVL Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
             return break_even_months, net_return
 
 # Streamlit App
