@@ -146,21 +146,21 @@ st.title("DM Pool Profit and Risk Analyzer")
 
 st.sidebar.header("Set Your Pool Parameters")
 
-initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.2f")
-initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=225.00, format="%.2f")
-current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=83000.00, format="%.2f")
-current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=215.00, format="%.2f")
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
-investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
+initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
-                                     min_value=0.01, step=1000.0, value=850000.00, format="%.2f")
-current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=1000.0, value=850000.00, format="%.2f")
+                                     min_value=0.01, step=0.01, value=1.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 # BTC-related inputs with clarified labels
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
-                                            min_value=0.0, step=100.0, value=0.0, format="%.2f")
-current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=100.0, value=87000.00, format="%.2f")
-btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=1.0, value=56.0, format="%.2f")
+                                           min_value=0.0, step=0.01, value=1.00, format="%.2f")
+current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.01, value=1.00, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
