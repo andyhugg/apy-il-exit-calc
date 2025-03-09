@@ -63,18 +63,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     
     return round(months, 2) if months < 1000 else float('inf')
 
-def calculate_risk_metrics(initial_price_asset1, current_price_asset1, initial_price_asset2, current_price_asset2, time_horizon_months=12):
-    # Simplified volatility calculation (price change over time)
-    price_change_asset1 = abs(current_price_asset1 - initial_price_asset1) / initial_price_asset1
-    price_change_asset2 = abs(current_price_asset2 - initial_price_asset2) / initial_price_asset2
-    avg_volatility = (price_change_asset1 + price_change_asset2) / 2 * 100  # In percentage
-    
-    # Simplified max drawdown (assume worst drop within the price change)
-    max_drawdown = max(price_change_asset1, price_change_asset2) * 100  # In percentage
-    
-    return avg_volatility, max_drawdown
-
-def check_exit_conditions(initial_investment: float, apy: float, il: float, volatility: float, max_drawdown: float,
+def check_exit_conditions(initial_investment: float, apy: float, il: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
@@ -96,9 +85,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, vola
     
     # Exit Strategy Recommendations
     st.subheader("Exit Strategy Recommendations")
-    if volatility > 30 or max_drawdown > 50:
-        st.warning("⚠️ High volatility and drawdown risk! Consider exiting or reducing exposure within the next 1-3 months.")
-    elif il > apy * 0.75:
+    if il > apy * 0.75:
         st.warning("⚠️ IL is approaching APY! Monitor closely and consider exiting if IL exceeds APY within the next 3-6 months.")
     elif net_return < 1:
         st.warning("⚠️ Net return is negative! Exit immediately to minimize losses.")
@@ -122,8 +109,7 @@ investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
-        volatility, max_drawdown = calculate_risk_metrics(initial_price_asset1, current_price_asset1, initial_price_asset2, current_price_asset2)
-        break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, volatility, max_drawdown,
+        break_even_months, net_return = check_exit_conditions(investment_amount, apy, il,
                                                             initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         
         # Projected Pool Value
@@ -143,45 +129,6 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, use_container_width=True)
-        
-        # Risk Analysis with Tooltips
-        st.subheader("Risk Analysis")
-        risk_level = "Low"
-        if il > apy * 0.75:
-            risk_level = "High"
-        elif il > apy * 0.5:
-            risk_level = "Moderate"
-        
-        st.write(f"**Risk Level:** {risk_level}")
-        
-        # Tooltip for Volatility
-        st.markdown(
-            f"""
-            <div style='display: flex; align-items: center;'>
-                <span style='margin-right: 10px;'>**Volatility:** {volatility:.2f}%</span>
-                <span title='Volatility measures the price fluctuation of the assets. Higher volatility indicates higher risk of price changes, which can increase impermanent loss.'>ℹ️</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # Tooltip for Maximum Drawdown
-        st.markdown(
-            f"""
-            <div style='display: flex; align-items: center;'>
-                <span style='margin-right: 10px;'>**Maximum Drawdown:** {max_drawdown:.2f}%</span>
-                <span title='Maximum Drawdown represents the largest potential loss from a peak to a trough in the asset prices. It indicates the worst-case loss you might experience.'>ℹ️</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        if risk_level == "High":
-            st.warning("⚠️ High Risk: IL is significantly reducing your yield. Consider exiting or diversifying.")
-        elif risk_level == "Moderate":
-            st.warning("⚠️ Moderate Risk: Monitor the pool closely to ensure IL does not surpass APY.")
-        else:
-            st.success("✅ Low Risk: IL is manageable, and your yield remains profitable.")
         
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
