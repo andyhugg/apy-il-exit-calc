@@ -79,26 +79,29 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(f"**Impermanent Loss:** {il:.2f}%")
     st.write(f"**Net Return:** {net_return:.2f}x")
     st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
-    st.write(f"**TVL Decline:** {tvl_decline:.2f}%")  # Display TVL Decline
-    
-    if apy < apy_exit_threshold:
-        st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
-        return 0, net_return
-    
-    break_even_months = calculate_break_even_months(apy, il)
-    st.success("You're still in profit. No need to exit yet.")
-    
-    # Exit Strategy Recommendations with TVL Decline
-    st.subheader("Exit Strategy Recommendations")
+    st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+
+    # Prioritize TVL decline as the primary risk factor
     if tvl_decline >= 50:
         st.warning("⚠️ Critical Risk: TVL has dropped over 50%! Exit immediately to avoid potential total loss.")
+        return 0, net_return
     elif tvl_decline >= 30:
         st.warning("⚠️ High Risk: TVL has dropped 30%-50%! Reduce exposure or consider exiting.")
+        return break_even_months, net_return
     elif tvl_decline >= 15:
         st.warning("⚠️ Moderate Risk: TVL has dropped 15%-30%! Monitor closely and consider partial withdrawal.")
+        return break_even_months, net_return
     else:
-        st.success("✅ Low risk. Hold for at least 6-12 months to maximize yields, or rebalance if market conditions change.")
-    
+        # Only check APY and IL if TVL decline is low
+        if apy < apy_exit_threshold:
+            st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
+            return 0, net_return
+        else:
+            break_even_months = calculate_break_even_months(apy, il)
+            st.success("✅ Low risk. You're still in profit. No need to exit yet.")
+            return break_even_months, net_return
+
+    # Default return if no conditions are met (shouldn't occur)
     return break_even_months, net_return
 
 # Streamlit App
@@ -106,15 +109,14 @@ st.title("DM APY vs IL Exit Calculator")
 
 st.sidebar.header("Set Your Pool Parameters")
 
-# Revert to st.sidebar.number_input with appropriate formatting
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.2f")
-initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=50000.00, format="%.2f")
-current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=225.00, format="%.2f")
+current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=83000.00, format="%.2f")
+current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=215.00, format="%.2f")
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
-initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=1000000.00, format="%.2f")
-current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
+initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=875000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=500000.00, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
