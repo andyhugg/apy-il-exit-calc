@@ -64,7 +64,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
 
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
-        return 0.0
+        return 0.0  # Default to 0 if no valid initial TVL, with warning in display
     tvl_decline = (initial_tvl - current_tvl) / initial_tvl * 100
     return round(tvl_decline, 2)
 
@@ -81,10 +81,16 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     break_even_months = calculate_break_even_months(apy, il)
 
     st.subheader("Results:")
-    st.write(f"**Impermanent Loss:** {il:.2f}%")
-    st.write(f"**Net Return:** {net_return:.2f}x")
-    st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
-    st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+    if initial_tvl <= 0:
+        st.write(f"**Impermanent Loss:** {il:.2f}%")
+        st.write(f"**Net Return:** {net_return:.2f}x")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
+        st.warning("⚠️ **TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
+    else:
+        st.write(f"**Impermanent Loss:** {il:.2f}%")
+        st.write(f"**Net Return:** {net_return:.2f}x")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
+        st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
 
     # First check if you're losing money (net return < 1.0x)
     if net_return < 1.0:
@@ -121,8 +127,9 @@ current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_valu
 current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=215.00, format="%.2f")
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=40.00, format="%.2f")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=10000.00, format="%.2f")
-initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.0, step=1000.0, value=875000.00, format="%.2f")
-current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, step=1000.0, value=850000.00, format="%.2f")
+initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
+                                     min_value=0.01, step=1000.0, value=850000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=1000.0, value=850000.00, format="%.2f")
 
 # BTC-related inputs with clarified labels
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
