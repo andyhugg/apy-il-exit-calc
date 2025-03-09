@@ -206,8 +206,8 @@ if st.sidebar.button("Calculate"):
         }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
         st.dataframe(styled_df_btc, use_container_width=True)
         
-        # Risk Scenarios (Maximum Drawdown)
-        st.subheader("Risk Scenarios")
+        # Maximum Drawdown Risk Scenarios
+        st.subheader("Maximum Drawdown Risk Scenarios")
         mdd_scenarios = [10, 30, 65, 100]  # Pool MDD percentages (100% is worst case)
         btc_mdd_scenarios = [10, 30, 65, 90]  # BTC MDD percentages (90% is worst case)
         
