@@ -74,35 +74,6 @@ def calculate_risk_metrics(initial_price_asset1, current_price_asset1, initial_p
     
     return avg_volatility, max_drawdown
 
-def simulate_scenarios(initial_investment, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, apy, months):
-    scenarios = {}
-    
-    # Best case: Asset 1 increases by 50%, Asset 2 stays same
-    best_price_asset1 = current_price_asset1 * 1.5
-    best_price_asset2 = current_price_asset2
-    best_pool_value, best_il = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                                   best_price_asset1, best_price_asset2)
-    best_future_value = calculate_future_value(best_pool_value, apy, best_il, months)
-    
-    # Worst case: Asset 1 decreases by 50%, Asset 2 stays same
-    worst_price_asset1 = current_price_asset1 * 0.5
-    worst_price_asset2 = current_price_asset2
-    worst_pool_value, worst_il = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                                     worst_price_asset1, worst_price_asset2)
-    worst_future_value = calculate_future_value(worst_pool_value, apy, worst_il, months)
-    
-    # Average case: Asset 1 increases by 10%, Asset 2 stays same
-    avg_price_asset1 = current_price_asset1 * 1.1
-    avg_price_asset2 = current_price_asset2
-    avg_pool_value, avg_il = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                                 avg_price_asset1, avg_price_asset2)
-    avg_future_value = calculate_future_value(avg_pool_value, apy, avg_il, months)
-    
-    scenarios["Best Case"] = (best_future_value, best_il)
-    scenarios["Worst Case"] = (worst_future_value, worst_il)
-    scenarios["Average Case"] = (avg_future_value, avg_il)
-    return scenarios
-
 def check_exit_conditions(initial_investment: float, apy: float, il: float, volatility: float, max_drawdown: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
@@ -172,20 +143,6 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, use_container_width=True)
-        
-        # Advanced IL and Yield Scenarios
-        st.subheader("Advanced IL and Yield Scenarios")
-        scenarios = simulate_scenarios(investment_amount, initial_price_asset1, initial_price_asset2,
-                                      current_price_asset1, current_price_asset2, apy, 12)
-        scenario_data = []
-        for scenario, (value, scenario_il) in scenarios.items():
-            scenario_data.append({
-                "Scenario": scenario,
-                "Projected Value ($)": f"{int(value):,}",
-                "Impermanent Loss (%)": f"{scenario_il:.2f}"
-            })
-        df_scenarios = pd.DataFrame(scenario_data)
-        st.table(df_scenarios)
         
         # Risk Analysis with Tooltips
         st.subheader("Risk Analysis")
