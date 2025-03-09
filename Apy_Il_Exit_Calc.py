@@ -125,9 +125,9 @@ if st.sidebar.button("Calculate"):
     
     # Apply right alignment to both columns using pandas Styler
     styled_df = df_projection.style.set_properties(**{
-        'text-align': 'right'
+        'text-align': 'center'
     }, subset=["Projected Value ($)"]).set_properties(**{
-        'text-align': 'right'
+        'text-align': 'center'
     }, subset=["Time Period (Months)"])
     
     # Display the styled DataFrame
