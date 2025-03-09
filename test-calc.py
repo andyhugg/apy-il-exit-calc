@@ -75,6 +75,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
     apy_exit_threshold = (il * 12) / months
+
+    # Calculate break_even_months upfront so it's always available
+    break_even_months = calculate_break_even_months(apy, il)
+
     st.subheader("Results:")
     st.write(f"**Impermanent Loss:** {il:.2f}%")
     st.write(f"**Net Return:** {net_return:.2f}x")
@@ -97,12 +101,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.warning("⚠️ APY is below the IL threshold! Immediate exit recommended.")
             return 0, net_return
         else:
-            break_even_months = calculate_break_even_months(apy, il)
             st.success("✅ Low risk. You're still in profit. No need to exit yet.")
             return break_even_months, net_return
-
-    # Default return if no conditions are met (shouldn't occur)
-    return break_even_months, net_return
 
 # Streamlit App
 st.title("DM APY vs IL Exit Calculator")
