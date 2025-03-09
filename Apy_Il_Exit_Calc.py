@@ -94,7 +94,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, init
     
     return break_even_months, net_return
 
-st.title("DM APY vs IL Exit Calculator")
+st.title("DM Liquidity Pool Profit and Exit Calculator")
 
 st.sidebar.header("Set Your Parameters")
 
@@ -125,9 +125,9 @@ if st.sidebar.button("Calculate"):
     
     # Apply right alignment to both columns using pandas Styler
     styled_df = df_projection.style.set_properties(**{
-        'text-align': 'center'
+        'text-align': 'right'
     }, subset=["Projected Value ($)"]).set_properties(**{
-        'text-align': 'center'
+        'text-align': 'right'
     }, subset=["Time Period (Months)"])
     
     # Display the styled DataFrame
