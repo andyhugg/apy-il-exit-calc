@@ -104,7 +104,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 # Streamlit App
 st.title("DM APY vs IL Exit Calculator")
 
-st.sidebar.header("Set Your Parameters")
+st.sidebar.header("Set Your Pool Parameters")
 
 # Revert to st.sidebar.number_input with appropriate formatting
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=80000.00, format="%.2f")
