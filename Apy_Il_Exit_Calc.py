@@ -122,7 +122,16 @@ if st.sidebar.button("Calculate"):
         "Time Period (Months)": time_periods,
         "Projected Value ($)": formatted_values
     })
-    st.table(df_projection)
+    
+    # Apply right alignment to both columns using pandas Styler
+    styled_df = df_projection.style.set_properties(**{
+        'text-align': 'right'
+    }, subset=["Projected Value ($)"]).set_properties(**{
+        'text-align': 'right'
+    }, subset=["Time Period (Months)"])
+    
+    # Display the styled DataFrame
+    st.dataframe(styled_df, use_container_width=True)
     
     st.subheader("Risk Analysis")
     risk_level = "Low"
