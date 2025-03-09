@@ -112,7 +112,7 @@ if st.sidebar.button("Calculate"):
                                                             initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         
         # Projected Pool Value
-        st.subheader("Projected Pool Value | Based on Yield and Impermanent Loss")
+        st.subheader("Projected Pool Profit Based on Yield and Impermanent Loss")
         time_periods = [0, 3, 6, 12]
         pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                    current_price_asset1, current_price_asset2)
