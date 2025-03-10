@@ -211,12 +211,18 @@ if st.sidebar.button("Calculate"):
         
         # Maximum Drawdown Risk Scenarios
         st.subheader("Maximum Drawdown Risk Scenarios")
-        mdd_scenarios = [10, 30, 65, 100]
-        btc_mdd_scenarios = [10, 30, 65, 90]
+        mdd_scenarios = [10, 30, 65, 100]  # Pool MDD percentages (100% is worst case)
+        btc_mdd_scenarios = [10, 30, 65, 90]  # BTC MDD percentages (90% is worst case)
 
-        pool_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
+        # Current Pool Value (after IL)
+        current_pool_value, _ = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
+                                                    current_price_asset1, current_price_asset2)
+        pool_mdd_values = [current_pool_value * (1 - mdd / 100) for mdd in mdd_scenarios]
+
+        # Current BTC Value (after price change)
         initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
-        btc_mdd_values = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
+        current_btc_value = initial_btc_amount * current_btc_price
+        btc_mdd_values = [current_btc_value * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
 
         formatted_pool_mdd = [f"{int(value):,}" for value in pool_mdd_values]
         formatted_btc_mdd = [f"{int(value):,}" for value in btc_mdd_values]
