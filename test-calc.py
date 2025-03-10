@@ -19,9 +19,8 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
         return 0
     
     il = 2 * (sqrt_k / (1 + k)) - 1
-    # Use higher precision to avoid rounding to 0% for small IL
-    il_percentage = round(abs(il) * 100, 2)  # Round to 2 decimal places
-    return il_percentage if il_percentage > 0.01 else il_percentage  # Minimum threshold of 0.01%
+    il_percentage = round(abs(il) * 100, 2)
+    return il_percentage if il_percentage > 0.01 else il_percentage
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> float:
@@ -64,7 +63,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
 
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
-        return 0.0  # Default to 0 if no valid initial TVL, with warning in display
+        return 0.0
     tvl_decline = (initial_tvl - current_tvl) / initial_tvl * 100
     return round(tvl_decline, 2)
 
@@ -77,14 +76,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
     apy_exit_threshold = (il * 12) / months
-
-    # Calculate break_even_months upfront
     break_even_months = calculate_break_even_months(apy, il)
-
-    # Calculate Pool Share
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
 
-    # Display Results
     st.subheader("Results:")
     if initial_tvl <= 0:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
@@ -97,7 +91,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
     
-    # Display Pool Share with prefixed warnings
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     if pool_share < 5:
         st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Safe to enter/exit in a $300K+ pool.")
@@ -108,8 +101,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     else:
         st.warning(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). Exit immediately to avoid severe impact.")
 
-    # TVL Risk and Exit Conditions with prefixed warnings
-    if initial_tvl > 0:  # Only display TVL Risk if TVL Decline is calculable
+    if initial_tvl > 0:
         if net_return < 1.0:
             st.warning(f"⚠️ TVL Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
             return 0, net_return
@@ -130,7 +122,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 st.success(f"✅ TVL Risk: Low ({tvl_decline:.2f}% decline). Still in profit, no exit needed.")
                 return break_even_months, net_return
     else:
-        # If TVL Decline isn't calculable, check net return and APY for basic risk assessment
         if net_return < 1.0:
             st.warning(f"⚠️ TVL Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
             return 0, net_return
@@ -187,9 +178,9 @@ if st.sidebar.button("Calculate"):
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, use_container_width=True)
         
-        # Pool vs. BTC Comparison (12 Months)
-        st.subheader("Pool vs. BTC Comparison (12 Months)")
-        projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
+        # Pool vs. BTC Comparison (12 Months Compounding)
+        st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
+        projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
         
         if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
             initial_btc_amount = investment_amount / current_btc_price
@@ -220,13 +211,10 @@ if st.sidebar.button("Calculate"):
         
         # Maximum Drawdown Risk Scenarios
         st.subheader("Maximum Drawdown Risk Scenarios")
-        mdd_scenarios = [10, 30, 65, 100]  # Pool MDD percentages (100% is worst case)
-        btc_mdd_scenarios = [10, 30, 65, 90]  # BTC MDD percentages (90% is worst case)
+        mdd_scenarios = [10, 30, 65, 100]
+        btc_mdd_scenarios = [10, 30, 65, 90]
 
-        # Pool MDD values (unchanged)
         pool_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
-
-        # BTC MDD values (corrected with edge case handling)
         initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
         btc_mdd_values = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
 
