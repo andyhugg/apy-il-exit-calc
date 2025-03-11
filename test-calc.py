@@ -33,13 +33,28 @@ def calculate_pool_value(initial_investment: float, initial_price_asset1: float,
     il_impact = (value_if_held - pool_value) / value_if_held * 100 if value_if_held > 0 else 0
     return pool_value, il_impact
 
-def calculate_future_value(pool_value: float, apy: float, months: int) -> float:
+def calculate_future_value(pool_value: float, apy: float, months: int, initial_price_asset1: float, initial_price_asset2: float,
+                          current_price_asset1: float, current_price_asset2: float, expected_price_change_asset1: float,
+                          expected_price_change_asset2: float, initial_investment: float) -> float:
     if months <= 0:
         return pool_value
     
-    monthly_yield = (apy / 100) / 12
-    value_after_apy = pool_value * (1 + monthly_yield) ** months
-    return round(value_after_apy, 2)
+    monthly_apy = (apy / 100) / 12
+    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
+    monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
+    
+    current_value = pool_value
+    for month in range(months):
+        # Update prices based on expected monthly changes
+        new_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * (month + 1))
+        new_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * (month + 1))
+        
+        # Recalculate pool value based on new prices
+        new_pool_value = initial_investment * np.sqrt(new_price_asset1 * new_price_asset2) / np.sqrt(initial_price_asset1 * initial_price_asset2)
+        # Apply APY to the current value (approximate yield on adjusted value)
+        current_value = new_pool_value * (1 + monthly_apy)
+    
+    return round(current_value, 2)
 
 def calculate_break_even_months(apy: float, il: float) -> float:
     if apy <= 0:
@@ -72,7 +87,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                          current_tvl: float, months: int = 12):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
-    future_value = calculate_future_value(pool_value, apy, months)
+    future_value = calculate_future_value(pool_value, apy, months, initial_price_asset1, initial_price_asset2,
+                                         current_price_asset1, current_price_asset2, 0.0, 0.0, initial_investment)
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
     apy_exit_threshold = (il * 12) / months
@@ -147,11 +163,15 @@ initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if enteri
                                      min_value=0.01, step=0.01, value=1.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
+# New inputs for expected price changes
+expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
+expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
+
 # BTC-related inputs with clarified labels
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
                                            min_value=0.0, step=0.01, value=1.00, format="%.2f")
 current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.01, value=1.00, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=1.0, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
@@ -161,11 +181,13 @@ if st.sidebar.button("Calculate"):
                                                             initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, current_tvl)
         
         # Projected Pool Value
-        st.subheader("Projected Pool Value Based on Yield and Impermanent Loss")
+        st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         time_periods = [0, 3, 6, 12]
         pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                    current_price_asset1, current_price_asset2)
-        future_values = [calculate_future_value(pool_value, apy, months) for months in time_periods]
+        future_values = [calculate_future_value(pool_value, apy, months, initial_price_asset1, initial_price_asset2,
+                                              current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                              expected_price_change_asset2, investment_amount) for months in time_periods]
         formatted_pool_values = [f"{int(value):,}" for value in future_values]
         df_projection = pd.DataFrame({
             "Time Period (Months)": time_periods,
@@ -211,18 +233,12 @@ if st.sidebar.button("Calculate"):
         
         # Maximum Drawdown Risk Scenarios
         st.subheader("Maximum Drawdown Risk Scenarios")
-        mdd_scenarios = [10, 30, 65, 100]  # Pool MDD percentages (100% is worst case)
-        btc_mdd_scenarios = [10, 30, 65, 90]  # BTC MDD percentages (90% is worst case)
+        mdd_scenarios = [10, 30, 65, 100]
+        btc_mdd_scenarios = [10, 30, 65, 90]
 
-        # Current Pool Value (after IL)
-        current_pool_value, _ = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
-                                                    current_price_asset1, current_price_asset2)
-        pool_mdd_values = [current_pool_value * (1 - mdd / 100) for mdd in mdd_scenarios]
-
-        # Current BTC Value (after price change)
+        pool_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
         initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
-        current_btc_value = initial_btc_amount * current_btc_price
-        btc_mdd_values = [current_btc_value * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
+        btc_mdd_values = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
 
         formatted_pool_mdd = [f"{int(value):,}" for value in pool_mdd_values]
         formatted_btc_mdd = [f"{int(value):,}" for value in btc_mdd_values]
