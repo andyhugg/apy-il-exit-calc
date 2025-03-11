@@ -131,35 +131,37 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     else:
         st.warning(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). Exit immediately to avoid severe impact.")
 
+    # TVL Decline Risk (based solely on tvl_decline)
+    if initial_tvl > 0:
+        if tvl_decline >= 50:
+            st.warning(f"⚠️ TVL Decline Risk: Critical ({tvl_decline:.2f}% decline). Exit immediately to avoid total loss.")
+        elif tvl_decline >= 30:
+            st.warning(f"⚠️ TVL Decline Risk: High ({tvl_decline:.2f}% decline). Reduce exposure or exit.")
+        elif tvl_decline >= 15:
+            st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Monitor closely, consider withdrawal.")
+        else:
+            st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable.")
+
+    # Investment Risk (based on net_return and apy vs. apy_exit_threshold)
     if initial_tvl > 0:
         if net_return < 1.0:
-            st.warning(f"⚠️ TVL Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return
-        elif tvl_decline >= 50:
-            st.warning(f"⚠️ TVL Risk: Critical ({tvl_decline:.2f}% decline). Exit immediately to avoid total loss.")
-            return 0, net_return
-        elif tvl_decline >= 30:
-            st.warning(f"⚠️ TVL Risk: High ({tvl_decline:.2f}% decline). Reduce exposure or exit.")
-            return break_even_months, net_return
-        elif tvl_decline >= 15:
-            st.warning(f"⚠️ TVL Risk: Moderate ({tvl_decline:.2f}% decline). Monitor closely, consider withdrawal.")
-            return break_even_months, net_return
-        else:
-            if apy < apy_exit_threshold or net_return < 1.1:
-                st.warning(f"⚠️ TVL Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-                return 0, net_return
-            else:
-                st.success(f"✅ TVL Risk: Low ({tvl_decline:.2f}% decline). Still in profit, no exit needed.")
-                return break_even_months, net_return
-    else:
-        if net_return < 1.0:
-            st.warning(f"⚠️ TVL Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
+            st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
             return 0, net_return
         elif apy < apy_exit_threshold or net_return < 1.1:
-            st.warning(f"⚠️ TVL Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
+            st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
             return 0, net_return
         else:
-            st.success(f"✅ TVL Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
+            st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
+            return break_even_months, net_return
+    else:
+        if net_return < 1.0:
+            st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
+            return 0, net_return
+        elif apy < apy_exit_threshold or net_return < 1.1:
+            st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
+            return 0, net_return
+        else:
+            st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
             return break_even_months, net_return
 
 # Streamlit App
@@ -258,7 +260,7 @@ if st.sidebar.button("Calculate"):
         formatted_pool_mdd = [f"{int(value):,}" for value in pool_mdd_values]
         formatted_btc_mdd = [f"{int(value):,}" for value in btc_mdd_values]
 
-        df_right_scenarios = pd.DataFrame({
+        df_risk_scenarios = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
             "Pool Value ($)": formatted_pool_mdd,
             "BTC Value ($)": formatted_btc_mdd
