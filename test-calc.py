@@ -89,12 +89,18 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
     
-    # Calculate future pool value with depreciation (no APY)
+    # Calculate future pool value with depreciation and APY
+    future_value = calculate_future_value(pool_value, apy, months, initial_price_asset1, initial_price_asset2,
+                                         current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                         expected_price_change_asset2, initial_investment)
+    net_return = future_value / initial_investment if initial_investment > 0 else 0
+    
+    # Calculate future pool value with depreciation (no APY) for APY Exit Threshold
     future_pool_value_no_apy = calculate_future_value(pool_value, 0.0, months, initial_price_asset1, initial_price_asset2,
                                                     current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                     expected_price_change_asset2, initial_investment)
     
-    # Calculate future value if held (adjusting initial amounts with expected price changes)
+    # Calculate total loss percentage (depreciation + IL impact)
     initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
     initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
     monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
@@ -103,20 +109,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     future_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
     future_value_if_held = (initial_amount_asset1 * future_price_asset1) + (initial_amount_asset2 * future_price_asset2)
     
-    # Calculate total loss percentage (depreciation + IL impact)
     # Depreciation loss for each asset
     asset1_depreciation_loss = ((initial_investment / 2) - (initial_amount_asset1 * future_price_asset1)) / (initial_investment / 2) * 100 if (initial_investment / 2) > 0 else 0
     asset2_depreciation_loss = ((initial_investment / 2) - (initial_amount_asset2 * future_price_asset2)) / (initial_investment / 2) * 100 if (initial_investment / 2) > 0 else 0
-    # Weighted average depreciation loss (since each asset is 50% of the investment)
+    # Weighted average depreciation loss
     depreciation_loss = (asset1_depreciation_loss + asset2_depreciation_loss) / 2
     # Total loss includes initial IL and depreciation
     total_loss_percentage = depreciation_loss + il if depreciation_loss > 0 else il
     apy_exit_threshold = total_loss_percentage * 12 / months if months > 0 else 0
-    
-    # Calculate future value with APY
-    monthly_apy = (apy / 100) / 12
-    future_value = pool_value * (1 + monthly_apy) ** months
-    net_return = future_value / initial_investment if initial_investment > 0 else 0
     
     break_even_months = calculate_break_even_months(apy, il)
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
