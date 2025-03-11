@@ -84,14 +84,40 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-                         current_tvl: float, months: int = 12):
+                         current_tvl: float, months: int = 12, expected_price_change_asset1: float = 0.0,
+                         expected_price_change_asset2: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
-    future_value = calculate_future_value(pool_value, apy, months, initial_price_asset1, initial_price_asset2,
-                                         current_price_asset1, current_price_asset2, 0.0, 0.0, initial_investment)
+    
+    # Calculate future pool value with depreciation (no APY)
+    future_pool_value_no_apy = calculate_future_value(pool_value, 0.0, months, initial_price_asset1, initial_price_asset2,
+                                                    current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                    expected_price_change_asset2, initial_investment)
+    
+    # Calculate future value if held (adjusting initial amounts with expected price changes)
+    initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
+    initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
+    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
+    monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
+    future_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
+    future_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
+    future_value_if_held = (initial_amount_asset1 * future_price_asset1) + (initial_amount_asset2 * future_price_asset2)
+    
+    # Calculate total loss percentage (depreciation + IL impact)
+    # Depreciation loss for each asset
+    asset1_depreciation_loss = ((initial_investment / 2) - (initial_amount_asset1 * future_price_asset1)) / (initial_investment / 2) * 100 if (initial_investment / 2) > 0 else 0
+    asset2_depreciation_loss = ((initial_investment / 2) - (initial_amount_asset2 * future_price_asset2)) / (initial_investment / 2) * 100 if (initial_investment / 2) > 0 else 0
+    # Weighted average depreciation loss (since each asset is 50% of the investment)
+    depreciation_loss = (asset1_depreciation_loss + asset2_depreciation_loss) / 2
+    # Total loss includes initial IL and depreciation
+    total_loss_percentage = depreciation_loss + il if depreciation_loss > 0 else il
+    apy_exit_threshold = total_loss_percentage * 12 / months if months > 0 else 0
+    
+    # Calculate future value with APY
+    monthly_apy = (apy / 100) / 12
+    future_value = pool_value * (1 + monthly_apy) ** months
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
-    apy_exit_threshold = (il * 12) / months
     break_even_months = calculate_break_even_months(apy, il)
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
 
@@ -100,7 +126,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Impermanent Loss:** {il:.2f}%")
         st.write(f"**Net Return:** {net_return:.2f}x")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
-        st.warning("⚠️ **TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
+        st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
     else:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
         st.write(f"**Net Return:** {net_return:.2f}x")
@@ -178,7 +204,8 @@ if st.sidebar.button("Calculate"):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, tvl_decline,
-                                                            initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, current_tvl)
+                                                            initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
+                                                            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2)
         
         # Projected Pool Value
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
