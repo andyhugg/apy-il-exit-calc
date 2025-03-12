@@ -214,11 +214,18 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Projected Value ($)"]).set_properties(**{
             'text-align': 'right'
-        }, subset=["Time Period (Months)"])
+        }, subset=["Time Period (Months)"]).hide_index()
         st.dataframe(styled_df, use_container_width=True)
         
         # Pool vs. BTC Comparison (12 Months Compounding)
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
+        # Dynamic note for asset price changes
+        asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
+        asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
+        asset1_change_text = f"{abs(expected_price_change_asset1)}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "0% change"
+        asset2_change_text = f"{abs(expected_price_change_asset2)}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "0% change"
+        st.write(f"**Note:** Pool Value includes expected {asset1_change_text} of Asset 1 and {asset2_change_text} for Asset 2.")
+        
         projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
         
         if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
@@ -245,7 +252,7 @@ if st.sidebar.button("Calculate"):
         })
         styled_df_btc = df_btc_comparison.style.set_properties(**{
             'text-align': 'right'
-        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
+        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1).hide_index()
         st.dataframe(styled_df_btc, use_container_width=True)
         
         # Maximum Drawdown Risk Scenarios
@@ -253,30 +260,53 @@ if st.sidebar.button("Calculate"):
         mdd_scenarios = [10, 30, 65, 100]
         btc_mdd_scenarios = [10, 30, 65, 90]
 
-        pool_mdd_values = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
+        # MDD from Initial Investment
+        pool_mdd_values_initial = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
         initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
-        btc_mdd_values = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
+        btc_mdd_values_initial = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
 
-        formatted_pool_mdd = [f"{int(value):,}" for value in pool_mdd_values]
-        formatted_btc_mdd = [f"{int(value):,}" for value in btc_mdd_values]
+        formatted_pool_mdd_initial = [f"{int(value):,}" for value in pool_mdd_values_initial]
+        formatted_btc_mdd_initial = [f"{int(value):,}" for value in btc_mdd_values_initial]
 
-        df_risk_scenarios = pd.DataFrame({
+        df_risk_scenarios_initial = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-            "Pool Value ($)": formatted_pool_mdd,
-            "BTC Value ($)": formatted_btc_mdd
+            "Pool Value ($)": formatted_pool_mdd_initial,
+            "BTC Value ($)": formatted_btc_mdd_initial
         })
-        styled_df_risk = df_risk_scenarios.style.set_properties(**{
+        styled_df_risk_initial = df_risk_scenarios_initial.style.set_properties(**{
             'text-align': 'right'
         }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
             'text-align': 'left'
-        }, subset=["Scenario"])
-        st.dataframe(styled_df_risk, use_container_width=True)
-        st.write("**Note:** Simulated maximum drawdowns based on plausible risk scenarios. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case). Actual losses may vary.")
-        
+        }, subset=["Scenario"]).hide_index()
+        st.subheader("MDD from Initial Investment")
+        st.dataframe(styled_df_risk_initial, use_container_width=True)
+        st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
+
+        # MDD from Projected Value After 12 Months
+        pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
+        btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
+
+        formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
+        formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
+
+        df_risk_scenarios_projected = pd.DataFrame({
+            "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
+            "Pool Value ($)": formatted_pool_mdd_projected,
+            "BTC Value ($)": formatted_btc_mdd_projected
+        })
+        styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Scenario"]).hide_index()
+        st.subheader("MDD from Projected Value After 12 Months")
+        st.dataframe(styled_df_risk_projected, use_container_width=True)
+        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 25% appreciation of Asset 1, 0% change for Asset 2) and 25% APY for the pool, and 25% growth for BTC.")
+
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
         df_breakeven = pd.DataFrame({
             "Metric": ["Months to Breakeven Against IL"],
             "Value": [break_even_months]
         })
-        st.table(df_breakeven)
+        st.table(df_breakeven.style.hide_index())
