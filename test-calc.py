@@ -214,11 +214,8 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Projected Value ($)"]).set_properties(**{
             'text-align': 'right'
-        }, subset=["Time Period (Months)"]).set_table_styles([{
-            'selector': 'th.row_heading, td.row_heading',
-            'props': 'display: none;'
-        }], overwrite=False)
-        st.dataframe(styled_df, use_container_width=True)
+        }, subset=["Time Period (Months)"])
+        st.dataframe(styled_df, hide_index=True, use_container_width=True)
         
         # Pool vs. BTC Comparison (12 Months Compounding)
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
@@ -255,11 +252,8 @@ if st.sidebar.button("Calculate"):
         })
         styled_df_btc = df_btc_comparison.style.set_properties(**{
             'text-align': 'right'
-        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1).set_table_styles([{
-            'selector': 'th.row_heading, td.row_heading',
-            'props': 'display: none;'
-        }], overwrite=False)
-        st.dataframe(styled_df_btc, use_container_width=True)
+        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
+        st.dataframe(styled_df_btc, hide_index=True, use_container_width=True)
         
         # Maximum Drawdown Risk Scenarios
         st.subheader("Maximum Drawdown Risk Scenarios")
@@ -267,6 +261,8 @@ if st.sidebar.button("Calculate"):
         btc_mdd_scenarios = [10, 30, 65, 90]
 
         # MDD from Initial Investment
+        st.subheader("MDD from Initial Investment")
+        st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
         pool_mdd_values_initial = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
         initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
         btc_mdd_values_initial = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
@@ -283,15 +279,12 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
             'text-align': 'left'
-        }, subset=["Scenario"]).set_table_styles([{
-            'selector': 'th.row_heading, td.row_heading',
-            'props': 'display: none;'
-        }], overwrite=False)
-        st.subheader("MDD from Initial Investment")
-        st.dataframe(styled_df_risk_initial, use_container_width=True)
-        st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
+        }, subset=["Scenario"])
+        st.dataframe(styled_df_risk_initial, hide_index=True, use_container_width=True)
 
         # MDD from Projected Value After 12 Months
+        st.subheader("MDD from Projected Value After 12 Months")
+        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 25% appreciation of Asset 1, 0% change for Asset 2) and 25% APY for the pool, and 25% growth for BTC.")
         pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
 
@@ -307,13 +300,8 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
             'text-align': 'left'
-        }, subset=["Scenario"]).set_table_styles([{
-            'selector': 'th.row_heading, td.row_heading',
-            'props': 'display: none;'
-        }], overwrite=False)
-        st.subheader("MDD from Projected Value After 12 Months")
-        st.dataframe(styled_df_risk_projected, use_container_width=True)
-        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 25% appreciation of Asset 1, 0% change for Asset 2) and 25% APY for the pool, and 25% growth for BTC.")
+        }, subset=["Scenario"])
+        st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
 
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
@@ -321,7 +309,8 @@ if st.sidebar.button("Calculate"):
             "Metric": ["Months to Breakeven Against IL"],
             "Value": [break_even_months]
         })
-        st.table(df_breakeven.style.set_table_styles([{
-            'selector': 'th.row_heading, td.row_heading',
-            'props': 'display: none;'
-        }], overwrite=False))
+        st.table(df_breakeven.style.set_properties(**{
+            'text-align': 'right'
+        }).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Metric"]))
