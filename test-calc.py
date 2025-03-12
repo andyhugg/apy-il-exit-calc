@@ -78,6 +78,26 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     
     return round(months, 2) if months < 1000 else float('inf')
 
+def calculate_break_even_months_with_price_changes(initial_investment: float, apy: float, pool_value: float,
+                                                  initial_price_asset1: float, initial_price_asset2: float,
+                                                  current_price_asset1: float, current_price_asset2: float,
+                                                  expected_price_change_asset1: float, expected_price_change_asset2: float) -> float:
+    if apy <= 0:
+        return float('inf')
+
+    monthly_apy = (apy / 100) / 12
+    months = 0
+    current_value = pool_value  # Starting pool value after initial IL
+    
+    # Keep compounding until the pool value (with APY and price changes) reaches or exceeds the initial investment
+    while current_value < initial_investment and months < 1000:
+        months += 1
+        current_value = calculate_future_value(pool_value, apy, months, initial_price_asset1, initial_price_asset2,
+                                              current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                              expected_price_change_asset2, initial_investment)
+    
+    return round(months, 2) if months < 1000 else float('inf')
+
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
         return 0.0
@@ -107,6 +127,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     apy_exit_threshold = total_loss_percentage * 12 / months if months > 0 else 0
     
     break_even_months = calculate_break_even_months(apy, il)
+    break_even_months_with_price = calculate_break_even_months_with_price_changes(
+        initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
+        current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2
+    )
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
 
     st.subheader("Results:")
@@ -146,23 +170,23 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return
+            return 0, net_return, break_even_months, break_even_months_with_price
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return
+            return 0, net_return, break_even_months, break_even_months_with_price
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return
+            return break_even_months, net_return, break_even_months, break_even_months_with_price
     else:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return
+            return 0, net_return, break_even_months, break_even_months_with_price
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return
+            return 0, net_return, break_even_months, break_even_months_with_price
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return
+            return break_even_months, net_return, break_even_months, break_even_months_with_price
 
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
@@ -193,9 +217,10 @@ if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months, net_return = check_exit_conditions(investment_amount, apy, il, tvl_decline,
-                                                            initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-                                                            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2)
+        break_even_months, net_return, break_even_months, break_even_months_with_price = check_exit_conditions(
+            investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
+            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2
+        )
         
         # Projected Pool Value
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
@@ -306,11 +331,12 @@ if st.sidebar.button("Calculate"):
         # Breakeven Analysis
         st.subheader("Breakeven Analysis")
         df_breakeven = pd.DataFrame({
-            "Metric": ["Months to Breakeven Against IL"],
-            "Value": [break_even_months]
+            "Metric": ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"],
+            "Value": [break_even_months, break_even_months_with_price]
         })
-        st.table(df_breakeven.style.set_properties(**{
+        styled_df_breakeven = df_breakeven.style.set_properties(**{
             'text-align': 'right'
-        }).set_properties(**{
+        }, subset=["Value"]).set_properties(**{
             'text-align': 'left'
-        }, subset=["Metric"]))
+        }, subset=["Metric"])
+        st.dataframe(styled_df_breakeven, hide_index=True, use_container_width=True)
