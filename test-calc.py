@@ -107,7 +107,7 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
                          current_tvl: float, months: int = 12, expected_price_change_asset1: float = 0.0,
-                         expected_price_change_asset2: float = 0.0):
+                         expected_price_change_asset2: float = 0.0, target_monthly_income: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
     
@@ -126,6 +126,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
     apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)  # Cap at 0% if negative
     
+    # Calculate total profit and monthly income
+    total_profit = future_value - initial_investment if future_value > initial_investment else 0
+    monthly_income = total_profit / months if months > 0 else 0
+    
     break_even_months = calculate_break_even_months(apy, il)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
         initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
@@ -139,11 +143,21 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes; 0% indicates no exit needed due to price gains)")
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
+        if target_monthly_income > 0:
+            if monthly_income >= target_monthly_income:
+                st.success(f"✅ Your pool meets your target monthly income of ${target_monthly_income:,.2f} with an average of ${monthly_income:,.2f} per month.")
+            else:
+                st.warning(f"⚠️ Your pool does not meet your target monthly income of ${target_monthly_income:,.2f}; it averages ${monthly_income:,.2f} per month.")
     else:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes; 0% indicates no exit needed due to price gains)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+        if target_monthly_income > 0:
+            if monthly_income >= target_monthly_income:
+                st.success(f"✅ Your pool meets your target monthly income of ${target_monthly_income:,.2f} with an average of ${monthly_income:,.2f} per month.")
+            else:
+                st.warning(f"⚠️ Your pool does not meet your target monthly income of ${target_monthly_income:,.2f}; it averages ${monthly_income:,.2f} per month.")
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     if pool_share < 5:
@@ -191,6 +205,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
 
+# New section for target monthly pool income
+st.sidebar.subheader("Target Income")
+target_monthly_income = st.sidebar.number_input("What's your target monthly pool income? ($)", min_value=0.01, step=0.01, value=0.00, format="%.2f")
+
 st.sidebar.header("Set Your Pool Parameters")
 
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
@@ -219,7 +237,7 @@ if st.sidebar.button("Calculate"):
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months, break_even_months_with_price = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2
+            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2, target_monthly_income
         )
         
         # Projected Pool Value
@@ -309,7 +327,7 @@ if st.sidebar.button("Calculate"):
 
         # MDD from Projected Value After 12 Months
         st.subheader("MDD from Projected Value After 12 Months")
-        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 25% appreciation of Asset 1, 0% change for Asset 2) and 25% APY for the pool, and 25% growth for BTC.")
+        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 10% appreciation of Asset 1, 0% change for Asset 2) and 5% APY for the pool, and 10% growth for BTC.")
         pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
 
@@ -340,3 +358,4 @@ if st.sidebar.button("Calculate"):
             'text-align': 'left'
         }, subset=["Metric"])
         st.dataframe(styled_df_breakeven, hide_index=True, use_container_width=True)
+        st.write("**Note:** 'Months to Breakeven Against IL' reflects only the recovery of impermanent loss with APY, while 'Months to Breakeven Including Expected Price Changes' includes the total loss relative to initial investment, factoring in both APY and expected price changes, which may extend the breakeven period.")
