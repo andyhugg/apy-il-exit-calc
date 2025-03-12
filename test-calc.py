@@ -124,7 +124,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     # Calculate total loss percentage (based on pool value decline)
     total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
-    apy_exit_threshold = total_loss_percentage * 12 / months if months > 0 else 0
+    apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)  # Cap at 0% if negative
     
     break_even_months = calculate_break_even_months(apy, il)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
@@ -136,13 +136,13 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.subheader("Results:")
     if initial_tvl <= 0:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
-        st.write(f"**Net Return:** {net_return:.2f}x")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
+        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes; 0% indicates no exit needed due to price gains)")
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
     else:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
-        st.write(f"**Net Return:** {net_return:.2f}x")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}%")
+        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes; 0% indicates no exit needed due to price gains)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
