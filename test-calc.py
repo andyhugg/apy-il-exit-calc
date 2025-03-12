@@ -207,7 +207,7 @@ st.title("DM Pool Profit and Risk Analyzer")
 
 # New section for target monthly pool income
 st.sidebar.subheader("Target Income")
-target_monthly_income = st.sidebar.number_input("What's your target monthly pool income? ($)", min_value=0.01, step=0.01, value=0.00, format="%.2f")
+target_monthly_income = st.sidebar.number_input("What's your target monthly pool income? ($)", min_value=0.0, step=0.01, value=0.00, format="%.2f")
 
 st.sidebar.header("Set Your Pool Parameters")
 
