@@ -104,11 +104,10 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     return round(tvl_decline, 2)
 
 def calculate_composite_risk_score(il: float, tvl_decline: float, pool_share: float, net_return: float) -> tuple[float, str]:
-    # Normalize and weight risk factors (example weights: IL=30%, TVL Decline=30%, Pool Share=20%, Net Return=20%)
-    il_risk = min(il / 5, 1) * 0.3  # Cap IL at 5% for normalization
-    tvl_risk = min(tvl_decline / 50, 1) * 0.3  # Cap TVL decline at 50%
-    pool_share_risk = min((pool_share / 20), 1) * 0.2  # Cap pool share at 20%
-    net_return_risk = max(0, (1 - net_return) * 0.2) if net_return < 1 else 0  # Higher risk if return < 1
+    il_risk = min(il / 5, 1) * 0.3
+    tvl_risk = min(tvl_decline / 50, 1) * 0.3
+    pool_share_risk = min((pool_share / 20), 1) * 0.2
+    net_return_risk = max(0, (1 - net_return) * 0.2) if net_return < 1 else 0
     
     risk_score = (il_risk + tvl_risk + pool_share_risk + net_return_risk) * 100
     risk_category = "Low" if risk_score < 25 else "Moderate" if risk_score < 50 else "High" if risk_score < 75 else "Critical"
@@ -117,7 +116,7 @@ def calculate_composite_risk_score(il: float, tvl_decline: float, pool_share: fl
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
                          current_tvl: float, months: int = 12, expected_price_change_asset1: float = 0.0,
-                         expected_price_change_asset2: float = 0.0, target_monthly_income: float = 0.0):
+                         expected_price_change_asset2: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2)
     
@@ -132,9 +131,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
     apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)
-    
-    total_profit = future_value - initial_investment if future_value > initial_investment else 0
-    monthly_income = total_profit / months if months > 0 else 0
     
     break_even_months = calculate_break_even_months(apy, il)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
@@ -151,21 +147,11 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes for Asset 1 and Asset 2; 0% indicates no exit needed due to price gains)")
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
-        if target_monthly_income > 0:
-            if monthly_income >= target_monthly_income:
-                st.success(f"✅ Your pool meets your target monthly income of ${target_monthly_income:,.2f} with an average of ${monthly_income:,.2f} per month.")
-            else:
-                st.warning(f"⚠️ Your pool does not meet your target monthly income of ${target_monthly_income:,.2f}; it averages ${monthly_income:,.2f} per month.")
     else:
         st.write(f"**Impermanent Loss:** {il:.2f}%")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes for Asset 1 and Asset 2; 0% indicates no exit needed due to price gains)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
-        if target_monthly_income > 0:
-            if monthly_income >= target_monthly_income:
-                st.success(f"✅ Your pool meets your target monthly income of ${target_monthly_income:,.2f} with an average of ${monthly_income:,.2f} per month.")
-            else:
-                st.warning(f"⚠️ Your pool does not meet your target monthly income of ${target_monthly_income:,.2f}; it averages ${monthly_income:,.2f} per month.")
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     st.write(f"**Composite Risk Score:** {risk_score}% ({risk_category})")
@@ -212,10 +198,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
 
-# New section for target monthly pool income
-st.sidebar.subheader("Target Income")
-target_monthly_income = st.sidebar.number_input("What's your target monthly pool income? ($)", min_value=0.01, step=0.01, value=0.00, format="%.2f")
-
 st.sidebar.header("Set Your Pool Parameters")
 
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
@@ -244,7 +226,7 @@ if st.sidebar.button("Calculate"):
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months, break_even_months_with_price = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2, target_monthly_income
+            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2
         )
         
         # Projected Pool Value
@@ -387,8 +369,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
         writer.writerow(["Composite Risk Score (%)", f"{risk_score}"])
         writer.writerow(["Risk Category", risk_category])
-        writer.writerow(["Target Monthly Income ($)", f"{target_monthly_income:.2f}" if target_monthly_income > 0 else "N/A"])
-        writer.writerow(["Calculated Monthly Income ($)", f"{monthly_income:.2f}" if target_monthly_income > 0 else "N/A"])
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
