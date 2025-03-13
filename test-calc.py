@@ -231,16 +231,54 @@ st.markdown("""
 Welcome to the DM Pool Profit and Risk Analyzer! This tool helps you evaluate the profitability and risks of liquidity pools in DeFi. By inputting your pool parameters, you can assess impermanent loss, net returns, and potential drawdowns, empowering you to make informed investment decisions. **Disclaimer:** This tool is for informational purposes only and does not constitute financial advice. Projections are estimates based on the inputs provided and are not guaranteed to reflect actual future outcomes.
 """)
 
+# Add custom CSS to improve dropdown readability
+st.markdown("""
+<style>
+/* Style the select dropdown in the sidebar */
+div[data-testid="stSidebar"] select {
+    background-color: #1a1a1a;  /* Dark background for the dropdown */
+    color: #ffffff;  /* Bright white text for the selected option */
+}
+
+/* Style the dropdown options */
+div[data-testid="stSidebar"] select option {
+    background-color: #1a1a1a;  /* Dark background for options */
+    color: #ffffff;  /* Bright white text for options */
+}
+
+/* Style the selected option */
+div[data-testid="stSidebar"] select option:checked {
+    background-color: #333333;  /* Slightly lighter background for selected option */
+    color: #ffffff;  /* Bright white text for selected option */
+}
+
+/* Add hover effect for options */
+div[data-testid="stSidebar"] select option:hover {
+    background-color: #444444;  /* Slightly lighter background on hover */
+    color: #ffffff;  /* Bright white text on hover */
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.sidebar.header("Set Your Pool Parameters")
 
 # Add dropdown for pool status
 pool_status = st.sidebar.selectbox("Pool Status", ["Existing Pool", "New Pool"])
 is_new_pool = (pool_status == "New Pool")
 
-initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+# Conditionally display price inputs based on pool status
+if is_new_pool:
+    current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    current_price_asset2 = st.sidebar.number_input("Asset 2 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    # For new pools, initial prices are the same as current prices
+    initial_price_asset1 = current_price_asset1
+    initial_price_asset2 = current_price_asset2
+else:
+    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
@@ -259,14 +297,10 @@ btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
-        # For new pools, set initial prices to current prices to start with zero IL
-        effective_initial_price_asset1 = current_price_asset1 if is_new_pool else initial_price_asset1
-        effective_initial_price_asset2 = current_price_asset2 if is_new_pool else initial_price_asset2
-
-        il = calculate_il(effective_initial_price_asset1, effective_initial_price_asset2, current_price_asset1, current_price_asset2)
+        il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il = check_exit_conditions(
-            investment_amount, apy, il, tvl_decline, effective_initial_price_asset1, effective_initial_price_asset2, current_price_asset1, current_price_asset2,
+            investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
         )
         
@@ -277,7 +311,7 @@ if st.sidebar.button("Calculate"):
         future_values = []
         future_ils = []
         for months in time_periods:
-            value, il_at_time = calculate_future_value(investment_amount, apy, months, effective_initial_price_asset1, effective_initial_price_asset2,
+            value, il_at_time = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
                                                       current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                       expected_price_change_asset2, is_new_pool)
             future_values.append(value)
