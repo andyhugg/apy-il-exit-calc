@@ -177,23 +177,23 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return, break_even_months, break_even_months_with_price
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return, break_even_months, break_even_months_with_price
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return, break_even_months, break_even_months_with_price
+            return break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category
     else:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return, break_even_months, break_even_months_with_price
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return, break_even_months, break_even_months_with_price
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return, break_even_months, break_even_months_with_price
+            return break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category
 
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
@@ -224,7 +224,7 @@ if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months, net_return, break_even_months, break_even_months_with_price = check_exit_conditions(
+        break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2
         )
