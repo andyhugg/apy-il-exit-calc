@@ -231,6 +231,7 @@ if st.sidebar.button("Calculate"):
         
         # Projected Pool Value
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
+        st.write("**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested ($150,000).")
         time_periods = [0, 3, 6, 12]
         pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
                                                    current_price_asset1, current_price_asset2)
