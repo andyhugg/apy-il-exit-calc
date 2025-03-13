@@ -198,6 +198,11 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
 
+# Add the summary at the top
+st.markdown("""
+Welcome to the DM Pool Profit and Risk Analyzer! This tool helps you evaluate the profitability and risks of liquidity pools in DeFi. By inputting your pool parameters, you can assess impermanent loss, net returns, and potential drawdowns, empowering you to make informed investment decisions. **Disclaimer:** This tool is for informational purposes only and does not constitute financial advice. Projections are estimates based on the inputs provided and are not guaranteed to reflect actual future outcomes.
+""")
+
 st.sidebar.header("Set Your Pool Parameters")
 
 initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price", min_value=0.01, step=0.01, value=1.00, format="%.2f")
