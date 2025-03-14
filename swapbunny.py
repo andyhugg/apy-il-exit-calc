@@ -1,46 +1,54 @@
 import streamlit as st
-import matplotlib.pyplot as plt
+import numpy as np
 
-# Title
-st.title("Altcoin-to-Bitcoin Swap Calculator")
+# APY calculation with safety checks
+def calculate_apy(prices, fees, days):
+    if len(prices) < 2 or days < 1:
+        return 0.0  # Return 0 if insufficient data
+    daily_returns = (prices[1:] / prices[:-1]) - 1 + fees
+    compounded_return = np.prod(1 + daily_returns)
+    if compounded_return <= 0:
+        return 0.0  # Avoid negative or invalid APY
+    apy = (compounded_return ** (365 / (days - 1))) - 1
+    return apy
 
-# Inputs
-st.header("Inputs")
-initial_price = st.number_input("Initial Purchase Price of Altcoin ($)", min_value=0.0, value=100.0)
-current_price = st.number_input("Current Price of Altcoin ($)", min_value=0.0, value=60.0)
-btc_return = st.number_input("Estimated Rate of Return for Bitcoin (%)", min_value=0.0, value=25.0) / 100
-altcoin_return = st.number_input("Estimated Rate of Return for Altcoin (%)", min_value=0.0, value=20.0) / 100
-time_period = st.number_input("Time Period (years)", min_value=0.0, value=1.0)
-btc_risk = st.number_input("Risk Factor for Bitcoin (1 = low, 10 = high)", min_value=1, max_value=10, value=5)
-altcoin_risk = st.number_input("Risk Factor for Altcoin (1 = low, 10 = high)", min_value=1, max_value=10, value=8)
+# IL calculation with safety checks
+def calculate_impermanent_loss(price_change):
+    if price_change <= 0:
+        return 0.0  # Invalid price change
+    return 2 * np.sqrt(price_change) / (1 + price_change) - 1
 
-# Calculations
-# Future value of Bitcoin
-future_btc_value = current_price * (1 + btc_return) ** time_period
+# Streamlit UI
+st.title("SwapBunny APY and IL Calculator")
 
-# Future value of Altcoin
-future_altcoin_value = current_price * (1 + altcoin_return) ** time_period
+st.header("Input Parameters")
+initial_price = st.number_input("Initial Price", min_value=0.01, value=1.0, step=0.1)
+final_price = st.number_input("Final Price", min_value=0.01, value=1.0, step=0.1)
+daily_fee = st.number_input("Daily Fee (as decimal, e.g., 0.003 for 0.3%)", min_value=0.0, value=0.003, step=0.0001)
+days = st.number_input("Number of Days", min_value=2, value=30, step=1)
 
-# Risk-adjusted returns
-btc_risk_adjusted_return = (btc_return * 100) / btc_risk
-altcoin_risk_adjusted_return = (altcoin_return * 100) / altcoin_risk
+# Calculate intermediate values
+try:
+    price_change = final_price / initial_price
+    prices = np.linspace(initial_price, final_price, days)
+    fees = np.full(days - 1, daily_fee)
 
-# Break-even return for Altcoin
-break_even_return = ((future_btc_value / current_price) ** (1 / time_period) - 1) * 100
+    # Calculate APY and IL
+    apy = calculate_apy(prices, fees, days)
+    il = calculate_impermanent_loss(price_change)
 
-# Outputs
-st.header("Results")
+    # Display results
+    st.header("Results")
+    st.write(f"APY: {apy:.2%}")
+    st.write(f"Impermanent Loss: {il:.2%}")
 
-# Display future values
-st.subheader("Future Values")
-st.write(f"Future Value of Bitcoin: **${future_btc_value:.2f}**")
-st.write(f"Future Value of Altcoin: **${future_altcoin_value:.2f}**")
+except Exception as e:
+    st.error(f"An error occurred: {str(e)}. Please check your inputs and try again.")
 
-# Display risk-adjusted returns
-st.subheader("Risk-Adjusted Returns")
-st.write(f"Bitcoin Risk-Adjusted Return: **{btc_risk_adjusted_return:.2f}%**")
-st.write(f"Altcoin Risk-Adjusted Return: **{altcoin_risk_adjusted_return:.2f}%**")
-
-# Break-even analysis
-st.subheader("Break-Even Analysis")
-st.write(f"To match Bitcoin's future value, the altcoin needs a return of **{break_even_return:.2f}%**
+# Add some helpful info
+st.sidebar.header("About")
+st.sidebar.write("""
+This tool calculates the Annual Percentage Yield (APY) and Impermanent Loss (IL) for a liquidity pool.
+- **APY**: Based on price changes and daily fees, compounded over a year.
+- **IL**: Loss due to price divergence compared to holding assets.
+""")
