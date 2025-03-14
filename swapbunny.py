@@ -53,13 +53,15 @@ for i in range(num_assets):
         init_val = st.number_input(f"Initial Value ($)", min_value=0.0, value=0.0, key=f"init_{i}")
     assets.append({"Name": name, "Current": curr_val, "Initial": init_val})
 
+# Create DataFrame and calculate allocation
 df_assets = pd.DataFrame(assets)
 total_portfolio = df_assets["Current"].sum()
 if total_portfolio > 0:
     df_assets["Allocation"] = df_assets["Current"] / total_portfolio
-    df_assets["Gain/Loss"] = (df_assets["Current"] - df_assets["Initial"]) / df_assets["Initial"]
 else:
-    st.error("Total portfolio value must be greater than 0.")
+    df_assets["Allocation"] = 0.0  # Default to 0 if no value
+    st.warning("Total portfolio value is $0. Enter non-zero current values to proceed.")
+df_assets["Gain/Loss"] = df_assets.apply(lambda row: (row["Current"] - row["Initial"]) / row["Initial"] if row["Initial"] > 0 else 0.0, axis=1)
 
 # Risk and Goals
 st.header("Step 2: Set Your Goals & Risk")
@@ -118,11 +120,11 @@ for scenario, changes in default_scenarios.items():
     for asset in df_assets["Name"]:
         if asset != "BTC":
             asset_curr = df_assets[df_assets["Name"] == asset]["Current"].values[0]
-            btc_amount = max(0, (asset_curr - swap_fee)) / btc_price  # Avoid negative BTC amount
+            btc_amount = max(0, (asset_curr - swap_fee)) / btc_price
             total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + changes.get("BTC", 0)))
             swap_outcomes[asset][scenario] = total_swap
         else:
-            swap_outcomes[asset][scenario] = total_stay  # No swap for BTC, use stay value
+            swap_outcomes[asset][scenario] = total_stay  # No swap for BTC
 
 # Expected Values
 exp_stay = sum(probs[s] * outcomes[s] for s in outcomes)
@@ -152,12 +154,14 @@ rebalance = "Consider shifting to: " + ", ".join(f"{k}: {v:.0%}" for k, v in tar
 
 # Results
 st.header("Your Portfolio Insights")
+st.write(f"Total Portfolio Value: ${total_portfolio:.2f}")
 st.dataframe(df_assets.style.format({"Current": "${:.2f}", "Initial": "${:.2f}", "Allocation": "{:.2%}", "Gain/Loss": "{:.2%}", "Risk": "{:.2f}"}))
 
 # Pie Chart
-fig, ax = plt.subplots()
-ax.pie(df_assets["Allocation"], labels=df_assets["Name"], autopct="%1.1f%%")
-st.pyplot(fig)
+if total_portfolio > 0:
+    fig, ax = plt.subplots()
+    ax.pie(df_assets["Allocation"], labels=df_assets["Name"], autopct="%1.1f%%")
+    st.pyplot(fig)
 st.write(f"Portfolio Risk Score: {portfolio_risk:.2f} (vs. Tolerance: {risk_tolerance:.2f})")
 
 st.subheader("Scenario Outcomes")
@@ -172,13 +176,14 @@ for asset, val in exp_swap.items():
     st.write(f"Swap {asset} to BTC: ${val:.0f}")
 
 # Bar Chart
-fig, ax = plt.subplots()
-options = ["Stay"] + [f"Swap {a} to BTC" for a in exp_swap.keys()]
-values = [exp_stay] + list(exp_swap.values())
-ax.bar(options, values)
-ax.set_ylabel("Expected Value ($)")
-plt.xticks(rotation=45)
-st.pyplot(fig)
+if total_portfolio > 0:
+    fig, ax = plt.subplots()
+    options = ["Stay"] + [f"Swap {a} to BTC" for a in exp_swap.keys()]
+    values = [exp_stay] + list(exp_swap.values())
+    ax.bar(options, values)
+    ax.set_ylabel("Expected Value ($)")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
 
 st.subheader("Suggestions")
 for asset, suggestion in suggestions.items():
