@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Try to import CoinGecko, but make it optional
+# Optional CoinGecko
 try:
     from pycoingecko import CoinGeckoAPI
     cg = CoinGeckoAPI()
@@ -31,36 +31,35 @@ if st.button("Clear All Inputs"):
     st.session_state.clear()
     st.rerun()
 
-# Portfolio Input
+# Portfolio Input with Simple Fields
 st.header("Step 1: Enter Your Portfolio")
-total_portfolio = st.number_input("Total Portfolio Value ($)", min_value=0.0, value=10000.0)
-holdings = st.text_area("Your Holdings (e.g., 'BTC:5000:5000, Ai16z:200:1000')", 
-                        "BTC:5000:5000, Ai16z:200:1000, ETH:4800:4800", 
-                        help="Format: Name:CurrentValue:InitialValue, separated by commas")
+num_assets = st.number_input("Number of Assets", min_value=1, value=3, step=1)
+assets = []
+coin_ids = {"BTC": "bitcoin", "ETH": "ethereum", "USDT": "tether", "USDC": "usd-coin"}
+prices = cg.get_price(ids=",".join(coin_ids.values()), vs_currencies="usd") if use_api else {}
 
-# Parse Holdings and Fetch Live Prices (if API available)
-try:
-    assets = []
-    coin_ids = {"BTC": "bitcoin", "ETH": "ethereum", "USDT": "tether", "USDC": "usd-coin", "Ai16z": "ai16z"}
-    prices = cg.get_price(ids=",".join(coin_ids.values()), vs_currencies="usd") if use_api else {}
-    for entry in holdings.split(","):
-        name, curr_val, init_val = entry.split(":")
-        name = name.strip()
-        curr_val = float(curr_val)
-        init_val = float(init_val)
-        # Update with live price if available
+for i in range(num_assets):
+    st.subheader(f"Asset {i+1}")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        name = st.text_input(f"Name", value=f"Asset{i+1}", key=f"name_{i}")
+    with col2:
+        default_curr = 0.0
         if use_api and name in coin_ids and coin_ids[name] in prices:
-            live_price = prices[coin_ids[name]]["usd"]
-            curr_val = st.number_input(f"Current Value for {name} ($)", value=curr_val, 
-                                       help=f"Live price: ${live_price:.2f}", key=f"curr_{name}")
-        else:
-            curr_val = st.number_input(f"Current Value for {name} ($)", value=curr_val, key=f"curr_{name}")
-        assets.append({"Name": name, "Current": curr_val, "Initial": init_val})
-    df_assets = pd.DataFrame(assets)
+            default_curr = prices[coin_ids[name]]["usd"]
+        curr_val = st.number_input(f"Current Value ($)", min_value=0.0, value=default_curr, key=f"curr_{i}",
+                                   help=f"Live price: ${default_curr:.2f}" if default_curr else None)
+    with col3:
+        init_val = st.number_input(f"Initial Value ($)", min_value=0.0, value=0.0, key=f"init_{i}")
+    assets.append({"Name": name, "Current": curr_val, "Initial": init_val})
+
+df_assets = pd.DataFrame(assets)
+total_portfolio = df_assets["Current"].sum()
+if total_portfolio > 0:
     df_assets["Allocation"] = df_assets["Current"] / total_portfolio
     df_assets["Gain/Loss"] = (df_assets["Current"] - df_assets["Initial"]) / df_assets["Initial"]
-except:
-    st.error("Invalid format. Use 'Name:CurrentValue:InitialValue'.")
+else:
+    st.error("Total portfolio value must be greater than 0.")
 
 # Risk and Goals
 st.header("Step 2: Set Your Goals & Risk")
@@ -72,11 +71,11 @@ time_horizon = st.number_input("Time Horizon (months)", min_value=1, value=6)
 risk_levels = {"BTC": 0.3, "ETH": 0.5, "USDT": 0.1, "USDC": 0.1}
 for asset in df_assets["Name"]:
     if asset not in risk_levels:
-        risk_levels[asset] = 0.9  # High risk for altcoins
+        risk_levels[asset] = 0.9
 df_assets["Risk"] = df_assets["Name"].map(risk_levels)
 portfolio_risk = (df_assets["Allocation"] * df_assets["Risk"]).sum()
 
-# Scenarios (Goal-Specific)
+# Scenarios
 st.header("Step 3: Define Scenarios")
 scenario_configs = {
     "Preserve Capital": {"Bear": (-0.2, -0.3, -0.8), "Base": (0.1, 0.05, -0.2), "Bull": (0.3, 0.2, 0.5)},
@@ -84,9 +83,9 @@ scenario_configs = {
     "Chase Moonshots": {"Bear": (-0.5, -0.5, -1.0), "Base": (0.3, 0.2, 3.0), "Bull": (0.7, 0.6, 10.0)}
 }
 default_scenarios = {
-    "Bear": dict(zip(["BTC", "ETH", "Ai16z"], scenario_configs[goal]["Bear"])),
-    "Base": dict(zip(["BTC", "ETH", "Ai16z"], scenario_configs[goal]["Base"])),
-    "Bull": dict(zip(["BTC", "ETH", "Ai16z"], scenario_configs[goal]["Bull"]))
+    "Bear": dict(zip(df_assets["Name"], scenario_configs[goal]["Bear"] * len(df_assets) if len(df_assets) > 3 else scenario_configs[goal]["Bear"])),
+    "Base": dict(zip(df_assets["Name"], scenario_configs[goal]["Base"] * len(df_assets) if len(df_assets) > 3 else scenario_configs[goal]["Base"])),
+    "Bull": dict(zip(df_assets["Name"], scenario_configs[goal]["Bull"] * len(df_assets) if len(df_assets) > 3 else scenario_configs[goal]["Bull"]))
 }
 probs = {"Bear": 0.5, "Base": 0.3, "Bull": 0.2}
 
@@ -119,9 +118,11 @@ for scenario, changes in default_scenarios.items():
     for asset in df_assets["Name"]:
         if asset != "BTC":
             asset_curr = df_assets[df_assets["Name"] == asset]["Current"].values[0]
-            btc_amount = (asset_curr - swap_fee) / btc_price
-            total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + changes["BTC"]))
+            btc_amount = max(0, (asset_curr - swap_fee)) / btc_price  # Avoid negative BTC amount
+            total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + changes.get("BTC", 0)))
             swap_outcomes[asset][scenario] = total_swap
+        else:
+            swap_outcomes[asset][scenario] = total_stay  # No swap for BTC, use stay value
 
 # Expected Values
 exp_stay = sum(probs[s] * outcomes[s] for s in outcomes)
@@ -162,7 +163,7 @@ st.write(f"Portfolio Risk Score: {portfolio_risk:.2f} (vs. Tolerance: {risk_tole
 st.subheader("Scenario Outcomes")
 df_outcomes = pd.DataFrame(outcomes, index=["Stay"]).T
 for asset in swap_outcomes:
-    df_outcomes[f"Swap {asset} to BTC"] = swap_outcomes[asset].values()
+    df_outcomes[f"Swap {asset} to BTC"] = [swap_outcomes[asset].get(s, outcomes[s]) for s in df_outcomes.index]
 st.table(df_outcomes.style.format("${:.2f}"))
 
 st.subheader("Expected Portfolio Value")
