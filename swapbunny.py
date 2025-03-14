@@ -1,11 +1,17 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from pycoingecko import CoinGeckoAPI
 import matplotlib.pyplot as plt
 
-# Initialize CoinGecko API
-cg = CoinGeckoAPI()
+# Try to import CoinGecko, but make it optional
+try:
+    from pycoingecko import CoinGeckoAPI
+    cg = CoinGeckoAPI()
+    use_api = True
+except ImportError:
+    cg = None
+    use_api = False
+    st.warning("CoinGecko API unavailable. Enter current values manually.")
 
 st.title("Crypto Clarity: Your Crypto Decision Tool")
 
@@ -32,27 +38,29 @@ holdings = st.text_area("Your Holdings (e.g., 'BTC:5000:5000, Ai16z:200:1000')",
                         "BTC:5000:5000, Ai16z:200:1000, ETH:4800:4800", 
                         help="Format: Name:CurrentValue:InitialValue, separated by commas")
 
-# Parse Holdings and Fetch Live Prices
+# Parse Holdings and Fetch Live Prices (if API available)
 try:
     assets = []
-    coin_ids = {"BTC": "bitcoin", "ETH": "ethereum", "USDT": "tether", "USDC": "usd-coin", "Ai16z": "ai16z"}  # Map to CoinGecko IDs
-    prices = cg.get_price(ids=",".join(coin_ids.values()), vs_currencies="usd") if coin_ids else {}
+    coin_ids = {"BTC": "bitcoin", "ETH": "ethereum", "USDT": "tether", "USDC": "usd-coin", "Ai16z": "ai16z"}
+    prices = cg.get_price(ids=",".join(coin_ids.values()), vs_currencies="usd") if use_api else {}
     for entry in holdings.split(","):
         name, curr_val, init_val = entry.split(":")
         name = name.strip()
         curr_val = float(curr_val)
         init_val = float(init_val)
-        # Update current value with live price if available
-        if name in coin_ids and coin_ids[name] in prices:
+        # Update with live price if available
+        if use_api and name in coin_ids and coin_ids[name] in prices:
             live_price = prices[coin_ids[name]]["usd"]
-            curr_val = st.number_input(f"Current Value for {name} ($)", value=float(curr_val), 
+            curr_val = st.number_input(f"Current Value for {name} ($)", value=curr_val, 
                                        help=f"Live price: ${live_price:.2f}", key=f"curr_{name}")
+        else:
+            curr_val = st.number_input(f"Current Value for {name} ($)", value=curr_val, key=f"curr_{name}")
         assets.append({"Name": name, "Current": curr_val, "Initial": init_val})
     df_assets = pd.DataFrame(assets)
     df_assets["Allocation"] = df_assets["Current"] / total_portfolio
     df_assets["Gain/Loss"] = (df_assets["Current"] - df_assets["Initial"]) / df_assets["Initial"]
 except:
-    st.error("Invalid format or API error. Use 'Name:CurrentValue:InitialValue'.")
+    st.error("Invalid format. Use 'Name:CurrentValue:InitialValue'.")
 
 # Risk and Goals
 st.header("Step 2: Set Your Goals & Risk")
