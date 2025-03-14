@@ -1,83 +1,77 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import numpy as np
 
-# Streamlit UI
-st.title("Altcoin vs. Bitcoin Swap Calculator")
+st.title("Altcoin vs. Bitcoin Drawdown Decision Tool")
 
-# Layout with columns
+# Inputs
+st.header("Your Position")
+initial_investment = st.number_input("Initial Altcoin Investment ($)", min_value=0.01, value=1000.0, step=10.0)
+current_value = st.number_input("Current Altcoin Value ($)", min_value=0.0, value=200.0, step=10.0)
+current_btc_price = st.number_input("Current Bitcoin Price ($)", min_value=0.01, value=60000.0, step=100.0)
+total_fees = st.number_input("Total Swap Fees ($)", min_value=0.0, value=5.0, step=1.0, help="Swap + network fees")
+
+st.header("Risk Tolerance")
+risk_tolerance = st.slider("Max Additional Loss Willing to Take (%)", 0.0, 100.0, 20.0, step=1.0, help="From current value") / 100
+max_loss = current_value * (1 - risk_tolerance)
+
+st.header("Scenarios")
 col1, col2 = st.columns(2)
-
 with col1:
-    st.subheader("Current Position")
-    initial_altcoin_price = st.number_input("Initial Altcoin Price ($)", min_value=0.01, value=100.0, step=0.1)
-    current_altcoin_price = st.number_input("Current Altcoin Price ($)", min_value=0.01, value=60.0, step=0.1)
-    current_btc_price = st.number_input("Current Bitcoin Price ($)", min_value=0.01, value=60000.0, step=100.0)
-    altcoin_amount = st.number_input("Amount of Altcoin Owned", min_value=0.01, value=10.0, step=0.1)
-
+    st.subheader("Altcoin Outcomes")
+    altcoin_worst = st.number_input("Worst Case ($)", min_value=0.0, value=0.0, step=10.0)
+    altcoin_base = st.number_input("Base Case ($)", min_value=0.0, value=400.0, step=10.0)
+    altcoin_best = st.number_input("Best Case ($)", min_value=0.0, value=1000.0, step=10.0)
 with col2:
-    st.subheader("Future Expectations")
-    time_period = st.number_input("Time Period (months)", min_value=1, value=6, step=1)
-    altcoin_return = st.number_input("Estimated Altcoin Return (%)", value=30.0, step=1.0, help="Expected growth/loss") / 100
-    btc_return = st.number_input("Estimated Bitcoin Return (%)", value=20.0, step=1.0, help="Expected growth/loss") / 100
-
-# Transaction Fees Section
-st.subheader("Transaction Fees")
-swap_fee_pct = st.number_input("Swap Fee (%)", min_value=0.0, max_value=10.0, value=0.5, step=0.1, help="Exchange fee for swapping") / 100
-altcoin_network_fee = st.number_input("Altcoin Network Fee ($)", min_value=0.0, value=1.0, step=0.1, help="Fee to send altcoin to swap")
-btc_network_fee = st.number_input("Bitcoin Network Fee ($)", min_value=0.0, value=3.0, step=0.1, help="Fee to withdraw BTC")
+    st.subheader("Bitcoin Outcomes (%)")
+    btc_worst = st.number_input("Worst Case BTC (%)", value=-20.0, step=1.0) / 100
+    btc_base = st.number_input("Base Case BTC (%)", value=20.0, step=1.0) / 100
+    btc_best = st.number_input("Best Case BTC (%)", value=50.0, step=1.0) / 100
 
 # Calculations
-initial_value = altcoin_amount * initial_altcoin_price
-current_value = altcoin_amount * current_altcoin_price
-drawdown = (current_value - initial_value) / initial_value
-
-# Future value if holding altcoin (subtract network fee for fairness)
-future_altcoin_value = current_value * (1 + altcoin_return) - altcoin_network_fee
-
-# Future value if swapping to Bitcoin (with fees)
-swap_fee = current_value * swap_fee_pct
-net_swap_value = current_value - swap_fee - altcoin_network_fee  # Subtract altcoin fee to send to swap
+drawdown = (current_value - initial_investment) / initial_investment
+net_swap_value = current_value - total_fees
 btc_amount = net_swap_value / current_btc_price
-future_btc_value = (btc_amount * current_btc_price * (1 + btc_return)) - btc_network_fee  # Subtract BTC withdrawal fee
 
-# Break-even altcoin return
-break_even_altcoin_return = ((future_btc_value + altcoin_network_fee) / current_value) - 1
+btc_worst_value = btc_amount * current_btc_price * (1 + btc_worst)
+btc_base_value = btc_amount * current_btc_price * (1 + btc_base)
+btc_best_value = btc_amount * current_btc_price * (1 + btc_best)
 
-# Decision logic
-threshold = st.slider("Outperformance Threshold (%)", 0.0, 20.0, 5.0, step=0.1, help="Minimum advantage to justify swapping") / 100
-difference = future_altcoin_value - future_btc_value
-relative_diff = difference / current_value
-recommendation = "Hold Altcoin" if relative_diff > threshold else "Swap to Bitcoin"
+# Decision Logic
+altcoin_upside = (altcoin_best - current_value) / current_value
+btc_upside = (btc_best_value - net_swap_value) / net_swap_value
+risk_exposure = (current_value - altcoin_worst) / current_value  # Potential further loss
+
+if risk_exposure > risk_tolerance and btc_worst_value > altcoin_worst:
+    recommendation = "Swap to BTC: Protects against total loss and fits your risk tolerance."
+elif altcoin_base > btc_base_value and altcoin_upside > btc_upside:
+    recommendation = "Stay with Altcoin: Higher upside potential if recovery happens."
+else:
+    recommendation = "Neutral: Depends on your confidence in altcoin recovery vs. BTC stability."
 
 # Results
 st.header("Results")
-st.write(f"**Current Portfolio Value**: ${current_value:.2f} (Drawdown: {drawdown:.2%})")
-st.write(f"**Future Value (Hold Altcoin, after ${altcoin_network_fee:.2f} fee)**: ${future_altcoin_value:.2f}")
-st.write(f"**Future Value (Swap to BTC, after ${swap_fee:.2f} swap + ${altcoin_network_fee + btc_network_fee:.2f} fees)**: ${future_btc_value:.2f}")
-st.write(f"**Difference (Altcoin - BTC)**: ${difference:.2f} ({relative_diff:.2%})")
-st.write(f"**Break-Even Altcoin Return**: {break_even_altcoin_return:.2%} (to match BTC outcome)")
-st.subheader(f"Recommendation: {recommendation}")
+st.write(f"**Initial Investment**: ${initial_investment:.2f}")
+st.write(f"**Current Value**: ${current_value:.2f} (Drawdown: {drawdown:.2%})")
+st.write(f"**Max Acceptable Loss**: ${max_loss:.2f} (based on {risk_tolerance:.0%} tolerance)")
 
-# Visualization
-st.subheader("Portfolio Value Over Time")
-time_points = np.linspace(0, time_period, 100)
-altcoin_growth = [current_value * (1 + altcoin_return * (t / time_period)) - altcoin_network_fee for t in time_points]
-btc_growth = [(net_swap_value * (1 + btc_return * (t / time_period)) / (1 + btc_return)) - btc_network_fee for t in time_points]  # Adjust for fee timing
+st.subheader("Scenario Outcomes")
+data = {
+    "Scenario": ["Worst", "Base", "Best"],
+    "Stay with Altcoin": [altcoin_worst, altcoin_base, altcoin_best],
+    "Swap to BTC": [btc_worst_value, btc_base_value, btc_best_value]
+}
+df = pd.DataFrame(data)
+st.table(df.style.format({"Stay with Altcoin": "${:.2f}", "Swap to BTC": "${:.2f}"}))
 
-df = pd.DataFrame({
-    "Time (Months)": time_points,
-    "Hold Altcoin": altcoin_growth,
-    "Swap to BTC": btc_growth
-})
-st.line_chart(df.set_index("Time (Months)"))
+st.subheader("Recommendation")
+st.write(recommendation)
 
 # Sidebar
 st.sidebar.header("How It Works")
 st.sidebar.write("""
-- Enter your position, expected returns, and estimated fees.
-- Fees include swap cost (%), altcoin send fee, and BTC withdrawal fee.
-- The app compares net future values and recommends holding or swapping.
-- Check your wallet/exchange for current fee estimates.
+- Input your current loss and scenario estimates.
+- Set your risk tolerance (max further loss you can handle).
+- The tool compares outcomes and suggests staying or swapping based on risk and upside.
+- Use realistic scenarios: altcoin could go to $0; BTC is more stable.
 """)
