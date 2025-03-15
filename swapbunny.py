@@ -137,6 +137,9 @@ for _, row in df_assets.iterrows():
     asset = row["Name"]
     asset_curr = row["Current"]
     
+    # Calculate btc_amount for non-BTC assets
+    btc_amount = max(0, (asset_curr - swap_fee)) / btc_price if asset != "BTC" else 0.0
+    
     # Swap to Stablecoin (10% APY)
     stable_value = max(0, asset_curr - swap_fee) * (1 + 0.10 * time_horizon / 12)
     swap_outcomes[asset]["Stablecoin"] = total_portfolio - asset_curr + stable_value
@@ -148,7 +151,6 @@ for _, row in df_assets.iterrows():
     
     # Swap to BTC (Scenario-Based)
     if can_swap_to_btc:
-        btc_amount = max(0, (asset_curr - swap_fee)) / btc_price
         btc_value = btc_amount * btc_price * (1 + scenario_data["BTC"][scenario])
         swap_outcomes[asset]["Scenario"] = total_portfolio - asset_curr + btc_value
     else:
