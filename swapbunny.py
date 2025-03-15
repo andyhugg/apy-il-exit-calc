@@ -31,8 +31,14 @@ if st.button("Clear All Inputs"):
     st.session_state.clear()
     st.rerun()
 
+# Input Current BTC Price
+st.header("Set Current BTC Price")
+btc_price = st.number_input("Current BTC Price ($)", min_value=0.0, value=60000.0, step=1000.0,
+                            help="Enter the current price of BTC in USD. This will be used for swap calculations.")
+
 # Portfolio Input with Simple Fields
-st.header("Step 1: Enter Your Portfolio")
+st.header("Step 1: Enter Your Total Portfolio Holding Value per Asset")
+st.write("Enter the total dollar value of your holdings for each asset (e.g., if you hold 0.1 BTC worth $5000, enter $5000).")
 num_assets = st.number_input("Number of Assets", min_value=1, value=3, step=1)
 assets = []
 coin_ids = {"BTC": "bitcoin", "ETH": "ethereum", "USDT": "tether", "USDC": "usd-coin"}
@@ -48,9 +54,10 @@ for i in range(num_assets):
         if use_api and name in coin_ids and coin_ids[name] in prices:
             default_curr = prices[coin_ids[name]]["usd"]
         curr_val = st.number_input(f"Current Value ($)", min_value=0.0, value=default_curr, key=f"curr_{i}",
-                                   help=f"Live price: ${default_curr:.2f}" if default_curr else None)
+                                   help=f"Total value of your holdings in this asset today. Live price: ${default_curr:.2f}" if default_curr else "Total value of your holdings in this asset today.")
     with col3:
-        init_val = st.number_input(f"Initial Value ($)", min_value=0.0, value=0.0, key=f"init_{i}")
+        init_val = st.number_input(f"Initial Value ($)", min_value=0.0, value=0.0, key=f"init_{i}",
+                                   help="Total value when you bought this asset.")
     assets.append({"Name": name, "Current": curr_val, "Initial": init_val})
 
 # Create DataFrame and calculate allocation
@@ -119,8 +126,6 @@ swap_fee = st.number_input("Swap Fee ($)", min_value=0.0, value=5.0, help="Cost 
 # Calculate Outcomes
 outcomes = {"Stay": 0.0}
 swap_outcomes = {asset: {"Scenario": 0.0, "CAGR": 0.0, "Stablecoin": 0.0} for asset in df_assets["Name"]}
-btc_price = df_assets[df_assets["Name"] == "BTC"]["Current"].values[0] if "BTC" in df_assets["Name"].values else 60000
-can_swap_to_btc = "BTC" in df_assets["Name"].values
 
 # Stay Outcome
 for _, row in df_assets.iterrows():
@@ -150,11 +155,9 @@ for _, row in df_assets.iterrows():
         continue  # No swap for BTC
     
     # Swap to BTC (Scenario-Based)
-    if can_swap_to_btc:
-        btc_value = btc_amount * btc_price * (1 + scenario_data["BTC"][scenario])
-        swap_outcomes[asset]["Scenario"] = total_portfolio - asset_curr + btc_value
-    else:
-        swap_outcomes[asset]["Scenario"] = outcomes["Stay"]  # Can't swap without BTC
+    # Always allow swap to BTC using user-defined BTC price
+    btc_value = btc_amount * btc_price * (1 + scenario_data.get("BTC", {}).get(scenario, 0.0))  # Default to 0% if BTC not in portfolio
+    swap_outcomes[asset]["Scenario"] = total_portfolio - asset_curr + btc_value
     
     # Swap to BTC (20% CAGR)
     btc_cagr_price = btc_price * (1 + 0.20) ** (time_horizon / 12)
@@ -175,9 +178,7 @@ for _, row in df_assets.iterrows():
         best_val = max(stay_val, swap_scenario, swap_cagr, swap_stable)
         risk_impact = row["Risk"] * row["Allocation"]
         
-        if not can_swap_to_btc and (best_val == swap_scenario or best_val == swap_cagr):
-            suggestions[asset] = "Cannot swap to BTC: BTC must be in your portfolio to swap into BTC."
-        elif best_val == stay_val:
+        if best_val == stay_val:
             suggestions[asset] = f"Hold: Best outcome (${stay_val:.0f}) in this scenario."
         elif best_val == swap_scenario:
             suggestions[asset] = f"Swap to BTC (Scenario): Gains ${best_val - stay_val:.0f} and cuts risk by {risk_impact:.2%}."
@@ -209,12 +210,9 @@ st.subheader("Scenario Outcomes")
 df_outcomes = pd.DataFrame({scenario: [outcomes["Stay"]]}, index=["Stay"]).T
 for asset in swap_outcomes:
     if asset != "BTC":
-        if can_swap_to_btc:
-            df_outcomes[f"Swap {asset} to BTC ({scenario})"] = [swap_outcomes[asset]["Scenario"]]
-            df_outcomes[f"Swap {asset} to BTC (20% CAGR)"] = [swap_outcomes[asset]["CAGR"]]
+        df_outcomes[f"Swap {asset} to BTC ({scenario})"] = [swap_outcomes[asset]["Scenario"]]
+        df_outcomes[f"Swap {asset} to BTC (20% CAGR)"] = [swap_outcomes[asset]["CAGR"]]
         df_outcomes[f"Swap {asset} to Stablecoin (10% APY)"] = [swap_outcomes[asset]["Stablecoin"]]
-if not can_swap_to_btc:
-    st.warning("Swap to BTC not available: BTC must be in your portfolio to calculate scenario-based or CAGR swaps into BTC.")
 st.table(df_outcomes.style.format("${:.2f}"))
 
 # Comparison Across Scenarios (Using Presets)
@@ -240,9 +238,8 @@ if total_portfolio > 0:
     values = [outcomes["Stay"]]
     for asset in swap_outcomes:
         if asset != "BTC":
-            if can_swap_to_btc:
-                options += [f"Swap {asset} to BTC ({scenario})", f"Swap {asset} to BTC (20% CAGR)"]
-                values += [swap_outcomes[asset]["Scenario"], swap_outcomes[asset]["CAGR"]]
+            options += [f"Swap {asset} to BTC ({scenario})", f"Swap {asset} to BTC (20% CAGR)"]
+            values += [swap_outcomes[asset]["Scenario"], swap_outcomes[asset]["CAGR"]]
             options += [f"Swap {asset} to Stablecoin (10% APY)"]
             values += [swap_outcomes[asset]["Stablecoin"]]
     ax.bar(options, values)
