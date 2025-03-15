@@ -59,7 +59,7 @@ total_portfolio = df_assets["Current"].sum()
 if total_portfolio > 0:
     df_assets["Allocation"] = df_assets["Current"] / total_portfolio
 else:
-    df_assets["Allocation"] = 0.0  # Default to 0 if no value
+    df_assets["Allocation"] = 0.0
     st.warning("Total portfolio value is $0. Enter non-zero current values to proceed.")
 df_assets["Gain/Loss"] = df_assets.apply(lambda row: (row["Current"] - row["Initial"]) / row["Initial"] if row["Initial"] > 0 else 0.0, axis=1)
 
@@ -84,23 +84,26 @@ scenario_configs = {
     "Balanced Growth": {"Bear": (-0.3, -0.4, -0.7), "Base": (0.2, 0.15, 1.0), "Bull": (0.5, 0.4, 2.0)},
     "Chase Moonshots": {"Bear": (-0.5, -0.5, -1.0), "Base": (0.3, 0.2, 3.0), "Bull": (0.7, 0.6, 10.0)}
 }
-default_scenarios = {
-    "Bear": dict(zip(df_assets["Name"], scenario_configs[goal]["Bear"] * len(df_assets) if len(df_assets) > 3 else scenario_configs[goal]["Bear"])),
-    "Base": dict(zip(df_assets["Name"], scenario_configs[goal]["Base"] * len(df_assets) if len(df_assets) > 3 else scenario_configs[goal]["Base"])),
-    "Bull": dict(zip(df_assets["Name"], scenario_configs[goal]["Bull"] * len(df_assets) if len(df_assets) > 3 else scenario_configs[goal]["Bull"]))
-}
-probs = {"Bear": 0.5, "Base": 0.3, "Bull": 0.2}
+default_probs = [0.5, 0.3, 0.2]  # Bear, Base, Bull
+probs = st.slider("Scenario Probabilities (%)", min_value=0.0, max_value=100.0, value=[p * 100 for p in default_probs], 
+                  key="probs", help="Adjust probabilities for Bear, Base, and Bull scenarios (must sum to 100%)")
+probs = [p / 100 for p in probs]
+if abs(sum(probs) - 1.0) > 0.01:
+    st.error("Probabilities must sum to 100%. Resetting to defaults.")
+    probs = [0.5, 0.3, 0.2]
 
-for scenario in default_scenarios:
-    with st.expander(f"{scenario} Scenario"):
-        for asset in df_assets["Name"]:
-            default_scenarios[scenario][asset] = st.number_input(f"{asset} Change (%) - {scenario}", 
-                                                                 value=default_scenarios[scenario].get(asset, 0.0) * 100, 
-                                                                 step=1.0, key=f"{asset}_{scenario}") / 100
-        probs[scenario] = st.slider(f"{scenario} Probability (%)", 0.0, 100.0, probs[scenario] * 100, key=f"prob_{scenario}") / 100
-
-if abs(sum(probs.values()) - 1.0) > 0.01:
-    st.error("Probabilities must sum to 100%")
+# Scenario Table for each asset
+st.write("Enter percentage changes for each asset and scenario. Defaults are based on your goal.")
+scenario_data = {}
+for scenario, prob in zip(["Bear", "Base", "Bull"], probs):
+    cols = st.columns([1] + [1] * len(df_assets["Name"]))
+    cols[0].write(f"{scenario} ({prob*100:.1f}%)")
+    for i, asset in enumerate(df_assets["Name"], 1):
+        default = scenario_configs[goal][scenario][min(i-1, 2)]  # Use first 3 defaults, repeat if more assets
+        change = cols[i].number_input(f"{asset} Change (%)", value=default * 100, step=1.0, key=f"{asset}_{scenario}")
+        if asset not in scenario_data:
+            scenario_data[asset] = {}
+        scenario_data[asset][scenario] = change / 100
 
 # Fees
 st.header("Step 4: Transaction Costs")
@@ -111,24 +114,25 @@ outcomes = {}
 swap_outcomes = {asset: {} for asset in df_assets["Name"]}
 btc_price = df_assets[df_assets["Name"] == "BTC"]["Current"].values[0] if "BTC" in df_assets["Name"].values else 60000
 
-for scenario, changes in default_scenarios.items():
+for scenario in ["Bear", "Base", "Bull"]:
     total_stay = 0
     for _, row in df_assets.iterrows():
-        total_stay += row["Current"] * (1 + changes.get(row["Name"], 0))
+        asset = row["Name"]
+        total_stay += row["Current"] * (1 + scenario_data[asset].get(scenario, 0))
     outcomes[scenario] = total_stay
 
     for asset in df_assets["Name"]:
         if asset != "BTC":
             asset_curr = df_assets[df_assets["Name"] == asset]["Current"].values[0]
             btc_amount = max(0, (asset_curr - swap_fee)) / btc_price
-            total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + changes.get("BTC", 0)))
+            total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + scenario_data["BTC"].get(scenario, 0)))
             swap_outcomes[asset][scenario] = total_swap
         else:
             swap_outcomes[asset][scenario] = total_stay  # No swap for BTC
 
 # Expected Values
-exp_stay = sum(probs[s] * outcomes[s] for s in outcomes)
-exp_swap = {asset: sum(probs[s] * swap_outcomes[asset][s] for s in swap_outcomes[asset]) for asset in swap_outcomes}
+exp_stay = sum(probs[i] * outcomes[scenario] for i, scenario in enumerate(["Bear", "Base", "Bull"]))
+exp_swap = {asset: sum(probs[i] * swap_outcomes[asset][scenario] for i, scenario in enumerate(["Bear", "Base", "Bull"])) for asset in swap_outcomes}
 
 # Decision Engine
 suggestions = {}
