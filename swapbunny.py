@@ -22,16 +22,13 @@ Crypto investments are highly volatile and risky. All suggestions are based on y
 Always do your own research and consult a professional if needed before making decisions.
 """)
 
-# Session state for reset and probabilities
+# Session state for reset
 if 'reset' not in st.session_state:
     st.session_state.reset = False
-if 'probs' not in st.session_state:
-    st.session_state.probs = [50.0, 30.0, 20.0]  # Bear, Base, Bull in %
 
 # Clear Button
 if st.button("Clear All Inputs"):
     st.session_state.clear()
-    st.session_state.probs = [50.0, 30.0, 20.0]
     st.rerun()
 
 # Portfolio Input with Simple Fields
@@ -72,50 +69,47 @@ goal = st.selectbox("Your Goal", ["Preserve Capital", "Balanced Growth", "Chase 
 risk_tolerance = st.slider("Max Loss Tolerance (%)", 0, 100, 20, help="How much can you afford to lose?") / 100
 time_horizon = st.number_input("Time Horizon (months)", min_value=1, value=6)
 
-# Assign Risk Levels
+# Assign Risk Levels and Asset Types
 risk_levels = {"BTC": 0.3, "ETH": 0.5, "USDT": 0.1, "USDC": 0.1}
+asset_types = {"BTC": "Major", "ETH": "Major", "USDT": "Stable", "USDC": "Stable"}
 for asset in df_assets["Name"]:
     if asset not in risk_levels:
         risk_levels[asset] = 0.9
+    if asset not in asset_types:
+        asset_types[asset] = "Altcoin"
 df_assets["Risk"] = df_assets["Name"].map(risk_levels)
+df_assets["Type"] = df_assets["Name"].map(asset_types)
 portfolio_risk = (df_assets["Allocation"] * df_assets["Risk"]).sum()
 
 # Scenarios
-st.header("Step 3: Define Scenarios")
-scenario_configs = {
-    "Preserve Capital": {"Bear": (-0.2, -0.3, -0.8), "Base": (0.1, 0.05, -0.2), "Bull": (0.3, 0.2, 0.5)},
-    "Balanced Growth": {"Bear": (-0.3, -0.4, -0.7), "Base": (0.2, 0.15, 1.0), "Bull": (0.5, 0.4, 2.0)},
-    "Chase Moonshots": {"Bear": (-0.5, -0.5, -1.0), "Base": (0.3, 0.2, 3.0), "Bull": (0.7, 0.6, 10.0)}
+st.header("Step 3: Define Market Scenario")
+scenario = st.radio("Select a market scenario:", 
+                    ["Bear Market: I expect a downturn", 
+                     "Base Case: I expect moderate growth", 
+                     "Bull Market: I expect a strong rally"])
+scenario = scenario.split(":")[0].split()[0]  # Extract "Bear", "Base", or "Bull"
+
+# Presets for percentage changes
+presets = {
+    "Stable": {"Bear": 0.0, "Base": 0.0, "Bull": 0.0},  # Stablecoins don't change with scenarios
+    "Major": {"Bear": -25.0, "Base": 25.0, "Bull": 75.0},
+    "Altcoin": {"Bear": -90.0, "Base": 50.0, "Bull": 200.0}
 }
 
-# Probability Sliders
-col1, col2, col3 = st.columns(3)
-with col1:
-    bear_prob = st.slider("Bear Probability (%)", 0.0, 100.0, st.session_state.probs[0], key="bear_prob",
-                          help="Probability of a bear market scenario")
-with col2:
-    base_prob = st.slider("Base Probability (%)", 0.0, 100.0, st.session_state.probs[1], key="base_prob",
-                          help="Probability of a base (neutral) market scenario")
-with col3:
-    bull_prob = st.slider("Bull Probability (%)", 0.0, 100.0, st.session_state.probs[2], key="bull_prob",
-                          help="Probability of a bull market scenario")
-probs = [bear_prob / 100, base_prob / 100, bull_prob / 100]
-if abs(sum(probs) - 1.0) > 0.01:
-    st.error("Probabilities must sum to 100%. Resetting to defaults.")
-    st.session_state.probs = [50.0, 30.0, 20.0]
-    st.rerun()
-
-# Scenario Table for each asset
-st.write("Enter percentage changes for each asset and scenario. Defaults are based on your goal.")
+# User-defined percentage changes for the selected scenario
+st.write(f"**{scenario} Case Expectations**")
+st.write("Enter your expected change for each asset (except stablecoins). Presets are based on historical volatility.")
 scenario_data = {}
-for scenario, prob in zip(["Bear", "Base", "Bull"], probs):
-    cols = st.columns([1] + [1] * len(df_assets["Name"]))
-    cols[0].write(f"{scenario} ({prob*100:.1f}%)")
-    for i, asset in enumerate(df_assets["Name"], 1):
-        default = scenario_configs[goal][scenario][min(i-1, 2)]  # Use first 3 defaults, repeat if more assets
-        change = cols[i].number_input(f"{asset} Change (%)", value=default * 100, step=1.0, key=f"{asset}_{scenario}")
-        if asset not in scenario_data:
-            scenario_data[asset] = {}
+for _, row in df_assets.iterrows():
+    asset = row["Name"]
+    asset_type = row["Type"]
+    scenario_data[asset] = {}
+    if asset_type == "Stable":
+        st.write(f"{asset} (Current: ${row['Current']:.2f}): Grows at 10% APY (e.g., to ${(row['Current'] * (1 + 0.10 * time_horizon / 12)):.2f} in {time_horizon} months)")
+        scenario_data[asset][scenario] = 0.0  # Stablecoins don't change with scenario
+    else:
+        preset = presets[asset_type][scenario]
+        change = st.number_input(f"{asset} (Current: ${row['Current']:.2f})", value=preset, step=1.0, key=f"{asset}_{scenario}")
         scenario_data[asset][scenario] = change / 100
 
 # Fees
@@ -123,30 +117,47 @@ st.header("Step 4: Transaction Costs")
 swap_fee = st.number_input("Swap Fee ($)", min_value=0.0, value=5.0, help="Cost to swap assets")
 
 # Calculate Outcomes
-outcomes = {}
-swap_outcomes = {asset: {} for asset in df_assets["Name"]}
+outcomes = {"Stay": 0.0}
+swap_outcomes = {asset: {"Scenario": 0.0, "CAGR": 0.0, "Stablecoin": 0.0} for asset in df_assets["Name"]}
 btc_price = df_assets[df_assets["Name"] == "BTC"]["Current"].values[0] if "BTC" in df_assets["Name"].values else 60000
-can_swap = "BTC" in df_assets["Name"].values
+can_swap_to_btc = "BTC" in df_assets["Name"].values
 
-for scenario in ["Bear", "Base", "Bull"]:
-    total_stay = 0
-    for _, row in df_assets.iterrows():
-        asset = row["Name"]
-        total_stay += row["Current"] * (1 + scenario_data[asset].get(scenario, 0))
-    outcomes[scenario] = total_stay
+# Stay Outcome
+for _, row in df_assets.iterrows():
+    asset = row["Name"]
+    if row["Type"] == "Stable":
+        # Stablecoins grow at 10% APY
+        outcomes["Stay"] += row["Current"] * (1 + 0.10 * time_horizon / 12)
+    else:
+        # Non-stablecoins use user-defined scenario change
+        outcomes["Stay"] += row["Current"] * (1 + scenario_data[asset][scenario])
 
-    for asset in df_assets["Name"]:
-        if asset != "BTC" and can_swap:
-            asset_curr = df_assets[df_assets["Name"] == asset]["Current"].values[0]
-            btc_amount = max(0, (asset_curr - swap_fee)) / btc_price
-            total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + scenario_data["BTC"].get(scenario, 0)))
-            swap_outcomes[asset][scenario] = total_swap
-        else:
-            swap_outcomes[asset][scenario] = total_stay  # No swap for BTC or if BTC not in portfolio
-
-# Expected Values
-exp_stay = sum(probs[i] * outcomes[scenario] for i, scenario in enumerate(["Bear", "Base", "Bull"]))
-exp_swap = {asset: sum(probs[i] * swap_outcomes[asset][scenario] for i, scenario in enumerate(["Bear", "Base", "Bull"])) for asset in swap_outcomes}
+# Swap Outcomes
+for _, row in df_assets.iterrows():
+    asset = row["Name"]
+    asset_curr = row["Current"]
+    
+    # Swap to Stablecoin (10% APY)
+    stable_value = max(0, asset_curr - swap_fee) * (1 + 0.10 * time_horizon / 12)
+    swap_outcomes[asset]["Stablecoin"] = total_portfolio - asset_curr + stable_value
+    
+    if asset == "BTC":
+        swap_outcomes[asset]["Scenario"] = outcomes["Stay"]
+        swap_outcomes[asset]["CAGR"] = outcomes["Stay"]
+        continue  # No swap for BTC
+    
+    # Swap to BTC (Scenario-Based)
+    if can_swap_to_btc:
+        btc_amount = max(0, (asset_curr - swap_fee)) / btc_price
+        btc_value = btc_amount * btc_price * (1 + scenario_data["BTC"][scenario])
+        swap_outcomes[asset]["Scenario"] = total_portfolio - asset_curr + btc_value
+    else:
+        swap_outcomes[asset]["Scenario"] = outcomes["Stay"]  # Can't swap without BTC
+    
+    # Swap to BTC (20% CAGR)
+    btc_cagr_price = btc_price * (1 + 0.20) ** (time_horizon / 12)
+    btc_cagr_value = btc_amount * btc_cagr_price
+    swap_outcomes[asset]["CAGR"] = total_portfolio - asset_curr + btc_cagr_value
 
 # Decision Engine
 suggestions = {}
@@ -154,17 +165,24 @@ for _, row in df_assets.iterrows():
     asset = row["Name"]
     if asset == "BTC":
         suggestions[asset] = "Hold: Stable anchor for your portfolio."
-    elif not can_swap:
-        suggestions[asset] = "Cannot swap: BTC must be in your portfolio to swap into BTC."
     else:
-        exp_diff = exp_swap[asset] - exp_stay
+        stay_val = outcomes["Stay"]
+        swap_scenario = swap_outcomes[asset]["Scenario"]
+        swap_cagr = swap_outcomes[asset]["CAGR"]
+        swap_stable = swap_outcomes[asset]["Stablecoin"]
+        best_val = max(stay_val, swap_scenario, swap_cagr, swap_stable)
         risk_impact = row["Risk"] * row["Allocation"]
-        if risk_impact > risk_tolerance / len(df_assets) and exp_diff > 0:
-            suggestions[asset] = f"Swap to BTC: Cuts risk by {risk_impact:.2%}, gains ${exp_diff:.0f} expected value."
-        elif row["Gain/Loss"] < -0.5 and exp_stay > exp_swap[asset]:
-            suggestions[asset] = "Hold: Recovery potential may outweigh swapping."
+        
+        if not can_swap_to_btc and (best_val == swap_scenario or best_val == swap_cagr):
+            suggestions[asset] = "Cannot swap to BTC: BTC must be in your portfolio to swap into BTC."
+        elif best_val == stay_val:
+            suggestions[asset] = f"Hold: Best outcome (${stay_val:.0f}) in this scenario."
+        elif best_val == swap_scenario:
+            suggestions[asset] = f"Swap to BTC (Scenario): Gains ${best_val - stay_val:.0f} and cuts risk by {risk_impact:.2%}."
+        elif best_val == swap_cagr:
+            suggestions[asset] = f"Swap to BTC (20% CAGR): Gains ${best_val - stay_val:.0f} and cuts risk by {risk_impact:.2%}."
         else:
-            suggestions[asset] = "Neutral: Risk and reward are balanced."
+            suggestions[asset] = f"Swap to Stablecoin (10% APY): Gains ${best_val - stay_val:.0f} and cuts risk by {risk_impact:.2%}."
 
 # Rebalancing Suggestion
 target_alloc = {"BTC": 0.6, "ETH": 0.3, "Stable": 0.1} if goal == "Preserve Capital" else \
@@ -184,33 +202,49 @@ if total_portfolio > 0:
     st.pyplot(fig)
 st.write(f"Portfolio Risk Score: {portfolio_risk:.2f} (vs. Tolerance: {risk_tolerance:.2f})")
 
+# Scenario Outcomes
 st.subheader("Scenario Outcomes")
-df_outcomes = pd.DataFrame(outcomes, index=["Stay"]).T
-if can_swap:
-    for asset in swap_outcomes:
-        if asset != "BTC":  # Only show swaps for non-BTC assets
-            df_outcomes[f"Swap {asset} to BTC"] = [swap_outcomes[asset].get(s, outcomes[s]) for s in df_outcomes.index]
-else:
-    st.warning("Swap outcomes not available: BTC must be in your portfolio to calculate swaps into BTC.")
+df_outcomes = pd.DataFrame({scenario: [outcomes["Stay"]]}, index=["Stay"]).T
+for asset in swap_outcomes:
+    if asset != "BTC":
+        if can_swap_to_btc:
+            df_outcomes[f"Swap {asset} to BTC ({scenario})"] = [swap_outcomes[asset]["Scenario"]]
+            df_outcomes[f"Swap {asset} to BTC (20% CAGR)"] = [swap_outcomes[asset]["CAGR"]]
+        df_outcomes[f"Swap {asset} to Stablecoin (10% APY)"] = [swap_outcomes[asset]["Stablecoin"]]
+if not can_swap_to_btc:
+    st.warning("Swap to BTC not available: BTC must be in your portfolio to calculate scenario-based or CAGR swaps into BTC.")
 st.table(df_outcomes.style.format("${:.2f}"))
 
-st.subheader("Expected Portfolio Value")
-st.write(f"Stay: ${exp_stay:.0f}")
-if can_swap:
-    for asset, val in exp_swap.items():
-        if asset != "BTC":
-            st.write(f"Swap {asset} to BTC: ${val:.0f}")
+# Comparison Across Scenarios (Using Presets)
+st.subheader("Comparison Across Scenarios (Using Presets)")
+comp_outcomes = {}
+for s in ["Bear", "Base", "Bull"]:
+    total = 0.0
+    for _, row in df_assets.iterrows():
+        asset = row["Name"]
+        if row["Type"] == "Stable":
+            total += row["Current"] * (1 + 0.10 * time_horizon / 12)
+        else:
+            change = presets[row["Type"]][s] / 100
+            total += row["Current"] * (1 + change)
+    comp_outcomes[s] = total
+df_comp = pd.DataFrame(comp_outcomes, index=["Stay"]).T
+st.table(df_comp.style.format("${:.2f}"))
 
 # Bar Chart
 if total_portfolio > 0:
     fig, ax = plt.subplots()
     options = ["Stay"]
-    values = [exp_stay]
-    if can_swap:
-        options += [f"Swap {a} to BTC" for a in exp_swap.keys() if a != "BTC"]
-        values += [exp_swap[a] for a in exp_swap.keys() if a != "BTC"]
+    values = [outcomes["Stay"]]
+    for asset in swap_outcomes:
+        if asset != "BTC":
+            if can_swap_to_btc:
+                options += [f"Swap {asset} to BTC ({scenario})", f"Swap {asset} to BTC (20% CAGR)"]
+                values += [swap_outcomes[asset]["Scenario"], swap_outcomes[asset]["CAGR"]]
+            options += [f"Swap {asset} to Stablecoin (10% APY)"]
+            values += [swap_outcomes[asset]["Stablecoin"]]
     ax.bar(options, values)
-    ax.set_ylabel("Expected Value ($)")
+    ax.set_ylabel("Portfolio Value ($)")
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
