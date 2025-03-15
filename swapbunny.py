@@ -22,13 +22,16 @@ Crypto investments are highly volatile and risky. All suggestions are based on y
 Always do your own research and consult a professional if needed before making decisions.
 """)
 
-# Session state for reset
+# Session state for reset and probabilities
 if 'reset' not in st.session_state:
     st.session_state.reset = False
+if 'probs' not in st.session_state:
+    st.session_state.probs = [50.0, 30.0, 20.0]  # Bear, Base, Bull in %
 
 # Clear Button
 if st.button("Clear All Inputs"):
     st.session_state.clear()
+    st.session_state.probs = [50.0, 30.0, 20.0]
     st.rerun()
 
 # Portfolio Input with Simple Fields
@@ -84,13 +87,23 @@ scenario_configs = {
     "Balanced Growth": {"Bear": (-0.3, -0.4, -0.7), "Base": (0.2, 0.15, 1.0), "Bull": (0.5, 0.4, 2.0)},
     "Chase Moonshots": {"Bear": (-0.5, -0.5, -1.0), "Base": (0.3, 0.2, 3.0), "Bull": (0.7, 0.6, 10.0)}
 }
-default_probs = [0.5, 0.3, 0.2]  # Bear, Base, Bull
-probs = st.slider("Scenario Probabilities (%)", min_value=0.0, max_value=100.0, value=[p * 100 for p in default_probs], 
-                  key="probs", help="Adjust probabilities for Bear, Base, and Bull scenarios (must sum to 100%)")
-probs = [p / 100 for p in probs]
+
+# Probability Sliders
+col1, col2, col3 = st.columns(3)
+with col1:
+    bear_prob = st.slider("Bear Probability (%)", 0.0, 100.0, st.session_state.probs[0], key="bear_prob",
+                          help="Probability of a bear market scenario")
+with col2:
+    base_prob = st.slider("Base Probability (%)", 0.0, 100.0, st.session_state.probs[1], key="base_prob",
+                          help="Probability of a base (neutral) market scenario")
+with col3:
+    bull_prob = st.slider("Bull Probability (%)", 0.0, 100.0, st.session_state.probs[2], key="bull_prob",
+                          help="Probability of a bull market scenario")
+probs = [bear_prob / 100, base_prob / 100, bull_prob / 100]
 if abs(sum(probs) - 1.0) > 0.01:
     st.error("Probabilities must sum to 100%. Resetting to defaults.")
-    probs = [0.5, 0.3, 0.2]
+    st.session_state.probs = [50.0, 30.0, 20.0]
+    st.rerun()
 
 # Scenario Table for each asset
 st.write("Enter percentage changes for each asset and scenario. Defaults are based on your goal.")
