@@ -126,6 +126,7 @@ swap_fee = st.number_input("Swap Fee ($)", min_value=0.0, value=5.0, help="Cost 
 outcomes = {}
 swap_outcomes = {asset: {} for asset in df_assets["Name"]}
 btc_price = df_assets[df_assets["Name"] == "BTC"]["Current"].values[0] if "BTC" in df_assets["Name"].values else 60000
+can_swap = "BTC" in df_assets["Name"].values
 
 for scenario in ["Bear", "Base", "Bull"]:
     total_stay = 0
@@ -135,13 +136,13 @@ for scenario in ["Bear", "Base", "Bull"]:
     outcomes[scenario] = total_stay
 
     for asset in df_assets["Name"]:
-        if asset != "BTC":
+        if asset != "BTC" and can_swap:
             asset_curr = df_assets[df_assets["Name"] == asset]["Current"].values[0]
             btc_amount = max(0, (asset_curr - swap_fee)) / btc_price
             total_swap = total_portfolio - asset_curr + (btc_amount * btc_price * (1 + scenario_data["BTC"].get(scenario, 0)))
             swap_outcomes[asset][scenario] = total_swap
         else:
-            swap_outcomes[asset][scenario] = total_stay  # No swap for BTC
+            swap_outcomes[asset][scenario] = total_stay  # No swap for BTC or if BTC not in portfolio
 
 # Expected Values
 exp_stay = sum(probs[i] * outcomes[scenario] for i, scenario in enumerate(["Bear", "Base", "Bull"]))
@@ -153,6 +154,8 @@ for _, row in df_assets.iterrows():
     asset = row["Name"]
     if asset == "BTC":
         suggestions[asset] = "Hold: Stable anchor for your portfolio."
+    elif not can_swap:
+        suggestions[asset] = "Cannot swap: BTC must be in your portfolio to swap into BTC."
     else:
         exp_diff = exp_swap[asset] - exp_stay
         risk_impact = row["Risk"] * row["Allocation"]
@@ -183,20 +186,29 @@ st.write(f"Portfolio Risk Score: {portfolio_risk:.2f} (vs. Tolerance: {risk_tole
 
 st.subheader("Scenario Outcomes")
 df_outcomes = pd.DataFrame(outcomes, index=["Stay"]).T
-for asset in swap_outcomes:
-    df_outcomes[f"Swap {asset} to BTC"] = [swap_outcomes[asset].get(s, outcomes[s]) for s in df_outcomes.index]
+if can_swap:
+    for asset in swap_outcomes:
+        if asset != "BTC":  # Only show swaps for non-BTC assets
+            df_outcomes[f"Swap {asset} to BTC"] = [swap_outcomes[asset].get(s, outcomes[s]) for s in df_outcomes.index]
+else:
+    st.warning("Swap outcomes not available: BTC must be in your portfolio to calculate swaps into BTC.")
 st.table(df_outcomes.style.format("${:.2f}"))
 
 st.subheader("Expected Portfolio Value")
 st.write(f"Stay: ${exp_stay:.0f}")
-for asset, val in exp_swap.items():
-    st.write(f"Swap {asset} to BTC: ${val:.0f}")
+if can_swap:
+    for asset, val in exp_swap.items():
+        if asset != "BTC":
+            st.write(f"Swap {asset} to BTC: ${val:.0f}")
 
 # Bar Chart
 if total_portfolio > 0:
     fig, ax = plt.subplots()
-    options = ["Stay"] + [f"Swap {a} to BTC" for a in exp_swap.keys()]
-    values = [exp_stay] + list(exp_swap.values())
+    options = ["Stay"]
+    values = [exp_stay]
+    if can_swap:
+        options += [f"Swap {a} to BTC" for a in exp_swap.keys() if a != "BTC"]
+        values += [exp_swap[a] for a in exp_swap.keys() if a != "BTC"]
     ax.bar(options, values)
     ax.set_ylabel("Expected Value ($)")
     plt.xticks(rotation=45)
