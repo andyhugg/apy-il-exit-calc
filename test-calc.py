@@ -345,9 +345,10 @@ if st.sidebar.button("Calculate"):
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
         asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
         asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
-        asset1_change_text = f"{abs(expected_price_change_asset1)}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "0% change"
-        asset2_change_text = f"{abs(expected_price_change_asset2)}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "0% change"
-        st.write(f"**Note:** Pool Value includes expected {asset1_change_text} of Asset 1 and {asset2_change_text} for Asset 2.")
+        asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
+        asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
+        # Updated note with APY and BTC growth rate
+        st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
         
         projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
         
