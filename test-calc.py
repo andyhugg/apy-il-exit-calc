@@ -22,8 +22,8 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
         return 0
     
     il = 2 * (sqrt_k / (1 + k)) - 1
-    il_percentage = round(abs(il) * 100, 2)
-    return il_percentage if il_percentage > 0.01 else 0.0
+    il_percentage = abs(il) * 100
+    return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage  # Ensure small IL values are retained
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> float:
@@ -62,11 +62,13 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
 
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
 
+    # Apply price changes incrementally
     final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
     final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
 
     future_il = calculate_il(starting_price_asset1, starting_price_asset2, final_price_asset1, final_price_asset2)
 
+    # Adjust pool value based on price changes over time
     final_pool_value_base = initial_investment * np.sqrt(final_price_asset1 * final_price_asset2) / np.sqrt(starting_price_asset1 * starting_price_asset2)
     initial_pool_value_base = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(starting_price_asset1 * starting_price_asset2)
     price_adjustment_ratio = final_pool_value_base / initial_pool_value_base if initial_pool_value_base > 0 else 1
@@ -82,7 +84,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     monthly_apy = (apy / 100) / 12
     il_decimal = il / 100
     
-    if il_decimal == 0:
+    if il_decimal <= 0.0001:  # Handle negligible IL
         return 0
     
     months = 0
@@ -503,6 +505,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
-        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
+        writer.writerow["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
