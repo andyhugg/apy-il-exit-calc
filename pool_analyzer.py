@@ -61,6 +61,9 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
         starting_price_asset1 = initial_price_asset1
         starting_price_asset2 = initial_price_asset2
 
+    # Debug print to confirm starting pool value
+    print(f"Debug - calculate_future_value: months={months}, initial_pool_value={pool_value}")
+
     # Start with the current pool value (adjusted for IL) at 0 months
     if months == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
