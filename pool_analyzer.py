@@ -23,10 +23,11 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     
     il = 2 * (sqrt_k / (1 + k)) - 1
     il_percentage = abs(il) * 100
+    print(f"Debug - calculate_il: initial_price_asset1={initial_price_asset1}, initial_price_asset2={initial_price_asset2}, current_price_asset1={current_price_asset1}, current_price_asset2={current_price_asset2}, il_percentage={il_percentage}")  # Debug print
     return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage  # Retain small IL values
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
-                        current_price_asset1: float, current_price_asset2: float) -> float:
+                        current_price_asset1: float, current_price_asset2: float) -> tuple[float, float]:
     initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
     initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
     
@@ -49,8 +50,8 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
     if is_new_pool:
         starting_price_asset1 = current_price_asset1
         starting_price_asset2 = current_price_asset2
-        initial_adjusted_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100))
-        initial_adjusted_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100))
+        initial_adjusted_price_asset1 = current_price_asset1
+        initial_adjusted_price_asset2 = current_price_asset2
         initial_pool_value, _ = calculate_pool_value(initial_investment, starting_price_asset1, starting_price_asset2,
                                                     initial_adjusted_price_asset1, initial_adjusted_price_asset2)
         pool_value = initial_pool_value
@@ -59,6 +60,10 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
                                             current_price_asset1, current_price_asset2)
         starting_price_asset1 = initial_price_asset1
         starting_price_asset2 = initial_price_asset2
+
+    # Start with the current pool value (adjusted for IL) at 0 months
+    if months == 0:
+        return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
 
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
 
