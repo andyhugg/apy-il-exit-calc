@@ -23,7 +23,7 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     
     il = 2 * (sqrt_k / (1 + k)) - 1
     il_percentage = round(abs(il) * 100, 2)
-    return il_percentage if il_percentage > 0.01 else il_percentage
+    return il_percentage if il_percentage > 0.01 else 0.0
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> float:
@@ -43,15 +43,12 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
         return initial_investment, 0.0
 
     monthly_apy = (apy / 100) / 12
-    # Apply price changes incrementally (divide annual change by 12 for monthly application)
     monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
 
-    # For new pools, calculate initial IL based on expected price changes at t=0
     if is_new_pool:
         starting_price_asset1 = current_price_asset1
         starting_price_asset2 = current_price_asset2
-        # Calculate initial prices after expected changes at t=0
         initial_adjusted_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100))
         initial_adjusted_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100))
         initial_pool_value, _ = calculate_pool_value(initial_investment, starting_price_asset1, starting_price_asset2,
@@ -63,17 +60,13 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
         starting_price_asset1 = initial_price_asset1
         starting_price_asset2 = initial_price_asset2
 
-    # Apply APY compounding
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
 
-    # Calculate future prices based on incremental monthly price changes
     final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
     final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
 
-    # Calculate IL over the projection period (from starting prices to final prices)
     future_il = calculate_il(starting_price_asset1, starting_price_asset2, final_price_asset1, final_price_asset2)
 
-    # Adjust pool value for price changes and IL
     final_pool_value_base = initial_investment * np.sqrt(final_price_asset1 * final_price_asset2) / np.sqrt(starting_price_asset1 * starting_price_asset2)
     initial_pool_value_base = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(starting_price_asset1 * starting_price_asset2)
     price_adjustment_ratio = final_pool_value_base / initial_pool_value_base if initial_pool_value_base > 0 else 1
@@ -113,7 +106,6 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
     monthly_apy = (apy / 100) / 12
     months = 0
 
-    # For new pools, calculate initial IL based on expected price changes at t=0
     if is_new_pool:
         initial_adjusted_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100))
         initial_adjusted_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100))
@@ -178,7 +170,7 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-                         current_tvl: float, months: int = 12, expected_price_change_asset1: float = 0.0,
+                         current_tvl: float, risk_free_rate: float, months: int = 12, expected_price_change_asset1: float = 0.0,
                          expected_price_change_asset2: float = 0.0, is_new_pool: bool = False, btc_growth_rate: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
@@ -197,9 +189,11 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     # Calculate Volatility Score to adjust APY Exit Threshold
     volatility_score, _ = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
-    # Adjust APY Exit Threshold for high volatility or IL
+    # Use risk-free rate as the baseline threshold, with a margin of safety buffer
+    apy_exit_threshold = max(apy_exit_threshold, risk_free_rate)
+    # Add 5% buffer if high volatility or IL
     if volatility_score > 75 or il > 50 or future_il > 50:
-        apy_exit_threshold = max(apy_exit_threshold, 5.0)  # Minimum 5% if high volatility or IL
+        apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
     
     break_even_months = calculate_break_even_months(apy, il)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
@@ -216,7 +210,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         else:
             st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes for Asset 1 and Asset 2; 0% indicates no exit needed based on current projections, but high volatility or IL may require reassessment)")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
     else:
         if is_new_pool:
@@ -225,7 +219,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         else:
             st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (accounts for expected price changes for Asset 1 and Asset 2; 0% indicates no exit needed based on current projections, but high volatility or IL may require reassessment)")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
@@ -316,7 +310,6 @@ is_new_pool = (pool_status == "New Pool")
 if is_new_pool:
     current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Asset 2 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    # For new pools, initial prices are the same as current prices
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
@@ -341,13 +334,19 @@ initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or s
 current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=1.0, format="%.2f")
 
+# Add user-adjusted risk-free rate
+risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=15.0, format="%.2f")
+st.sidebar.markdown("""
+**Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high volatility (>75% Volatility Score) or IL (>50%) conditions, ensuring a margin of safety.
+""")
+
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
+            current_tvl, risk_free_rate, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
         
         # Projected Pool Value
