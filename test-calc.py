@@ -23,7 +23,7 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     
     il = 2 * (sqrt_k / (1 + k)) - 1
     il_percentage = abs(il) * 100
-    return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage  # Ensure small IL values are retained
+    return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage  # Retain small IL values
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> float:
@@ -310,34 +310,34 @@ is_new_pool = (pool_status == "New Pool")
 
 # Conditionally display price inputs based on pool status
 if is_new_pool:
-    current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Asset 2 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
-    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=88000.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
-                                     min_value=0.01, step=0.01, value=1.00, format="%.2f")
-current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+                                     min_value=0.01, step=0.01, value=855000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=755000.00, format="%.2f")
 
 # New inputs for expected price changes
-expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
+expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=100.0, format="%.2f")
 expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 
 # BTC-related inputs with clarified labels
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
-                                           min_value=0.0, step=0.01, value=1.00, format="%.2f")
-current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=1.0, format="%.2f")
+                                           min_value=0.0, step=0.01, value=88000.00, format="%.2f")
+current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=100.0, format="%.2f")
 
 # Add user-adjusted risk-free rate
-risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=15.0, format="%.2f")
+risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
 st.sidebar.markdown("""
 **Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high volatility (>75% Volatility Score) or IL (>50%) conditions, ensuring a margin of safety.
 """)
@@ -505,6 +505,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
-        writer.writerow["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
+        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
