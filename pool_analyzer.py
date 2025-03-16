@@ -6,25 +6,25 @@ from io import StringIO
 import csv
 
 # Pool Profit and Risk Analyzer
-def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float) -> float:
+def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float = 100) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0:
         return 0
     
-    price_ratio_initial = initial_price_asset1 / initial_price_asset2
-    price_ratio_current = current_price_asset1 / current_price_asset2
+    # Calculate initial and current amounts
+    initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
+    initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
     
-    if price_ratio_initial == 0:
-        return 0
+    # HODL value
+    value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
     
-    k = price_ratio_current / price_ratio_initial
-    sqrt_k = np.sqrt(k) if k > 0 else 0
-    if (1 + k) == 0:
-        return 0
+    # Pool value
+    pool_value = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(initial_price_asset1 * initial_price_asset2)
     
-    il = 2 * (sqrt_k / (1 + k)) - 1
+    # Impermanent Loss
+    il = (value_if_held - pool_value) / value_if_held if value_if_held > 0 else 0
     il_percentage = abs(il) * 100
-    print(f"Debug - calculate_il: initial_price_asset1={initial_price_asset1}, initial_price_asset2={initial_price_asset2}, current_price_asset1={current_price_asset1}, current_price_asset2={current_price_asset2}, il_percentage={il_percentage}")  # Debug print
-    return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage  # Retain small IL values
+    print(f"Debug - calculate_il: initial_price_asset1={initial_price_asset1}, initial_price_asset2={initial_price_asset2}, current_price_asset1={current_price_asset1}, current_price_asset2={current_price_asset2}, initial_investment={initial_investment}, il_percentage={il_percentage}")
+    return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> tuple[float, float]:
@@ -61,27 +61,25 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
         starting_price_asset1 = initial_price_asset1
         starting_price_asset2 = initial_price_asset2
 
-    # Debug print to confirm starting pool value
     print(f"Debug - calculate_future_value: months={months}, initial_pool_value={pool_value}")
 
     # Start with the current pool value (adjusted for IL) at 0 months
     if months == 0:
-        return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
 
+    # Apply APY compounding
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
 
     # Apply price changes incrementally
     final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
     final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
 
-    future_il = calculate_il(starting_price_asset1, starting_price_asset2, final_price_asset1, final_price_asset2)
-
-    # Adjust pool value based on price changes over time
-    final_pool_value_base = initial_investment * np.sqrt(final_price_asset1 * final_price_asset2) / np.sqrt(starting_price_asset1 * starting_price_asset2)
-    initial_pool_value_base = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(starting_price_asset1 * starting_price_asset2)
-    price_adjustment_ratio = final_pool_value_base / initial_pool_value_base if initial_pool_value_base > 0 else 1
-
-    current_value = apy_compounded_value * price_adjustment_ratio
+    # Recalculate pool value with new prices
+    new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                           final_price_asset1, final_price_asset2)
+    
+    future_il = calculate_il(initial_price_asset1, initial_price_asset2, final_price_asset1, final_price_asset2, initial_investment)
+    current_value = new_pool_value * (1 + monthly_apy * months)  # Adjust for APY over time
 
     return round(current_value, 2), future_il
 
@@ -92,7 +90,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     monthly_apy = (apy / 100) / 12
     il_decimal = il / 100
     
-    if il_decimal <= 0.0001:  # Handle negligible IL
+    if il_decimal <= 0.01:  # Adjusted threshold to 0.01% for practical breakeven
         return 0
     
     months = 0
@@ -199,9 +197,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     # Calculate Volatility Score to adjust APY Exit Threshold
     volatility_score, _ = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
-    # Use risk-free rate as the baseline threshold, with a margin of safety buffer
     apy_exit_threshold = max(apy_exit_threshold, risk_free_rate)
-    # Add 5% buffer if high volatility or IL
     if volatility_score > 75 or il > 50 or future_il > 50:
         apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
     
@@ -318,17 +314,17 @@ is_new_pool = (pool_status == "New Pool")
 
 # Conditionally display price inputs based on pool status
 if is_new_pool:
-    current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Asset 2 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
-    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=88000.00, format="%.2f")
+    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=100.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=5.00, format="%.2f")
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
                                      min_value=0.01, step=0.01, value=855000.00, format="%.2f")
@@ -340,8 +336,8 @@ expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Ch
 
 # BTC-related inputs with clarified labels
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
-                                           min_value=0.0, step=0.01, value=88000.00, format="%.2f")
-current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
+                                           min_value=0.0, step=0.01, value=100.00, format="%.2f")
+current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
 btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=100.0, format="%.2f")
 
 # Add user-adjusted risk-free rate
@@ -352,7 +348,7 @@ st.sidebar.markdown("""
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
-        il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
