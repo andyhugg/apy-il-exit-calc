@@ -6,8 +6,8 @@ from io import StringIO
 import csv
 
 # Pool Profit and Risk Analyzer
-def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float = 100) -> float:
-    if initial_price_asset2 == 0 or current_price_asset2 == 0:
+def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
+    if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
     
     # Calculate initial and current amounts
@@ -16,9 +16,11 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     
     # HODL value
     value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
+    print(f"Debug - calculate_il: value_if_held={value_if_held}")
     
     # Pool value
     pool_value = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(initial_price_asset1 * initial_price_asset2)
+    print(f"Debug - calculate_il: pool_value={pool_value}")
     
     # Impermanent Loss
     il = (value_if_held - pool_value) / value_if_held if value_if_held > 0 else 0
@@ -67,19 +69,23 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
     if months == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
 
-    # Apply APY compounding
+    # Apply APY compounding on the initial pool value
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
+    print(f"Debug - calculate_future_value: apy_compounded_value={apy_compounded_value}")
 
     # Apply price changes incrementally
     final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
     final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
+    print(f"Debug - calculate_future_value: final_price_asset1={final_price_asset1}, final_price_asset2={final_price_asset2}")
 
     # Recalculate pool value with new prices
     new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                            final_price_asset1, final_price_asset2)
-    
+    print(f"Debug - calculate_future_value: new_pool_value={new_pool_value}")
+
     future_il = calculate_il(initial_price_asset1, initial_price_asset2, final_price_asset1, final_price_asset2, initial_investment)
-    current_value = new_pool_value * (1 + monthly_apy * months)  # Adjust for APY over time
+    current_value = apy_compounded_value + (new_pool_value - pool_value)  # Add price impact to compounded APY
+    print(f"Debug - calculate_future_value: current_value={current_value}, future_il={future_il}")
 
     return round(current_value, 2), future_il
 
@@ -96,6 +102,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
     months = 0
     value = 1.0
     target = 1 / (1 - il_decimal)
+    print(f"Debug - calculate_break_even_months: il={il}, target={target}")
     
     while value < target and months < 1000:
         value *= (1 + monthly_apy)
@@ -125,12 +132,14 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
 
     loss_to_recover = initial_investment - initial_pool_value
     current_value = initial_pool_value
+    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={initial_pool_value}, loss_to_recover={loss_to_recover}")
     
     while current_value < initial_investment and months < 1000:
         months += 1
         current_value, _ = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
                                                  current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                  expected_price_change_asset2, is_new_pool)
+        print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
     
     return round(months, 2) if months < 1000 else float('inf')
 
