@@ -106,7 +106,15 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
 
     monthly_apy = (apy / 100) / 12
     months = 0
-    current_value = pool_value if not is_new_pool else initial_investment
+    # Calculate initial pool value after price changes and IL at time 0
+    _, initial_il = calculate_future_value(initial_investment, 0.0, 0, initial_price_asset1, initial_price_asset2,
+                                          current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                          expected_price_change_asset2, is_new_pool)
+    initial_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                                current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
+    loss_to_recover = initial_investment - initial_pool_value
+
+    current_value = initial_pool_value if not is_new_pool else initial_investment
     
     while current_value < initial_investment and months < 1000:
         months += 1
@@ -122,20 +130,52 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     tvl_decline = (initial_tvl - current_tvl) / initial_tvl * 100
     return round(tvl_decline, 2)
 
-def calculate_composite_risk_score(il: float, tvl_decline: float, pool_share: float, net_return: float) -> tuple[float, str]:
-    il_risk = min(il / 5, 1) * 0.3
-    tvl_risk = min(tvl_decline / 50, 1) * 0.3
-    pool_share_risk = min((pool_share / 20), 1) * 0.2
-    net_return_risk = max(0, (1 - net_return) * 0.2) if net_return < 1 else 0
+def calculate_volatility_score(expected_price_change_asset1: float, expected_price_change_asset2: float, btc_growth_rate: float) -> tuple[float, str]:
+    # Calculate divergence
+    divergence = abs(expected_price_change_asset1 - expected_price_change_asset2)
+    # Asset volatility (higher of the two absolute changes)
+    asset_volatility = max(abs(expected_price_change_asset1), abs(expected_price_change_asset2))
     
-    risk_score = (il_risk + tvl_risk + pool_share_risk + net_return_risk) * 100
-    risk_category = "Low" if risk_score < 25 else "Moderate" if risk_score < 50 else "High" if risk_score < 75 else "Critical"
-    return round(risk_score, 2), risk_category
+    # Assign scores based on thresholds
+    def get_score(value):
+        if value <= 5:
+            return 0  # Low
+        elif value <= 15:
+            return 33  # Moderate
+        elif value <= 30:
+            return 66  # High
+        else:
+            return 100  # Critical
+    
+    divergence_score = get_score(divergence)
+    asset_score = get_score(asset_volatility)
+    btc_score = get_score(abs(btc_growth_rate))
+    
+    # Weighted average: Divergence (50%), Asset Volatility (20%), BTC (30%)
+    volatility_score = (0.5 * divergence_score) + (0.2 * asset_score) + (0.3 * btc_score)
+    # Cap at the highest individual score
+    final_score = min(volatility_score, max(divergence_score, asset_score, btc_score))
+    
+    # Determine category
+    if final_score <= 25:
+        category = "Low"
+        message = f"✅ Volatility Score: Low ({final_score:.0f}%). Price movements are unlikely to significantly impact IL or breakeven timing."
+    elif final_score <= 50:
+        category = "Moderate"
+        message = f"⚠️ Volatility Score: Moderate ({final_score:.0f}%). Price volatility may increase IL and delay breakeven; monitor price movements."
+    elif final_score <= 75:
+        category = "High"
+        message = f"⚠️ Volatility Score: High ({final_score:.0f}%). Significant volatility risks could amplify IL and extend breakeven; consider hedging or adjusting exposure."
+    else:
+        category = "Critical"
+        message = f"⚠️ Volatility Score: Critical ({final_score:.0f}%). Extreme volatility risks may lead to substantial IL, potentially making breakeven unachievable; reassess your position."
+    
+    return final_score, message
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
                          current_tvl: float, months: int = 12, expected_price_change_asset1: float = 0.0,
-                         expected_price_change_asset2: float = 0.0, is_new_pool: bool = False):
+                         expected_price_change_asset2: float = 0.0, is_new_pool: bool = False, btc_growth_rate: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
     
@@ -157,9 +197,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
     )
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
-    
-    # Use future IL for risk score if new pool, otherwise use initial IL
-    risk_score, risk_category = calculate_composite_risk_score(future_il if is_new_pool else il, tvl_decline, pool_share, net_return)
 
     st.subheader("Results:")
     if initial_tvl <= 0:
@@ -182,7 +219,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
-    st.write(f"**Composite Risk Score:** {risk_score}% ({risk_category})")
     if pool_share < 5:
         st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Safe to enter/exit in a $300K+ pool.")
     elif 5 <= pool_share < 10:
@@ -205,23 +241,23 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il
+            return break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
     else:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il
+            return 0, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il
+            return break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
 
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
@@ -299,9 +335,9 @@ if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months, net_return, break_even_months, break_even_months_with_price, apy_exit_threshold, pool_share, risk_score, risk_category, future_il = check_exit_conditions(
+        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
+            current_tvl, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
         
         # Projected Pool Value
@@ -347,7 +383,6 @@ if st.sidebar.button("Calculate"):
         asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
         asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
         asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
-        # Updated note with APY and BTC growth rate
         st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
         
         projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
@@ -408,7 +443,7 @@ if st.sidebar.button("Calculate"):
 
         # MDD from Projected Value After 12 Months
         st.subheader("MDD from Projected Value After 12 Months")
-        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 10% appreciation of Asset 1, 0% change for Asset 2) and 5% APY for the pool, and 10% growth for BTC.")
+        st.write("**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., 100% appreciation of Asset 1, 0% change for Asset 2) and 2% APY for the pool, and 100% growth for BTC.")
         pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
 
@@ -439,7 +474,11 @@ if st.sidebar.button("Calculate"):
             'text-align': 'left'
         }, subset=["Metric"])
         st.dataframe(styled_df_breakeven, hide_index=True, use_container_width=True)
-        st.write("**Note:** 'Months to Breakeven Against IL' reflects only the recovery of impermanent loss with APY, while 'Months to Breakeven Including Expected Price Changes' includes the total loss relative to initial investment, factoring in both APY and expected price changes, which may extend the breakeven period.")
+        st.write("**Note:** 'Months to Breakeven Against IL' reflects only the recovery of impermanent loss with APY, while 'Months to Breakeven Including Expected Price Changes' accounts for the initial pool value after IL and price changes. The target is to recover the difference between your initial investment and this adjusted value, which may extend the breakeven period significantly if IL is high.")
+        
+        # Volatility Score
+        volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
+        st.write(volatility_message)
         
         # Export Results
         output = StringIO()
@@ -454,8 +493,7 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
         writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
-        writer.writerow(["Composite Risk Score (%)", f"{risk_score}"])
-        writer.writerow(["Risk Category", risk_category])
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
+        writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
