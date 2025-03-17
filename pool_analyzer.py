@@ -324,23 +324,23 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
+            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
     else:
         if net_return < 1.0:
             st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         else:
             st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il
+            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
 
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
@@ -435,7 +435,7 @@ if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il = check_exit_conditions(
+        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
@@ -596,6 +596,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
-        # New: Add Protocol Risk Score to export
+        # Updated: Use the captured protocol_risk_score
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
