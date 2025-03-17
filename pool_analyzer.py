@@ -322,8 +322,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(protocol_risk_message)
 
     if initial_tvl > 0:
-        if net_return < 1.0:
-            st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
+        # Updated Investment Risk Logic: Factor in TVL Decline and Protocol Risk
+        if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
+            st.warning(f"⚠️ Investment Risk: Critical (Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}%). Severe risks detected; exit immediately.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
@@ -596,6 +597,5 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
-        # Updated: Use the captured protocol_risk_score
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
