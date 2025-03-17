@@ -175,17 +175,16 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
         message = f"✅ Volatility Score: Low ({final_score:.0f}%). Price movements are unlikely to significantly impact IL or breakeven timing."
     elif final_score <= 50:
         category = "Moderate"
-        message = f"⚠️ Volatility Score: Moderate ({final_score:.0f}%). Price volatility may increase IL and delay breakeven; monitor price movements."
+        message = f"⚠️ Volatility Score: Moderate ({final_score:.0f}%). Price volatility may increase IL and delay breakeven."
     elif final_score <= 75:
         category = "High"
-        message = f"⚠️ Volatility Score: High ({final_score:.0f}%). Significant volatility risks could amplify IL and extend breakeven; consider hedging or adjusting exposure."
+        message = f"⚠️ Volatility Score: High ({final_score:.0f}%). Significant volatility risks could amplify IL and extend breakeven."
     else:
         category = "Critical"
-        message = f"⚠️ Volatility Score: Critical ({final_score:.0f}%). Extreme volatility risks may lead to substantial IL, potentially making breakeven unachievable; reassess your position."
+        message = f"⚠️ Volatility Score: Critical ({final_score:.0f}%). Extreme volatility risks may lead to substantial IL and potentially unachievable breakeven."
     
     return final_score, message
 
-# New Function: Calculate Protocol Risk Score
 def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str]:
     # Base risk score based on APY, TVL decline, and pool size
     base_score = 0
@@ -231,16 +230,16 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     # Determine risk category and message
     if adjusted_score <= 25 or trust_score == 5:
         category = "Low"
-        message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). High yield, stable TVL, large pool size, or excellent trust score suggest minimal risk of protocol failure."
+        message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk of protocol failure due to high yield, stable TVL, large pool size, or excellent trust score."
     elif adjusted_score <= 50 or (current_tvl <= 200000 and trust_score >= 3):
         category = "Advisory"
-        message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Small pool size, moderate yield/TVL decline, or unknown trust score suggest potential protocol risk; verify audits and team."
+        message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to small pool size, moderate yield/TVL decline, or unknown trust score."
     elif adjusted_score <= 75 or (apy < 10 and trust_score <= 3):
         category = "High"
-        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Low yield, significant TVL decline, small pool size, or low trust score indicate elevated risk of protocol failure; proceed with caution."
+        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Elevated risk of protocol failure due to low yield, significant TVL decline, small pool size, or low trust score."
     else:
         category = "Critical"
-        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). Very low yield, major TVL decline, tiny pool size, and unknown/poor trust score suggest high risk of protocol failure; avoid or exit immediately."
+        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to very low yield, major TVL decline, tiny pool size, and unknown/poor trust score."
     
     return adjusted_score, message
 
@@ -299,48 +298,53 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     if pool_share < 5:
-        st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Safe to enter/exit in a $300K+ pool.")
+        st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
     elif 5 <= pool_share < 10:
-        st.warning(f"⚠️ Pool Share Risk: Moderate ({pool_share:.2f}%). Monitor closely, exit may impact prices.")
+        st.warning(f"⚠️ Pool Share Risk: Moderate ({pool_share:.2f}%). Potential for price impact due to moderate pool share.")
     elif 10 <= pool_share < 20:
-        st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Reduce exposure, exit may impact prices.")
+        st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
     else:
-        st.warning(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). Exit immediately to avoid severe impact.")
+        st.error(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
 
     if initial_tvl > 0:
         if tvl_decline >= 50:
-            st.warning(f"⚠️ TVL Decline Risk: Critical ({tvl_decline:.2f}% decline). Exit immediately to avoid total loss.")
+            st.error(f"⚠️ TVL Decline Risk: Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
         elif tvl_decline >= 30:
-            st.warning(f"⚠️ TVL Decline Risk: High ({tvl_decline:.2f}% decline). Reduce exposure or exit.")
+            st.warning(f"⚠️ TVL Decline Risk: High ({tvl_decline:.2f}% decline). Elevated risk due to significant TVL reduction.")
         elif tvl_decline >= 15:
-            st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Monitor closely, consider withdrawal.")
+            st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
         else:
-            st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable.")
+            st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
     
-    # New: Protocol Risk Alert
+    # Protocol Risk Alert
     protocol_risk_score, protocol_risk_message = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
-    st.write(protocol_risk_message)
+    if "Critical" in protocol_risk_message:
+        st.error(protocol_risk_message)
+    elif "High" in protocol_risk_message or "Advisory" in protocol_risk_message:
+        st.warning(protocol_risk_message)
+    else:
+        st.success(protocol_risk_message)
 
     if initial_tvl > 0:
-        # Updated Investment Risk Logic: Factor in TVL Decline and Protocol Risk
+        # Investment Risk Logic: Factor in TVL Decline and Protocol Risk
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
-            st.warning(f"⚠️ Investment Risk: Critical (Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}%). Severe risks detected; exit immediately.")
+            st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         elif apy < apy_exit_threshold or net_return < 1.1:
-            st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
+            st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%) or marginal profit (Net Return {net_return:.2f}x) indicates potential underperformance.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         else:
-            st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
+            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
     else:
         if net_return < 1.0:
-            st.warning(f"⚠️ Investment Risk: Critical (Net Return < 1.0x). You're losing money, consider exiting.")
+            st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x indicates a loss.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         elif apy < apy_exit_threshold or net_return < 1.1:
-            st.warning(f"⚠️ Investment Risk: Moderate (APY below threshold or marginal profit). Consider exiting or monitoring closely.")
+            st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%) or marginal profit (Net Return {net_return:.2f}x) indicates potential underperformance.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
         else:
-            st.success(f"✅ Investment Risk: Low (Net Return {net_return:.2f}x). Still in profit, no exit needed.")
+            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
 
 # Streamlit App
@@ -579,7 +583,12 @@ if st.sidebar.button("Calculate"):
         
         # Volatility Score
         volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
-        st.write(volatility_message)
+        if "Critical" in volatility_message:
+            st.error(volatility_message)
+        elif "High" in volatility_message or "Moderate" in volatility_message:
+            st.warning(volatility_message)
+        else:
+            st.success(volatility_message)
         
         # Export Results
         output = StringIO()
