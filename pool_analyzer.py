@@ -219,19 +219,60 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     # Cap adjusted score at 100
     adjusted_score = min(adjusted_score, 100)
     
-    # Determine risk category and message based solely on adjusted_score
-    if adjusted_score <= 25 or trust_score == 5:
-        category = "Low"
-        message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk of protocol failure due to high yield, stable TVL, large pool size, or excellent trust score."
-    elif adjusted_score <= 50:
-        category = "Advisory"
-        message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to small pool size, moderate yield/TVL decline, or unknown trust score."
-    elif adjusted_score <= 75:
-        category = "High"
-        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Elevated risk of protocol failure due to low yield, significant TVL decline, small pool size, or low trust score."
-    else:
+    # Determine risk factors for the message
+    risk_factors = []
+    if apy < 10:
+        risk_factors.append("low yield")
+    elif apy <= 15:
+        risk_factors.append("moderate yield")
+    if tvl_decline > 50:
+        risk_factors.append("major TVL decline")
+    elif tvl_decline > 30:
+        risk_factors.append("significant TVL decline")
+    elif tvl_decline > 15:
+        risk_factors.append("moderate TVL decline")
+    if current_tvl < 50000:
+        risk_factors.append("tiny pool size")
+    elif current_tvl <= 200000:
+        risk_factors.append("small pool size")
+    
+    # Determine risk category with Trust Score override
+    category = None
+    if adjusted_score > 75:
         category = "Critical"
-        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to very low yield, major TVL decline, tiny pool size, and unknown/poor trust score."
+    elif adjusted_score > 50:
+        category = "High"
+    elif trust_score in [1, 2]:  # Trust Score 1 or 2 triggers Advisory as minimum
+        category = "Advisory"
+    elif adjusted_score > 25:
+        category = "Advisory"
+    else:
+        category = "Low"
+
+    # Construct the message based on category and risk factors
+    if category == "Low" or trust_score == 5:
+        message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk of protocol failure due to high yield, stable TVL, large pool size, or excellent trust score."
+    elif category == "Advisory":
+        if not risk_factors and trust_score in [1, 2]:
+            message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to low trust score."
+        else:
+            risk_message = " and ".join(risk_factors)
+            message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to {risk_message}"
+            if trust_score in [1, 2]:
+                message += " and low trust score"
+            message += "."
+    elif category == "High":
+        risk_message = " and ".join(risk_factors)
+        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Elevated risk of protocol failure due to {risk_message}"
+        if trust_score in [1, 2]:
+            message += " and low trust score"
+        message += "."
+    else:  # Critical
+        risk_message = " and ".join(risk_factors)
+        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to {risk_message}"
+        if trust_score in [1, 2]:
+            message += " and low trust score"
+        message += "."
     
     return adjusted_score, message, category
 
@@ -295,7 +336,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     elif 10 <= pool_share < 20:
         st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
     else:
-        st.error(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
+        st.error(f"⚠️ Protocol Risk: Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
 
     if initial_tvl > 0:
         if tvl_decline >= 50:
