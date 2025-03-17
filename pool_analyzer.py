@@ -185,10 +185,70 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
     
     return final_score, message
 
+# New Function: Calculate Protocol Risk Score
+def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str]:
+    # Base risk score based on APY, TVL decline, and pool size
+    base_score = 0
+    
+    # APY contribution
+    if apy < 10:
+        base_score += 40
+    elif apy <= 15:
+        base_score += 20
+    
+    # TVL decline contribution
+    if tvl_decline > 50:
+        base_score += 40
+    elif tvl_decline > 30:
+        base_score += 30
+    elif tvl_decline > 15:
+        base_score += 15
+    
+    # Pool size contribution
+    if current_tvl < 50000:
+        base_score += 40
+    elif current_tvl <= 200000:
+        base_score += 20
+    
+    # Cap base score at 100
+    base_score = min(base_score, 100)
+    
+    # Adjust base score with Trust Score multiplier
+    if trust_score == 1:  # Unknown
+        adjusted_score = base_score * 1.5
+    elif trust_score == 2:  # Poor
+        adjusted_score = base_score * 1.25
+    elif trust_score == 3:  # Moderate
+        adjusted_score = base_score * 1.0
+    elif trust_score == 4:  # Good
+        adjusted_score = base_score * 0.75
+    else:  # Excellent (5)
+        adjusted_score = base_score * 0.5
+    
+    # Cap adjusted score at 100
+    adjusted_score = min(adjusted_score, 100)
+    
+    # Determine risk category and message
+    if adjusted_score <= 25 or trust_score == 5:
+        category = "Low"
+        message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). High yield, stable TVL, large pool size, or excellent trust score suggest minimal risk of protocol failure."
+    elif adjusted_score <= 50 or (current_tvl <= 200000 and trust_score >= 3):
+        category = "Advisory"
+        message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Small pool size, moderate yield/TVL decline, or unknown trust score suggest potential protocol risk; verify audits and team."
+    elif adjusted_score <= 75 or (apy < 10 and trust_score <= 3):
+        category = "High"
+        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Low yield, significant TVL decline, small pool size, or low trust score indicate elevated risk of protocol failure; proceed with caution."
+    else:
+        category = "Critical"
+        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). Very low yield, major TVL decline, tiny pool size, and unknown/poor trust score suggest high risk of protocol failure; avoid or exit immediately."
+    
+    return adjusted_score, message
+
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-                         current_tvl: float, risk_free_rate: float, months: int = 12, expected_price_change_asset1: float = 0.0,
-                         expected_price_change_asset2: float = 0.0, is_new_pool: bool = False, btc_growth_rate: float = 0.0):
+                         current_tvl: float, risk_free_rate: float, trust_score: int, months: int = 12, 
+                         expected_price_change_asset1: float = 0.0, expected_price_change_asset2: float = 0.0, 
+                         is_new_pool: bool = False, btc_growth_rate: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
     
@@ -256,6 +316,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Monitor closely, consider withdrawal.")
         else:
             st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable.")
+    
+    # New: Protocol Risk Alert
+    protocol_risk_score, protocol_risk_message = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
+    st.write(protocol_risk_message)
 
     if initial_tvl > 0:
         if net_return < 1.0:
@@ -324,7 +388,7 @@ is_new_pool = (pool_status == "New Pool")
 # Conditionally display price inputs based on pool status
 if is_new_pool:
     current_price_asset1 = st.sidebar.number_input("Asset 1 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
-    current_price_asset2 = st.sidebar.number_input("Asset 2 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+ current_price_asset2 = st.sidebar.number_input("Asset 2 Price (Entry, Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
@@ -334,6 +398,18 @@ else:
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=5.00, format="%.2f")
+
+# New: Protocol Trust Score Input
+trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
+st.sidebar.markdown("""
+**Note:** Protocol Trust Score reflects your trust in the protocol's reliability:
+- 1 = Unknown (default, highest caution)
+- 2 = Poor (known but with concerns)
+- 3 = Moderate (neutral, some audits)
+- 4 = Good (trusted, audited)
+- 5 = Excellent (top-tier, e.g., Uniswap, Aave)
+""")
+
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
                                      min_value=0.01, step=0.01, value=855000.00, format="%.2f")
@@ -361,7 +437,7 @@ if st.sidebar.button("Calculate"):
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, risk_free_rate, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
+            current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
         
         # Projected Pool Value
@@ -520,4 +596,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
+        # New: Add Protocol Risk Score to export
+        writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
