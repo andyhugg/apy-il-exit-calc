@@ -489,4 +489,55 @@ if st.sidebar.button("Calculate"):
         pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
         formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
-        formatted_b
+        formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
+        df_risk_scenarios_projected = pd.DataFrame({
+            "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
+            "Pool Value ($)": formatted_pool_mdd_projected,
+            "BTC Value ($)": formatted_btc_mdd_projected
+        })
+        styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Scenario"])
+        st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
+
+        # Original Breakeven Analysis
+        st.subheader("Breakeven Analysis")
+        df_breakeven = pd.DataFrame({
+            "Metric": ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"],
+            "Value": [break_even_months, break_even_months_with_price]
+        })
+        styled_df_breakeven = df_breakeven.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Value"]).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Metric"])
+        st.dataframe(styled_df_breakeven, hide_index=True, use_container_width=True)
+        st.write("**Note:** 'Months to Breakeven Against IL' reflects only the recovery of impermanent loss with APY, while 'Months to Breakeven Including Expected Price Changes' accounts for the initial pool value after IL and price changes. The target is to recover the difference between your initial investment and this adjusted value, which may extend the breakeven period significantly if IL is high.")
+        
+        volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
+        if "Critical" in volatility_message:
+            st.error(volatility_message)
+        elif "High" in volatility_message or "Moderate" in volatility_message:
+            st.warning(volatility_message)
+        else:
+            st.success(volatility_message)
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Metric", "Value"])
+        if is_new_pool:
+            writer.writerow(["Initial Impermanent Loss (%)", "0.00"])
+            writer.writerow(["Projected Impermanent Loss (after 12 months) (%)", f"{future_il:.2f}"])
+        else:
+            writer.writerow(["Impermanent Loss (at current time) (%)", f"{il:.2f}"])
+        writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
+        writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
+        writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
+        writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
+        writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
+        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
+        writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
+        writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
+        st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
