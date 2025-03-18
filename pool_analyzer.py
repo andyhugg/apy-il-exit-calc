@@ -265,6 +265,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months}")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price}")
+        st.write(f"**Volatility Score:** {volatility_message}")
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     if pool_share < 5:
         st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
@@ -388,15 +391,12 @@ st.sidebar.markdown("""
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
-        st.write(f"Debug IL: {il}%")  # Debug statement
-        break_even_simple = calculate_break_even_months(apy, il)
-        st.write(f"Debug Breakeven Months (Simple): {break_even_simple}")  # Debug statement
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
-        st.write(f"Debug Breakeven Months (Returned): {break_even_months}")  # Debug statement
+        volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
         
         # Original Visualization Section
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
@@ -519,14 +519,6 @@ if st.sidebar.button("Calculate"):
         }, subset=["Metric"])
         st.dataframe(styled_df_breakeven, hide_index=True, use_container_width=True)
         st.write("**Note:** 'Months to Breakeven Against IL' reflects only the recovery of impermanent loss with APY, while 'Months to Breakeven Including Expected Price Changes' accounts for the initial pool value after IL and price changes. The target is to recover the difference between your initial investment and this adjusted value, which may extend the breakeven period significantly if IL is high.")
-        
-        volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
-        if "Critical" in volatility_message:
-            st.error(volatility_message)
-        elif "High" in volatility_message or "Moderate" in volatility_message:
-            st.warning(volatility_message)
-        else:
-            st.success(volatility_message)
         
         output = StringIO()
         writer = csv.writer(output)
