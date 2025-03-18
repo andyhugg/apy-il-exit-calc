@@ -111,29 +111,38 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
         return float('inf')
 
     monthly_apy = (apy / 100) / 12
+    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
+    monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
     months = 0
+    current_value = pool_value
 
-    if is_new_pool:
-        initial_adjusted_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100))
-        initial_adjusted_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100))
-        initial_pool_value, _ = calculate_pool_value(initial_investment, current_price_asset1, current_price_asset2,
-                                                    initial_adjusted_price_asset1, initial_adjusted_price_asset2)
+    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={pool_value}, initial_investment={initial_investment}")
+
+    # If pool value is already above investment, check if it holds with future price changes
+    if pool_value >= initial_investment:
+        # Simulate future value to ensure it doesn't drop below investment due to price changes
+        while months < 1000:
+            months += 1
+            final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
+            final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
+            new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                                   final_price_asset1, final_price_asset2)
+            current_value = pool_value * (1 + monthly_apy) ** months + (new_pool_value - pool_value)
+            print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
+            if current_value < initial_investment:
+                return round(months - 1, 2) if months > 1 else 0
+        return 0 if months >= 1000 else 0
     else:
-        initial_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                                    current_price_asset1, current_price_asset2)
-
-    loss_to_recover = initial_investment - initial_pool_value
-    current_value = initial_pool_value
-    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={initial_pool_value}, loss_to_recover={loss_to_recover}")
-    
-    while current_value < initial_investment and months < 1000:
-        months += 1
-        current_value, _ = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
-                                                 current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                                 expected_price_change_asset2, is_new_pool)
-        print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
-    
-    return round(months, 2) if months < 1000 else float('inf')
+        # If pool value is below investment, calculate months to recover
+        while current_value < initial_investment and months < 1000:
+            months += 1
+            final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
+            final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
+            new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                                   final_price_asset1, final_price_asset2)
+            current_value = pool_value * (1 + monthly_apy) ** months + (new_pool_value - pool_value)
+            print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
+        return round(months, 2) if months < 1000 else float('inf')
 
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
@@ -424,12 +433,12 @@ if is_new_pool:
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
-    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=100.00, format="%.2f")
+    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=88000.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=125000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=5.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
 st.sidebar.markdown("""
@@ -446,7 +455,7 @@ initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if enteri
                                      min_value=0.01, step=0.01, value=855000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=100000.00, format="%.2f")
 
-expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=100.0, format="%.2f")
+expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
