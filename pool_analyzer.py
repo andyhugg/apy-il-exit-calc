@@ -236,7 +236,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                                                         expected_price_change_asset2, is_new_pool)
     total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
     apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)
-    volatility_score, _ = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
+    volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
     apy_exit_threshold = max(apy_exit_threshold, risk_free_rate)
     if volatility_score > 75 or il > 50 or future_il > 50:
         apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
@@ -396,7 +396,6 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
-        volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
         
         # Original Visualization Section
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
