@@ -314,52 +314,92 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
 
-# Custom CSS for black background
+# Custom CSS for adjusted styling
 st.markdown(
     """
     <style>
-    /* Set the background of the entire app to black */
+    /* Set the background of the main app to a lighter dark gray */
     .stApp {
-        background-color: #000000;
-        color: #ffffff; /* Ensure text is readable in white */
+        background-color: #2E2E2E; /* Lighter dark gray for better contrast */
+        color: #ffffff; /* White text for readability */
     }
-    /* Ensure sidebar background matches */
+    /* Style the sidebar with a dark background and white text */
     div[data-testid="stSidebar"] {
-        background-color: #000000;
+        background-color: #1a1a1a; /* Dark sidebar background */
+        color: #ffffff; /* White text for readability */
     }
-    /* Style sidebar select box (keep existing styling) */
+    /* Ensure sidebar labels and inputs are readable */
+    div[data-testid="stSidebar"] label {
+        color: #ffffff !important; /* Force white text for labels */
+    }
+    div[data-testid="stSidebar"] input {
+        color: #ffffff !important; /* White text for input fields */
+        background-color: #333333; /* Darker input background */
+    }
+    /* Style sidebar select box */
     div[data-testid="stSidebar"] select {
-        background-color: #1a1a1a;
+        background-color: #333333;
         color: #ffffff;
     }
     div[data-testid="stSidebar"] select option {
-        background-color: #1a1a1a;
+        background-color: #333333;
         color: #ffffff;
     }
     div[data-testid="stSidebar"] select option:checked {
-        background-color: #333333;
+        background-color: #555555;
         color: #ffffff;
     }
     div[data-testid="stSidebar"] select option:hover {
         background-color: #444444;
         color: #ffffff;
     }
+    /* Style the Calculate button to ensure visibility */
+    div[data-testid="stSidebar"] button {
+        background-color: #4CAF50; /* Green background for the button */
+        color: #ffffff; /* White text */
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    div[data-testid="stSidebar"] button:hover {
+        background-color: #45a049; /* Slightly darker green on hover */
+    }
     /* Ensure table headers and data are readable */
     .stDataFrame {
-        background-color: #000000;
+        background-color: #2E2E2E;
         color: #ffffff;
     }
     .stDataFrame th {
-        background-color: #1a1a1a;
+        background-color: #3E3E3E; /* Slightly lighter gray for headers */
         color: #ffffff;
     }
     .stDataFrame td {
-        background-color: #000000;
+        background-color: #2E2E2E;
         color: #ffffff;
     }
-    /* Ensure Matplotlib plots have a dark theme */
+    /* Style alerts to stand out */
+    .stAlert {
+        border-radius: 5px;
+    }
+    /* Success alert (green) */
+    div[data-testid="stAlert"][class*="success"] {
+        background-color: #1a3c34 !important; /* Darker green for success */
+        color: #ffffff !important;
+    }
+    /* Warning alert (yellow/orange) */
+    div[data-testid="stAlert"][class*="warning"] {
+        background-color: #4a2c00 !important; /* Darker orange for warning */
+        color: #ffffff !important;
+    }
+    /* Error alert (red) */
+    div[data-testid="stAlert"][class*="error"] {
+        background-color: #3c1a1a !important; /* Darker red for error */
+        color: #ffffff !important;
+    }
+    /* Matplotlib plot styling */
     .matplotlib-container {
-        background-color: #000000;
+        background-color: #2E2E2E;
     }
     </style>
     """,
@@ -458,8 +498,8 @@ if st.sidebar.button("Calculate"):
         plt.xlabel("Months", color='white')
         plt.ylabel("Value ($)", color='white')
         plt.legend()
-        plt.gca().set_facecolor('#000000')
-        plt.gcf().set_facecolor('#000000')
+        plt.gca().set_facecolor('#2E2E2E')
+        plt.gcf().set_facecolor('#2E2E2E')
         st.pyplot(plt)
 
         # Original BTC Comparison Section
