@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from io import StringIO
 import csv
 
-# Original Functions (Unchanged)
+# Original Functions (Unchanged except where noted)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
@@ -63,7 +63,7 @@ def calculate_break_even_months(apy: float, il: float) -> float:
         return float('inf')
     monthly_apy = (apy / 100) / 12
     il_decimal = il / 100
-    if il_decimal <= 0.01:
+    if il_decimal <= 0:  # Changed from 0.01 to 0 to avoid premature exit for small positive IL
         return 0
     months = 0
     value = 1.0
@@ -350,12 +350,12 @@ if is_new_pool:
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
-    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=880000.00, format="%.2f")
+    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=88000.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=1250000.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=125000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=3.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=3)
 st.sidebar.markdown("""
@@ -372,7 +372,7 @@ initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if enteri
                                      min_value=0.01, step=0.01, value=880000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=777600.00, format="%.2f")
 
-expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=100.0, format="%.2f")
+expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
@@ -388,11 +388,15 @@ st.sidebar.markdown("""
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
+        st.write(f"Debug IL: {il}%")  # Debug statement
+        break_even_simple = calculate_break_even_months(apy, il)
+        st.write(f"Debug Breakeven Months (Simple): {break_even_simple}")  # Debug statement
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
+        st.write(f"Debug Breakeven Months (Returned): {break_even_months}")  # Debug statement
         
         # Original Visualization Section
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
