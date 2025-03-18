@@ -5,33 +5,24 @@ import matplotlib.pyplot as plt
 from io import StringIO
 import csv
 
-# Pool Profit and Risk Analyzer
+# Original Functions (Unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
-    
     initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
     initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
-    
     value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
-    print(f"Debug - calculate_il: value_if_held={value_if_held}")
-    
     pool_value = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(initial_price_asset1 * initial_price_asset2)
-    print(f"Debug - calculate_il: pool_value={pool_value}")
-    
     il = (value_if_held - pool_value) / value_if_held if value_if_held > 0 else 0
     il_percentage = abs(il) * 100
-    print(f"Debug - calculate_il: initial_price_asset1={initial_price_asset1}, initial_price_asset2={initial_price_asset2}, current_price_asset1={current_price_asset1}, current_price_asset2={current_price_asset2}, initial_investment={initial_investment}, il_percentage={il_percentage}")
     return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> tuple[float, float]:
     initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
     initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
-    
     value_if_held = (initial_amount_asset1 * current_price_asset1) + (initial_amount_asset2 * current_price_asset2)
     pool_value = initial_investment * np.sqrt(current_price_asset1 * current_price_asset2) / np.sqrt(initial_price_asset1 * initial_price_asset2)
-    
     il_impact = (value_if_held - pool_value) / value_if_held * 100 if value_if_held > 0 else 0
     return pool_value, il_impact
 
@@ -40,11 +31,9 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
                           expected_price_change_asset2: float, is_new_pool: bool = False) -> tuple[float, float]:
     if months < 0:
         return initial_investment, 0.0
-
     monthly_apy = (apy / 100) / 12
     monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
-
     if is_new_pool:
         starting_price_asset1 = current_price_asset1
         starting_price_asset2 = current_price_asset2
@@ -58,48 +47,30 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
                                             current_price_asset1, current_price_asset2)
         starting_price_asset1 = initial_price_asset1
         starting_price_asset2 = initial_price_asset2
-
-    print(f"Debug - calculate_future_value: months={months}, initial_pool_value={pool_value}")
-
     if months == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
-
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
-    print(f"Debug - calculate_future_value: apy_compounded_value={apy_compounded_value}")
-
     final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
     final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
-    print(f"Debug - calculate_future_value: final_price_asset1={final_price_asset1}, final_price_asset2={final_price_asset2}")
-
     new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                            final_price_asset1, final_price_asset2)
-    print(f"Debug - calculate_future_value: new_pool_value={new_pool_value}")
-
     future_il = calculate_il(initial_price_asset1, initial_price_asset2, final_price_asset1, final_price_asset2, initial_investment)
     current_value = apy_compounded_value + (new_pool_value - pool_value)
-    print(f"Debug - calculate_future_value: current_value={current_value}, future_il={future_il}")
-
     return round(current_value, 2), future_il
 
 def calculate_break_even_months(apy: float, il: float) -> float:
     if apy <= 0:
         return float('inf')
-    
     monthly_apy = (apy / 100) / 12
     il_decimal = il / 100
-    
     if il_decimal <= 0.01:
         return 0
-    
     months = 0
     value = 1.0
     target = 1 / (1 - il_decimal)
-    print(f"Debug - calculate_break_even_months: il={il}, target={target}")
-    
     while value < target and months < 1000:
         value *= (1 + monthly_apy)
         months += 1
-    
     return round(months, 2) if months < 1000 else float('inf')
 
 def calculate_break_even_months_with_price_changes(initial_investment: float, apy: float, pool_value: float,
@@ -109,10 +80,8 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   is_new_pool: bool = False) -> float:
     if apy <= 0:
         return float('inf')
-
     monthly_apy = (apy / 100) / 12
     months = 0
-
     if is_new_pool:
         initial_adjusted_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100))
         initial_adjusted_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100))
@@ -121,18 +90,13 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
     else:
         initial_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                                     current_price_asset1, current_price_asset2)
-
     loss_to_recover = initial_investment - initial_pool_value
     current_value = initial_pool_value
-    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={initial_pool_value}, loss_to_recover={loss_to_recover}")
-    
     while current_value < initial_investment and months < 1000:
         months += 1
         current_value, _ = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
                                                  current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                  expected_price_change_asset2, is_new_pool)
-        print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
-    
     return round(months, 2) if months < 1000 else float('inf')
 
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
@@ -144,7 +108,6 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
 def calculate_volatility_score(expected_price_change_asset1: float, expected_price_change_asset2: float, btc_growth_rate: float) -> tuple[float, str]:
     divergence = abs(expected_price_change_asset1 - expected_price_change_asset2)
     asset_volatility = max(abs(expected_price_change_asset1), abs(expected_price_change_asset2))
-    
     def get_score(value):
         if value <= 5:
             return 0
@@ -154,14 +117,11 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
             return 66
         else:
             return 100
-    
     divergence_score = get_score(divergence)
     asset_score = get_score(asset_volatility)
     btc_score = get_score(abs(btc_growth_rate))
-    
     volatility_score = (0.5 * divergence_score) + (0.2 * asset_score) + (0.3 * btc_score)
     final_score = min(volatility_score, max(divergence_score, asset_score, btc_score))
-    
     if final_score <= 25:
         category = "Low"
         message = f"✅ Volatility Score: Low ({final_score:.0f}%). Price movements are unlikely to significantly impact IL or breakeven timing."
@@ -174,52 +134,36 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
     else:
         category = "Critical"
         message = f"⚠️ Volatility Score: Critical ({final_score:.0f}%). Extreme volatility risks may lead to substantial IL and potentially unachievable breakeven."
-    
     return final_score, message
 
 def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str, str]:
-    # Base risk score based on APY, TVL decline, and pool size
     base_score = 0
-    
-    # APY contribution
     if apy < 10:
         base_score += 40
     elif apy <= 15:
         base_score += 20
-    
-    # TVL decline contribution
     if tvl_decline > 50:
         base_score += 40
     elif tvl_decline > 30:
         base_score += 30
     elif tvl_decline > 15:
         base_score += 15
-    
-    # Pool size contribution
     if current_tvl < 50000:
         base_score += 40
     elif current_tvl <= 200000:
         base_score += 20
-    
-    # Cap base score at 100
     base_score = min(base_score, 100)
-    
-    # Adjust base score with Trust Score multiplier
-    if trust_score == 1:  # Unknown
+    if trust_score == 1:
         adjusted_score = base_score * 1.5
-    elif trust_score == 2:  # Poor
+    elif trust_score == 2:
         adjusted_score = base_score * 1.25
-    elif trust_score == 3:  # Moderate
+    elif trust_score == 3:
         adjusted_score = base_score * 0.9
-    elif trust_score == 4:  # Good
+    elif trust_score == 4:
         adjusted_score = base_score * 0.75
-    else:  # Excellent (5)
+    else:
         adjusted_score = base_score * 0.5
-    
-    # Cap adjusted score at 100
     adjusted_score = min(adjusted_score, 100)
-    
-    # Determine risk factors for the message
     risk_factors = []
     if apy < 10:
         risk_factors.append("low yield")
@@ -235,25 +179,19 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
         risk_factors.append("tiny pool size")
     elif current_tvl <= 200000:
         risk_factors.append("small pool size")
-    
-    # Determine risk category with enhanced Trust Score influence
     category = None
     if adjusted_score > 75:
         category = "Critical"
     elif adjusted_score > 50:
         category = "High"
-    elif trust_score in [1, 2]:  # Trust Score 1 or 2 triggers Advisory as minimum
+    elif trust_score in [1, 2]:
         category = "Advisory"
     elif adjusted_score > 25:
         category = "Advisory"
     else:
         category = "Low"
-    
-    # Override to Low for Trust Score 3, 4, or 5 with minimal risks
     if category == "Advisory" and trust_score >= 3 and adjusted_score <= 50 and tvl_decline <= 15 and current_tvl > 200000:
         category = "Low"
-
-    # Construct the message based on category and risk factors
     if category == "Low":
         if trust_score >= 3:
             message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk due to moderate/good/excellent trust score, stable TVL, and adequate yield."
@@ -274,13 +212,12 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
         if trust_score in [1, 2]:
             message += " and low trust score"
         message += "."
-    else:  # Critical
+    else:
         risk_message = " and ".join(risk_factors)
         message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to {risk_message}"
         if trust_score in [1, 2]:
             message += " and low trust score"
         message += "."
-    
     return adjusted_score, message, category
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
@@ -290,31 +227,25 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                          is_new_pool: bool = False, btc_growth_rate: float = 0.0):
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
-    
     future_value, future_il = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
                                                     current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                     expected_price_change_asset2, is_new_pool)
     net_return = future_value / initial_investment if initial_investment > 0 else 0
-    
     future_pool_value_no_apy, _ = calculate_future_value(initial_investment, 0.0, months, initial_price_asset1, initial_price_asset2,
                                                         current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                         expected_price_change_asset2, is_new_pool)
-    
     total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
     apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)
-    
     volatility_score, _ = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
     apy_exit_threshold = max(apy_exit_threshold, risk_free_rate)
     if volatility_score > 75 or il > 50 or future_il > 50:
         apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
-    
     break_even_months = calculate_break_even_months(apy, il)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
         initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
         current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
     )
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
-
     st.subheader("Results:")
     if initial_tvl <= 0:
         if is_new_pool:
@@ -334,7 +265,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
-    
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     if pool_share < 5:
         st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
@@ -344,7 +274,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
     else:
         st.error(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
-
     if initial_tvl > 0:
         if tvl_decline >= 50:
             st.error(f"⚠️ TVL Decline Risk: Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
@@ -354,8 +283,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
         else:
             st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
-    
-    # Protocol Risk Alert
     protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
     if protocol_risk_category == "Critical":
         st.error(protocol_risk_message)
@@ -363,7 +290,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.warning(protocol_risk_message)
     else:
         st.success(protocol_risk_message)
-
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
             st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
@@ -386,32 +312,63 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score
 
 # Streamlit App
-st.title("Pool Profit and Risk Analyzer")
+st.title("DM Pool Profit and Risk Analyzer")
+
+# Custom CSS for black background
+st.markdown(
+    """
+    <style>
+    /* Set the background of the entire app to black */
+    .stApp {
+        background-color: #000000;
+        color: #ffffff; /* Ensure text is readable in white */
+    }
+    /* Ensure sidebar background matches */
+    div[data-testid="stSidebar"] {
+        background-color: #000000;
+    }
+    /* Style sidebar select box (keep existing styling) */
+    div[data-testid="stSidebar"] select {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    div[data-testid="stSidebar"] select option {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    div[data-testid="stSidebar"] select option:checked {
+        background-color: #333333;
+        color: #ffffff;
+    }
+    div[data-testid="stSidebar"] select option:hover {
+        background-color: #444444;
+        color: #ffffff;
+    }
+    /* Ensure table headers and data are readable */
+    .stDataFrame {
+        background-color: #000000;
+        color: #ffffff;
+    }
+    .stDataFrame th {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    .stDataFrame td {
+        background-color: #000000;
+        color: #ffffff;
+    }
+    /* Ensure Matplotlib plots have a dark theme */
+    .matplotlib-container {
+        background-color: #000000;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 st.markdown("""
-Welcome to the Pool Profit and Risk Analyzer! This tool helps you evaluate the profitability and risks of liquidity pools in DeFi. By inputting your pool parameters, you can assess impermanent loss, net returns, and potential drawdowns, empowering you to make informed investment decisions. **Disclaimer:** This tool is for informational purposes only and does not constitute financial advice. Projections are estimates based on the inputs provided and are not guaranteed to reflect actual future outcomes.
+Welcome to the DM Pool Profit and Risk Analyzer! This tool helps you evaluate the profitability and risks of liquidity pools in DeFi. By inputting your pool parameters, you can assess impermanent loss, net returns, and potential drawdowns, empowering you to make informed investment decisions. **Disclaimer:** This tool is for informational purposes only and does not constitute financial advice. Projections are estimates based on the inputs provided and are not guaranteed to reflect actual future outcomes.
 """)
-
-st.markdown("""
-<style>
-div[data-testid="stSidebar"] select {
-    background-color: #1a1a1a;
-    color: #ffffff;
-}
-div[data-testid="stSidebar"] select option {
-    background-color: #1a1a1a;
-    color: #ffffff;
-}
-div[data-testid="stSidebar"] select option:checked {
-    background-color: #333333;
-    color: #ffffff;
-}
-div[data-testid="stSidebar"] select option:hover {
-    background-color: #444444;
-    color: #ffffff;
-}
-</style>
-""", unsafe_allow_html=True)
 
 st.sidebar.header("Set Your Pool Parameters")
 
@@ -424,14 +381,14 @@ if is_new_pool:
     initial_price_asset1 = current_price_asset1
     initial_price_asset2 = current_price_asset2
 else:
-    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=100.00, format="%.2f")
+    initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=880000.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=1250000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=5.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=3.00, format="%.2f")
 
-trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
+trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=3)
 st.sidebar.markdown("""
 **Note:** Protocol Trust Score reflects your trust in the protocol's reliability:
 - 1 = Unknown (default, highest caution)
@@ -443,8 +400,8 @@ st.sidebar.markdown("""
 
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
-                                     min_value=0.01, step=0.01, value=855000.00, format="%.2f")
-current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=100000.00, format="%.2f")
+                                     min_value=0.01, step=0.01, value=880000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=777600.00, format="%.2f")
 
 expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=100.0, format="%.2f")
 expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
@@ -468,6 +425,7 @@ if st.sidebar.button("Calculate"):
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
         
+        # Original Visualization Section
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
         time_periods = [0, 3, 6, 12]
@@ -479,7 +437,6 @@ if st.sidebar.button("Calculate"):
                                                       expected_price_change_asset2, is_new_pool)
             future_values.append(value)
             future_ils.append(il_at_time)
-        
         formatted_pool_values = [f"{int(value):,}" for value in future_values]
         formatted_ils = [f"{il:.2f}%" for il in future_ils]
         df_projection = pd.DataFrame({
@@ -493,43 +450,41 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, hide_index=True, use_container_width=True)
-        
+
         plt.figure(figsize=(10, 5))
-        plt.plot(time_periods, future_values, marker='o', label="Pool Value")
-        plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
-        plt.title("Projected Pool Value Over Time")
-        plt.xlabel("Months")
-        plt.ylabel("Value ($)")
+        plt.plot(time_periods, future_values, marker='o', label="Pool Value", color='white')
+        plt.axhline(y=investment_amount, color='red', linestyle='--', label="Initial Investment")
+        plt.title("Projected Pool Value Over Time", color='white')
+        plt.xlabel("Months", color='white')
+        plt.ylabel("Value ($)", color='white')
         plt.legend()
+        plt.gca().set_facecolor('#000000')
+        plt.gcf().set_facecolor('#000000')
         st.pyplot(plt)
 
+        # Original BTC Comparison Section
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
         asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
         asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
         asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
         asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
         st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
-        
         projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
-        
         if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
             initial_btc_amount = investment_amount / current_btc_price
             btc_value_12_months = initial_btc_amount * projected_btc_price
         else:
             initial_btc_amount = investment_amount / initial_btc_price
             btc_value_12_months = initial_btc_amount * projected_btc_price
-        
         pool_value_12_months = future_values[-1]
         difference = pool_value_12_months - btc_value_12_months
         pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
         btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
-        
         formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
         formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
         formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
         formatted_pool_return = f"{pool_return_pct:.2f}%"
         formatted_btc_return = f"{btc_return_pct:.2f}%"
-        
         df_btc_comparison = pd.DataFrame({
             "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
             "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
@@ -538,20 +493,18 @@ if st.sidebar.button("Calculate"):
             'text-align': 'right'
         }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
         st.dataframe(styled_df_btc, hide_index=True, use_container_width=True)
-        
+
+        # Original MDD Sections
         st.subheader("Maximum Drawdown Risk Scenarios")
         mdd_scenarios = [10, 30, 65, 100]
         btc_mdd_scenarios = [10, 30, 65, 90]
-
         st.subheader("MDD from Initial Investment")
         st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
         pool_mdd_values_initial = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
         initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
         btc_mdd_values_initial = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
-
         formatted_pool_mdd_initial = [f"{int(value):,}" for value in pool_mdd_values_initial]
         formatted_btc_mdd_initial = [f"{int(value):,}" for value in btc_mdd_values_initial]
-
         df_risk_scenarios_initial = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
             "Pool Value ($)": formatted_pool_mdd_initial,
@@ -568,10 +521,8 @@ if st.sidebar.button("Calculate"):
         st.write(f"**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., {expected_price_change_asset1}% appreciation of Asset 1, {expected_price_change_asset2}% change for Asset 2) and {apy}% APY for the pool, and {btc_growth_rate}% growth for BTC.")
         pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
-
         formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
         formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
-
         df_risk_scenarios_projected = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
             "Pool Value ($)": formatted_pool_mdd_projected,
@@ -584,6 +535,7 @@ if st.sidebar.button("Calculate"):
         }, subset=["Scenario"])
         st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
 
+        # Original Breakeven Analysis
         st.subheader("Breakeven Analysis")
         df_breakeven = pd.DataFrame({
             "Metric": ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"],
