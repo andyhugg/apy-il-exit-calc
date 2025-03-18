@@ -81,23 +81,16 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
 
     return round(current_value, 2), future_il
 
-def calculate_break_even_months(apy: float, il: float) -> float:
-    if apy <= 0:
-        return float('inf')
-    
-    monthly_apy = (apy / 100) / 12
-    il_decimal = il / 100
-    
-    if il_decimal <= 0.01:
+def calculate_break_even_months(apy: float, il: float, initial_pool_value: float, target_value: float) -> float:
+    if apy <= 0 or initial_pool_value <= 0 or target_value <= initial_pool_value:
         return 0
     
+    monthly_apy = (apy / 100) / 12
     months = 0
-    value = 1.0
-    target = 1 / (1 - il_decimal)
-    print(f"Debug - calculate_break_even_months: il={il}, target={target}")
+    current_value = initial_pool_value
     
-    while value < target and months < 1000:
-        value *= (1 + monthly_apy)
+    while current_value < target_value and months < 1000:
+        current_value *= (1 + monthly_apy)
         months += 1
     
     return round(months, 2) if months < 1000 else float('inf')
@@ -116,33 +109,19 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
     months = 0
     current_value = pool_value
 
-    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={pool_value}, initial_investment={initial_investment}")
+    target_value = initial_investment  # Target to recover initial investment
+    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={pool_value}, target_value={target_value}")
 
-    # If pool value is already above investment, check if it holds with future price changes
-    if pool_value >= initial_investment:
-        # Simulate future value to ensure it doesn't drop below investment due to price changes
-        while months < 1000:
-            months += 1
-            final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
-            final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
-            new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                                   final_price_asset1, final_price_asset2)
-            current_value = pool_value * (1 + monthly_apy) ** months + (new_pool_value - pool_value)
-            print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
-            if current_value < initial_investment:
-                return round(months - 1, 2) if months > 1 else 0
-        return 0 if months >= 1000 else 0
-    else:
-        # If pool value is below investment, calculate months to recover
-        while current_value < initial_investment and months < 1000:
-            months += 1
-            final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
-            final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
-            new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                                   final_price_asset1, final_price_asset2)
-            current_value = pool_value * (1 + monthly_apy) ** months + (new_pool_value - pool_value)
-            print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
-        return round(months, 2) if months < 1000 else float('inf')
+    while current_value < target_value and months < 1000:
+        months += 1
+        final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
+        final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
+        new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+                                               final_price_asset1, final_price_asset2)
+        current_value = pool_value * (1 + monthly_apy) ** months + (new_pool_value - pool_value)
+        print(f"Debug - calculate_break_even_months_with_price_changes: months={months}, current_value={current_value}")
+
+    return round(months, 2) if months < 1000 else float('inf')
 
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
@@ -317,7 +296,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if volatility_score > 75 or il > 50 or future_il > 50:
         apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
     
-    break_even_months = calculate_break_even_months(apy, il)
+    break_even_months = calculate_break_even_months(apy, il, pool_value, initial_investment)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
         initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
         current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
@@ -331,6 +310,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
         else:
             st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
@@ -340,6 +321,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
         else:
             st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
         st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
@@ -453,7 +436,7 @@ st.sidebar.markdown("""
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
                                      min_value=0.01, step=0.01, value=855000.00, format="%.2f")
-current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=100000.00, format="%.2f")
+current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1000000.00, format="%.2f")
 
 expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
@@ -471,11 +454,17 @@ st.sidebar.markdown("""
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
+        pool_value, _ = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score = check_exit_conditions(
+        break_even_months = calculate_break_even_months(apy, il, pool_value, investment_amount)
+        break_even_months_with_price = calculate_break_even_months_with_price_changes(
+            investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
+            current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
+        )
+        net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
-        )
+        )[:6]  # Adjusted return to exclude unnecessary values
         
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
@@ -622,12 +611,12 @@ if st.sidebar.button("Calculate"):
             writer.writerow(["Projected Impermanent Loss (after 12 months) (%)", f"{future_il:.2f}"])
         else:
             writer.writerow(["Impermanent Loss (at current time) (%)", f"{il:.2f}"])
+        writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
+        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
         writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
         writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
-        writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
-        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
