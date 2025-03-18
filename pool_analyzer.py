@@ -81,15 +81,15 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
 
     return round(current_value, 2), future_il
 
-def calculate_break_even_months(apy: float, il: float, initial_pool_value: float, target_value: float) -> float:
-    if apy <= 0 or initial_pool_value <= 0 or target_value <= initial_pool_value:
+def calculate_break_even_months(apy: float, il: float, initial_pool_value: float, value_if_held: float) -> float:
+    if apy <= 0 or initial_pool_value <= 0 or value_if_held <= initial_pool_value:
         return 0
     
     monthly_apy = (apy / 100) / 12
     months = 0
     current_value = initial_pool_value
     
-    while current_value < target_value and months < 1000:
+    while current_value < value_if_held and months < 1000:
         current_value *= (1 + monthly_apy)
         months += 1
     
@@ -99,7 +99,7 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   initial_price_asset1: float, initial_price_asset2: float,
                                                   current_price_asset1: float, current_price_asset2: float,
                                                   expected_price_change_asset1: float, expected_price_change_asset2: float,
-                                                  is_new_pool: bool = False) -> float:
+                                                  value_if_held: float, is_new_pool: bool = False) -> float:
     if apy <= 0:
         return float('inf')
 
@@ -109,10 +109,9 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
     months = 0
     current_value = pool_value
 
-    target_value = initial_investment  # Target to recover initial investment
-    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={pool_value}, target_value={target_value}")
+    print(f"Debug - calculate_break_even_months_with_price_changes: initial_pool_value={pool_value}, value_if_held={value_if_held}")
 
-    while current_value < target_value and months < 1000:
+    while current_value < value_if_held and months < 1000:
         months += 1
         final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
         final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
@@ -276,8 +275,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                          current_tvl: float, risk_free_rate: float, trust_score: int, months: int = 12, 
                          expected_price_change_asset1: float = 0.0, expected_price_change_asset2: float = 0.0, 
                          is_new_pool: bool = False, btc_growth_rate: float = 0.0):
-    pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
+    pool_value, il_impact = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                        current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
+    value_if_held = (initial_investment / 2 / initial_price_asset1 * current_price_asset1) + (initial_investment / 2 / initial_price_asset2 * current_price_asset2)
     
     future_value, future_il = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
                                                     current_price_asset1, current_price_asset2, expected_price_change_asset1,
@@ -296,10 +296,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if volatility_score > 75 or il > 50 or future_il > 50:
         apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
     
-    break_even_months = calculate_break_even_months(apy, il, pool_value, initial_investment)
+    break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
         initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
-        current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
+        current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
     )
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
 
@@ -454,12 +454,13 @@ st.sidebar.markdown("""
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
-        pool_value, _ = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        value_if_held = (investment_amount / 2 / initial_price_asset1 * current_price_asset1) + (investment_amount / 2 / initial_price_asset2 * current_price_asset2)
         tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months = calculate_break_even_months(apy, il, pool_value, investment_amount)
+        break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
         break_even_months_with_price = calculate_break_even_months_with_price_changes(
             investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
-            current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
+            current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
         )
         net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
