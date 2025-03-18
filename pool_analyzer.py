@@ -314,101 +314,30 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 # Streamlit App
 st.title("DM Pool Profit and Risk Analyzer")
 
-# Custom CSS for adjusted styling
-st.markdown(
-    """
-    <style>
-    /* Set the background of the main app to a lighter dark gray */
-    .stApp {
-        background-color: #2E2E2E; /* Lighter dark gray for better contrast */
-        color: #ffffff; /* White text for readability */
-    }
-    /* Style the sidebar with a dark background and white text */
-    div[data-testid="stSidebar"] {
-        background-color: #1a1a1a; /* Dark sidebar background */
-        color: #ffffff; /* White text for readability */
-    }
-    /* Ensure sidebar labels and inputs are readable */
-    div[data-testid="stSidebar"] label {
-        color: #ffffff !important; /* Force white text for labels */
-    }
-    div[data-testid="stSidebar"] input {
-        color: #ffffff !important; /* White text for input fields */
-        background-color: #333333; /* Darker input background */
-    }
-    /* Style sidebar select box */
-    div[data-testid="stSidebar"] select {
-        background-color: #333333;
-        color: #ffffff;
-    }
-    div[data-testid="stSidebar"] select option {
-        background-color: #333333;
-        color: #ffffff;
-    }
-    div[data-testid="stSidebar"] select option:checked {
-        background-color: #555555;
-        color: #ffffff;
-    }
-    div[data-testid="stSidebar"] select option:hover {
-        background-color: #444444;
-        color: #ffffff;
-    }
-    /* Style the Calculate button to ensure visibility */
-    div[data-testid="stSidebar"] button {
-        background-color: #4CAF50; /* Green background for the button */
-        color: #ffffff; /* White text */
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    div[data-testid="stSidebar"] button:hover {
-        background-color: #45a049; /* Slightly darker green on hover */
-    }
-    /* Ensure table headers and data are readable */
-    .stDataFrame {
-        background-color: #2E2E2E;
-        color: #ffffff;
-    }
-    .stDataFrame th {
-        background-color: #3E3E3E; /* Slightly lighter gray for headers */
-        color: #ffffff;
-    }
-    .stDataFrame td {
-        background-color: #2E2E2E;
-        color: #ffffff;
-    }
-    /* Style alerts to stand out */
-    .stAlert {
-        border-radius: 5px;
-    }
-    /* Success alert (green) */
-    div[data-testid="stAlert"][class*="success"] {
-        background-color: #1a3c34 !important; /* Darker green for success */
-        color: #ffffff !important;
-    }
-    /* Warning alert (yellow/orange) */
-    div[data-testid="stAlert"][class*="warning"] {
-        background-color: #4a2c00 !important; /* Darker orange for warning */
-        color: #ffffff !important;
-    }
-    /* Error alert (red) */
-    div[data-testid="stAlert"][class*="error"] {
-        background-color: #3c1a1a !important; /* Darker red for error */
-        color: #ffffff !important;
-    }
-    /* Matplotlib plot styling */
-    .matplotlib-container {
-        background-color: #2E2E2E;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 st.markdown("""
 Welcome to the DM Pool Profit and Risk Analyzer! This tool helps you evaluate the profitability and risks of liquidity pools in DeFi. By inputting your pool parameters, you can assess impermanent loss, net returns, and potential drawdowns, empowering you to make informed investment decisions. **Disclaimer:** This tool is for informational purposes only and does not constitute financial advice. Projections are estimates based on the inputs provided and are not guaranteed to reflect actual future outcomes.
 """)
+
+st.markdown("""
+<style>
+div[data-testid="stSidebar"] select {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+div[data-testid="stSidebar"] select option {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+div[data-testid="stSidebar"] select option:checked {
+    background-color: #333333;
+    color: #ffffff;
+}
+div[data-testid="stSidebar"] select option:hover {
+    background-color: #444444;
+    color: #ffffff;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.sidebar.header("Set Your Pool Parameters")
 
@@ -492,14 +421,12 @@ if st.sidebar.button("Calculate"):
         st.dataframe(styled_df, hide_index=True, use_container_width=True)
 
         plt.figure(figsize=(10, 5))
-        plt.plot(time_periods, future_values, marker='o', label="Pool Value", color='white')
-        plt.axhline(y=investment_amount, color='red', linestyle='--', label="Initial Investment")
-        plt.title("Projected Pool Value Over Time", color='white')
-        plt.xlabel("Months", color='white')
-        plt.ylabel("Value ($)", color='white')
+        plt.plot(time_periods, future_values, marker='o', label="Pool Value")
+        plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
+        plt.title("Projected Pool Value Over Time")
+        plt.xlabel("Months")
+        plt.ylabel("Value ($)")
         plt.legend()
-        plt.gca().set_facecolor('#2E2E2E')
-        plt.gcf().set_facecolor('#2E2E2E')
         st.pyplot(plt)
 
         # Original BTC Comparison Section
@@ -562,55 +489,4 @@ if st.sidebar.button("Calculate"):
         pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
         formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
-        formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
-        df_risk_scenarios_projected = pd.DataFrame({
-            "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-            "Pool Value ($)": formatted_pool_mdd_projected,
-            "BTC Value ($)": formatted_btc_mdd_projected
-        })
-        styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
-            'text-align': 'right'
-        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
-            'text-align': 'left'
-        }, subset=["Scenario"])
-        st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
-
-        # Original Breakeven Analysis
-        st.subheader("Breakeven Analysis")
-        df_breakeven = pd.DataFrame({
-            "Metric": ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"],
-            "Value": [break_even_months, break_even_months_with_price]
-        })
-        styled_df_breakeven = df_breakeven.style.set_properties(**{
-            'text-align': 'right'
-        }, subset=["Value"]).set_properties(**{
-            'text-align': 'left'
-        }, subset=["Metric"])
-        st.dataframe(styled_df_breakeven, hide_index=True, use_container_width=True)
-        st.write("**Note:** 'Months to Breakeven Against IL' reflects only the recovery of impermanent loss with APY, while 'Months to Breakeven Including Expected Price Changes' accounts for the initial pool value after IL and price changes. The target is to recover the difference between your initial investment and this adjusted value, which may extend the breakeven period significantly if IL is high.")
-        
-        volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
-        if "Critical" in volatility_message:
-            st.error(volatility_message)
-        elif "High" in volatility_message or "Moderate" in volatility_message:
-            st.warning(volatility_message)
-        else:
-            st.success(volatility_message)
-        
-        output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Metric", "Value"])
-        if is_new_pool:
-            writer.writerow(["Initial Impermanent Loss (%)", "0.00"])
-            writer.writerow(["Projected Impermanent Loss (after 12 months) (%)", f"{future_il:.2f}"])
-        else:
-            writer.writerow(["Impermanent Loss (at current time) (%)", f"{il:.2f}"])
-        writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
-        writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
-        writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
-        writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
-        writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
-        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
-        writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
-        writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
-        st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
+        formatted_b
