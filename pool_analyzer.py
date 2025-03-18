@@ -4,8 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import StringIO
 import csv
-import plotly.graph_objects as go
-import altair as alt
+import plotly.graph_objects as go  # Required for advanced visualizations
 
 # Original Functions (Unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
