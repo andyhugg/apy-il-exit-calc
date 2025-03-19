@@ -22,7 +22,7 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     il = (value_if_held - pool_value) / value_if_held if value_if_held > 0 else 0
     il_percentage = abs(il) * 100
     print(f"Debug - calculate_il: initial_price_asset1={initial_price_asset1}, initial_price_asset2={initial_price_asset2}, current_price_asset1={current_price_asset1}, current_price_asset2={current_price_asset2}, initial_investment={initial_investment}, il_percentage={il_percentage}")
-    return round(il_percentage, 2) if il_percentage > 0.01 else il_percentage
+    return round(il_percentage, 2)  # Removed the conditional rounding to ensure consistent precision
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> tuple[float, float]:
@@ -288,7 +288,7 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
         apy_margin = round(apy_margin, 2)
 
     # Price Divergence Margin of Safety (Unified: Minimum of both directions)
-    target_return = (1 + risk_free_rate / 100)
+    target_return = (1 + risk_free_rate / 100) ** (months / 12)  # Adjust target return for the time period
     price_divergence_margin = 0.0
     if pool_value > 0:
         divergence_factor = 1.0
@@ -497,7 +497,7 @@ if is_new_pool:
 else:
     initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=88000.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=125000.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=129000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f",
