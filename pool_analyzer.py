@@ -26,6 +26,9 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> tuple[float, float]:
+    if initial_price_asset1 <= 0 or initial_price_asset2 <= 0 or current_price_asset1 <= 0 or current_price_asset2 <= 0 or initial_investment <= 0:
+        return 0.0, 0.0
+    
     initial_amount_asset1 = initial_investment / 2 / initial_price_asset1
     initial_amount_asset2 = initial_investment / 2 / initial_price_asset2
     
@@ -38,7 +41,7 @@ def calculate_pool_value(initial_investment: float, initial_price_asset1: float,
 def calculate_future_value(initial_investment: float, apy: float, months: int, initial_price_asset1: float, initial_price_asset2: float,
                           current_price_asset1: float, current_price_asset2: float, expected_price_change_asset1: float,
                           expected_price_change_asset2: float, is_new_pool: bool = False) -> tuple[float, float]:
-    if months < 0:
+    if months < 0 or initial_investment <= 0:
         return initial_investment, 0.0
 
     monthly_apy = (apy / 100) / 12
@@ -61,7 +64,7 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
 
     print(f"Debug - calculate_future_value: months={months}, initial_pool_value={pool_value}")
 
-    if months == 0:
+    if months == 0 or pool_value == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
 
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
@@ -100,7 +103,7 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   current_price_asset1: float, current_price_asset2: float,
                                                   expected_price_change_asset1: float, expected_price_change_asset2: float,
                                                   value_if_held: float, is_new_pool: bool = False) -> float:
-    if apy <= 0:
+    if apy <= 0 or pool_value <= 0:
         return float('inf')
 
     monthly_apy = (apy / 100) / 12
@@ -388,7 +391,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     st.markdown("---")
 
-    st.subheader("Margin of Safety <span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>")
+    st.subheader("Margin of Safety <span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
     min_apy = apy * (1 - apy_margin / 100)
     st.write(f"**APY Margin of Safety:** {apy_margin:.2f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
     st.write(f"**Price Divergence Margin of Safety:** {price_divergence_margin:.2f}% (Prices can diverge by this percentage in either direction before net return falls below the risk-free rate of {risk_free_rate}%)")
@@ -450,7 +453,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         else:
             st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
 
-    return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+    return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_margin, price_divergence_margin
 
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
@@ -529,152 +532,162 @@ st.sidebar.markdown("""
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
-        il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
-        pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
-        value_if_held = (investment_amount / 2 / initial_price_asset1 * current_price_asset1) + (investment_amount / 2 / initial_price_asset2 * current_price_asset2)
-        tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-        break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
-        break_even_months_with_price = calculate_break_even_months_with_price_changes(
-            investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
-            current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
-        )
-        net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score = check_exit_conditions(
-            investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
-        )[:7]
-        
-        st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
-        st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
-        time_periods = [0, 3, 6, 12]
-        future_values = []
-        future_ils = []
-        for months in time_periods:
-            value, il_at_time = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
-                                                      current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                                      expected_price_change_asset2, is_new_pool)
-            future_values.append(value)
-            future_ils.append(il_at_time)
-        
-        formatted_pool_values = [f"{int(value):,}" for value in future_values]
-        formatted_ils = [f"{il:.2f}%" for il in future_ils]
-        df_projection = pd.DataFrame({
-            "Time Period (Months)": time_periods,
-            "Projected Value ($)": formatted_pool_values,
-            "Projected Impermanent Loss (%)": formatted_ils
-        })
-        styled_df = df_projection.style.set_properties(**{
-            'text-align': 'right'
-        }, subset=["Projected Value ($)", "Projected Impermanent Loss (%)"]).set_properties(**{
-            'text-align': 'right'
-        }, subset=["Time Period (Months)"])
-        st.dataframe(styled_df, hide_index=True, use_container_width=True)
-        
-        plt.figure(figsize=(10, 5))
-        plt.plot(time_periods, future_values, marker='o', label="Pool Value")
-        plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
-        plt.title("Projected Pool Value Over Time")
-        plt.xlabel("Months")
-        plt.ylabel("Value ($)")
-        plt.legend()
-        st.pyplot(plt)
-
-        st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
-        asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
-        asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
-        asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
-        asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
-        st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
-        
-        projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
-        
-        if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
-            initial_btc_amount = investment_amount / current_btc_price
-            btc_value_12_months = initial_btc_amount * projected_btc_price
+        # Input validation
+        if initial_price_asset1 <= 0 or initial_price_asset2 <= 0 or current_price_asset1 <= 0 or current_price_asset2 <= 0:
+            st.error("All asset prices must be greater than 0.")
+        elif investment_amount <= 0:
+            st.error("Initial investment must be greater than 0.")
+        elif initial_tvl <= 0 or current_tvl <= 0:
+            st.error("TVL values must be greater than 0.")
         else:
-            initial_btc_amount = investment_amount / initial_btc_price
-            btc_value_12_months = initial_btc_amount * projected_btc_price
-        
-        pool_value_12_months = future_values[-1]
-        difference = pool_value_12_months - btc_value_12_months
-        pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
-        btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
-        
-        formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
-        formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
-        formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
-        formatted_pool_return = f"{pool_return_pct:.2f}%"
-        formatted_btc_return = f"{btc_return_pct:.2f}%"
-        
-        df_btc_comparison = pd.DataFrame({
-            "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
-            "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
-        })
-        styled_df_btc = df_btc_comparison.style.set_properties(**{
-            'text-align': 'right'
-        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
-        st.dataframe(styled_df_btc, hide_index=True, use_container_width=True)
-        
-        st.subheader("Maximum Drawdown Risk Scenarios")
-        mdd_scenarios = [10, 30, 65, 100]
-        btc_mdd_scenarios = [10, 30, 65, 90]
+            il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
+            pool_value, il_impact = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+            value_if_held = (investment_amount / 2 / initial_price_asset1 * current_price_asset1) + (investment_amount / 2 / initial_price_asset2 * current_price_asset2)
+            tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
+            break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
+            break_even_months_with_price = calculate_break_even_months_with_price_changes(
+                investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
+                current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
+            )
+            break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_margin, price_divergence_margin = check_exit_conditions(
+                investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
+                current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
+            )
+            
+            st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
+            st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
+            time_periods = [0, 3, 6, 12]
+            future_values = []
+            future_ils = []
+            for months in time_periods:
+                value, il_at_time = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
+                                                          current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                          expected_price_change_asset2, is_new_pool)
+                future_values.append(value)
+                future_ils.append(il_at_time)
+            
+            formatted_pool_values = [f"{int(value):,}" for value in future_values]
+            formatted_ils = [f"{il:.2f}%" for il in future_ils]
+            df_projection = pd.DataFrame({
+                "Time Period (Months)": time_periods,
+                "Projected Value ($)": formatted_pool_values,
+                "Projected Impermanent Loss (%)": formatted_ils
+            })
+            styled_df = df_projection.style.set_properties(**{
+                'text-align': 'right'
+            }, subset=["Projected Value ($)", "Projected Impermanent Loss (%)"]).set_properties(**{
+                'text-align': 'right'
+            }, subset=["Time Period (Months)"])
+            st.dataframe(styled_df, hide_index=True, use_container_width=True)
+            
+            plt.figure(figsize=(10, 5))
+            plt.plot(time_periods, future_values, marker='o', label="Pool Value")
+            plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
+            plt.title("Projected Pool Value Over Time")
+            plt.xlabel("Months")
+            plt.ylabel("Value ($)")
+            plt.legend()
+            st.pyplot(plt)
 
-        st.subheader("MDD from Initial Investment")
-        st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
-        pool_mdd_values_initial = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
-        initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
-        btc_mdd_values_initial = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
+            st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
+            asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
+            asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
+            asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
+            asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
+            st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
+            
+            projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
+            
+            if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
+                initial_btc_amount = investment_amount / current_btc_price
+                btc_value_12_months = initial_btc_amount * projected_btc_price
+            else:
+                initial_btc_amount = investment_amount / initial_btc_price
+                btc_value_12_months = initial_btc_amount * projected_btc_price
+            
+            pool_value_12_months = future_values[-1]
+            difference = pool_value_12_months - btc_value_12_months
+            pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
+            btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
+            
+            formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
+            formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
+            formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
+            formatted_pool_return = f"{pool_return_pct:.2f}%"
+            formatted_btc_return = f"{btc_return_pct:.2f}%"
+            
+            df_btc_comparison = pd.DataFrame({
+                "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
+                "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
+            })
+            styled_df_btc = df_btc_comparison.style.set_properties(**{
+                'text-align': 'right'
+            }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
+            st.dataframe(styled_df_btc, hide_index=True, use_container_width=True)
+            
+            st.subheader("Maximum Drawdown Risk Scenarios")
+            mdd_scenarios = [10, 30, 65, 100]
+            btc_mdd_scenarios = [10, 30, 65, 90]
 
-        formatted_pool_mdd_initial = [f"{int(value):,}" for value in pool_mdd_values_initial]
-        formatted_btc_mdd_initial = [f"{int(value):,}" for value in btc_mdd_values_initial]
+            st.subheader("MDD from Initial Investment")
+            st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
+            pool_mdd_values_initial = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
+            initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
+            btc_mdd_values_initial = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
 
-        df_risk_scenarios_initial = pd.DataFrame({
-            "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-            "Pool Value ($)": formatted_pool_mdd_initial,
-            "BTC Value ($)": formatted_btc_mdd_initial
-        })
-        styled_df_risk_initial = df_risk_scenarios_initial.style.set_properties(**{
-            'text-align': 'right'
-        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
-            'text-align': 'left'
-        }, subset=["Scenario"])
-        st.dataframe(styled_df_risk_initial, hide_index=True, use_container_width=True)
+            formatted_pool_mdd_initial = [f"{int(value):,}" for value in pool_mdd_values_initial]
+            formatted_btc_mdd_initial = [f"{int(value):,}" for value in btc_mdd_values_initial]
 
-        st.subheader("MDD from Projected Value After 12 Months")
-        st.write(f"**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., {expected_price_change_asset1}% appreciation of Asset 1, {expected_price_change_asset2}% change for Asset 2) and {apy}% APY for the pool, and {btc_growth_rate}% growth for BTC.")
-        pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
-        btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
+            df_risk_scenarios_initial = pd.DataFrame({
+                "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
+                "Pool Value ($)": formatted_pool_mdd_initial,
+                "BTC Value ($)": formatted_btc_mdd_initial
+            })
+            styled_df_risk_initial = df_risk_scenarios_initial.style.set_properties(**{
+                'text-align': 'right'
+            }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+                'text-align': 'left'
+            }, subset=["Scenario"])
+            st.dataframe(styled_df_risk_initial, hide_index=True, use_container_width=True)
 
-        formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
-        formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
+            st.subheader("MDD from Projected Value After 12 Months")
+            st.write(f"**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., {expected_price_change_asset1}% appreciation of Asset 1, {expected_price_change_asset2}% change for Asset 2) and {apy}% APY for the pool, and {btc_growth_rate}% growth for BTC.")
+            pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
+            btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
 
-        df_risk_scenarios_projected = pd.DataFrame({
-            "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-            "Pool Value ($)": formatted_pool_mdd_projected,
-            "BTC Value ($)": formatted_btc_mdd_projected
-        })
-        styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
-            'text-align': 'right'
-        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
-            'text-align': 'left'
-        }, subset=["Scenario"])
-        st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
-        
-        output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Metric", "Value"])
-        if is_new_pool:
-            writer.writerow(["Initial Impermanent Loss (%)", "0.00"])
-            writer.writerow(["Projected Impermanent Loss (after 12 months) (%)", f"{future_il:.2f}"])
-        else:
-            writer.writerow(["Impermanent Loss (at current time) (%)", f"{il:.2f}"])
-        writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
-        writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
-        writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
-        writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
-        writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
-        writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
-        writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
-        writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
-        writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.2f}"])
-        writer.writerow(["Price Divergence Margin of Safety (%)", f"{price_divergence_margin:.2f}"])
-        st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
+            formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
+            formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
+
+            df_risk_scenarios_projected = pd.DataFrame({
+                "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
+                "Pool Value ($)": formatted_pool_mdd_projected,
+                "BTC Value ($)": formatted_btc_mdd_projected
+            })
+            styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
+                'text-align': 'right'
+            }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+                'text-align': 'left'
+            }, subset=["Scenario"])
+            st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
+            
+            st.markdown("---")
+            st.subheader("Export Results")
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerow(["Metric", "Value"])
+            if is_new_pool:
+                writer.writerow(["Initial Impermanent Loss (%)", "0.00"])
+                writer.writerow(["Projected Impermanent Loss (after 12 months) (%)", f"{future_il:.2f}"])
+            else:
+                writer.writerow(["Impermanent Loss (at current time) (%)", f"{il:.2f}"])
+            writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
+            writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
+            writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
+            writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
+            writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
+            writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
+            writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
+            writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
+            writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.2f}"])
+            writer.writerow(["Price Divergence Margin of Safety (%)", f"{price_divergence_margin:.2f}"])
+            st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
