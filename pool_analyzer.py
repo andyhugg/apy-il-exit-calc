@@ -293,8 +293,8 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
     price_divergence_margin = 0.0
     if pool_value > 0 and initial_investment > 0:
         divergence_factor = 1.0
-        step = 0.001  # Fine step size to detect small changes
-        max_divergence = 2.0  # Allow up to 100% divergence
+        step = 0.01  # Increased step size for better resolution
+        max_divergence = 10.0  # Increased to allow larger divergence (e.g., 1000% change)
         monthly_apy = (apy / 100) / 12
         while divergence_factor <= max_divergence:
             # Direction 1: Asset 1 price increases, Asset 2 price decreases proportionally
@@ -308,8 +308,8 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
             net_return_up_down = future_value_up_down / initial_investment
 
             # Direction 2: Asset 1 price decreases, Asset 2 price increases proportionally
-            test_price_asset1_down = current_price_asset1 / divergence_factor
-            test_price_asset2_up = current_price_asset2 * divergence_factor if current_price_asset2 > 0 else current_price_asset2
+            test_price_asset1_down = current_price_asset1 / divergence_factor if current_price_asset1 > 0 else current_price_asset1
+            test_price_asset2_up = current_price_asset2 * divergence_factor
             test_pool_value_down_up, _ = calculate_pool_value(
                 initial_investment, initial_price_asset1, initial_price_asset2,
                 test_price_asset1_down, test_price_asset2_up
@@ -318,8 +318,14 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
             net_return_down_up = future_value_down_up / initial_investment
 
             # Debug print to trace values
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_up={test_price_asset1_up:.2f}, test_price_asset2_down={test_price_asset2_down:.2f}, test_pool_value_up_down={test_pool_value_up_down:.2f}, future_value_up_down={future_value_up_down:.2f}, net_return_up_down={net_return_up_down:.3f}")
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_down={test_price_asset1_down:.2f}, test_price_asset2_up={test_price_asset2_up:.2f}, test_pool_value_down_up={test_pool_value_down_up:.2f}, future_value_down_up={future_value_down_up:.2f}, net_return_down_up={net_return_down_up:.3f}, target_return={target_return:.3f}")
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.2f}, "
+                  f"test_price_asset1_up={test_price_asset1_up:.2f}, test_price_asset2_down={test_price_asset2_down:.2f}, "
+                  f"test_pool_value_up_down={test_pool_value_up_down:.2f}, future_value_up_down={future_value_up_down:.2f}, "
+                  f"net_return_up_down={net_return_up_down:.3f}")
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.2f}, "
+                  f"test_price_asset1_down={test_price_asset1_down:.2f}, test_price_asset2_up={test_price_asset2_up:.2f}, "
+                  f"test_pool_value_down_up={test_pool_value_down_up:.2f}, future_value_down_up={future_value_down_up:.2f}, "
+                  f"net_return_down_up={net_return_down_up:.3f}, target_return={target_return:.3f}")
 
             # Check if either direction breaches the target return
             if net_return_up_down < target_return or net_return_down_up < target_return:
@@ -330,6 +336,101 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
         price_divergence_margin = price_divergence_margin if price_divergence_margin > 0 else 0.0
 
     return apy_margin, price_divergence_margin
+
+def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str, str]:
+    base_score = 0
+    
+    if apy < 10:
+        base_score += 40
+    elif apy <= 15:
+        base_score += 20
+    
+    if tvl_decline > 50:
+        base_score += 40
+    elif tvl_decline > 30:
+        base_score += 30
+    elif tvl_decline > 15:
+        base_score += 15
+    
+    if current_tvl < 50000:
+        base_score += 40
+    elif current_tvl <= 200000:
+        base_score += 20
+    
+    base_score = min(base_score, 100)
+    
+    if trust_score == 1:
+        adjusted_score = base_score * 1.5
+    elif trust_score == 2:
+        adjusted_score = base_score * 1.25
+    elif trust_score == 3:
+        adjusted_score = base_score * 0.9
+    elif trust_score == 4:
+        adjusted_score = base_score * 0.75
+    else:
+        adjusted_score = base_score * 0.5
+    
+    adjusted_score = min(adjusted_score, 100)
+    
+    risk_factors = []
+    if apy < 10:
+        risk_factors.append("low yield")
+    elif apy <= 15:
+        risk_factors.append("moderate yield")
+    if tvl_decline > 50:
+        risk_factors.append("major TVL decline")
+    elif tvl_decline > 30:
+        risk_factors.append("significant TVL decline")
+    elif tvl_decline > 15:
+        risk_factors.append("moderate TVL decline")
+    if current_tvl < 50000:
+        risk_factors.append("tiny pool size")
+    elif current_tvl <= 200000:
+        risk_factors.append("small pool size")
+    
+    category = None
+    if adjusted_score > 75:
+        category = "Critical"
+    elif adjusted_score > 50:
+        category = "High"
+    elif trust_score in [1, 2]:
+        category = "Advisory"
+    elif adjusted_score > 25:
+        category = "Advisory"
+    else:
+        category = "Low"
+    
+    if category == "Advisory" and trust_score >= 3 and adjusted_score <= 50 and tvl_decline <= 15 and current_tvl > 200000:
+        category = "Low"
+
+    if category == "Low":
+        if trust_score >= 3:
+            message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk due to moderate/good/excellent trust score, stable TVL, and adequate yield."
+        else:
+            message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk of protocol failure due to high yield, stable TVL, large pool size, or excellent trust score."
+    elif category == "Advisory":
+        if not risk_factors and trust_score in [1, 2]:
+            message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to low trust score."
+        else:
+            risk_message = " and ".join(risk_factors)
+            message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to {risk_message}"
+            if trust_score in [1, 2]:
+                message += " and low trust score"
+            message += "."
+    elif category == "High":
+        risk_message = " and ".join(risk_factors)
+        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Elevated risk of protocol failure due to {risk_message}"
+        if trust_score in [1, 2]:
+            message += " and low trust score"
+        message += "."
+    else:
+        risk_message = " and ".join(risk_factors)
+        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to {risk_message}"
+        if trust_score in [1, 2]:
+            message += " and low trust score"
+        message += "."
+    
+    return adjusted_score, message, category
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
