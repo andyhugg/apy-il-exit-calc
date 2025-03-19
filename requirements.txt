@@ -1,5 +1,6 @@
-matplotlib
-streamlit
-numpy
-pandas
-plotly
+streamlit==1.43.2
+numpy==2.2.4
+pandas==2.2.3
+matplotlib==3.10.1
+requests==2.32.3
+beautifulsoup4==4.12.3
