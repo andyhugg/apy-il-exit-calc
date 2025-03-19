@@ -365,28 +365,26 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     else:
         st.success(volatility_message)
 
-    # Investment Risk Alert
-    st.subheader("Investment Risk Alert")
-    if initial_tvl > 0:
-        if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
-            st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
-        elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
-            st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%), marginal profit (Net Return {net_return:.2f}x), or moderate volatility ({volatility_score:.0f}%) indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
-        else:
-            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+# Investment Risk Alert
+st.subheader("Investment Risk Alert")
+if initial_tvl > 0:
+    if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
+        st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
+        return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+    elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
+        reasons = []
+        if apy < apy_exit_threshold:
+            reasons.append(f"APY below threshold ({apy_exit_threshold:.2f}%)")
+        if net_return < 1.1:
+            reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
+        if volatility_score > 25:
+            reasons.append(f"moderate volatility ({volatility_score:.0f}%)")
+        reason_str = ", ".join(reasons)
+        st.warning(f"⚠️ Investment Risk: Moderate. {reason_str} indicate potential underperformance.")
+        return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
     else:
-        if net_return < 1.0:
-            st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x indicates a loss.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
-        elif apy < apy_exit_threshold or net_return < 1.1:
-            st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%) or marginal profit (Net Return {net_return:.2f}x) indicates potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
-        else:
-            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+        st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
+        return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
 
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
