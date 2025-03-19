@@ -382,7 +382,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
             st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
             reasons = []
             if apy < apy_exit_threshold:
@@ -393,14 +393,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 reasons.append(f"moderate volatility ({volatility_score:.0f}%)")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
     else:
         if net_return < 1.0:
             st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x indicates a loss.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         elif apy < apy_exit_threshold or net_return < 1.1:
             reasons = []
             if apy < apy_exit_threshold:
@@ -409,10 +409,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
 
     # Final Separator
     st.markdown("---")
@@ -502,10 +502,12 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
             current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
         )
-        net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score = check_exit_conditions(
+        # Updated to capture apy_mos
+        result = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
-        )[:7]  # Adjusted return to include volatility_score
+        )
+        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
         
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
