@@ -45,8 +45,6 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
         return initial_investment, 0.0
 
     monthly_apy = (apy / 100) / 12
-    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
-    monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
 
     if is_new_pool:
         starting_price_asset1 = current_price_asset1
@@ -67,19 +65,22 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
     if months == 0 or pool_value == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
 
+    # Apply APY compounding based on initial pool value
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
     print(f"Debug - calculate_future_value: apy_compounded_value={apy_compounded_value}")
 
-    final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
-    final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
+    # Use current prices as the baseline for final prices, adjusted by expected changes if applicable
+    final_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100) * (months / 12))
+    final_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100) * (months / 12))
     print(f"Debug - calculate_future_value: final_price_asset1={final_price_asset1}, final_price_asset2={final_price_asset2}")
 
+    # Recalculate pool value with final prices
     new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                           final_price_asset1, final_price_asset2)
+                                            final_price_asset1, final_price_asset2)
     print(f"Debug - calculate_future_value: new_pool_value={new_pool_value}")
 
     future_il = calculate_il(initial_price_asset1, initial_price_asset2, final_price_asset1, final_price_asset2, initial_investment)
-    current_value = apy_compounded_value + (new_pool_value - pool_value)
+    current_value = apy_compounded_value + (new_pool_value - pool_value) if new_pool_value > 0 else apy_compounded_value
     print(f"Debug - calculate_future_value: current_value={current_value}, future_il={future_il}")
 
     return round(current_value, 2), future_il
@@ -290,34 +291,37 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
     # Price Divergence Margin of Safety
     target_return = (1 + risk_free_rate / 100) ** (months / 12)
     price_divergence_margin = 0.0
-    if pool_value > 0:
+    if pool_value > 0 and initial_investment > 0:
         divergence_factor = 1.0
-        step = 0.001  # Fine step size to detect 0.5% or higher
-        max_divergence = 1.0  # Limit to 100% divergence for efficiency
+        step = 0.001  # Fine step size to detect small changes
+        max_divergence = 2.0  # Allow up to 100% divergence
+        monthly_apy = (apy / 100) / 12
         while divergence_factor <= max_divergence:
-            # Direction 1: Asset 1 up, Asset 2 down
-            test_price_asset1_up = current_price_asset1 * (1 + divergence_factor)
-            test_price_asset2_down = current_price_asset2 * (1 - divergence_factor) if current_price_asset2 > 0 else current_price_asset2
-            future_value_up_down, _ = calculate_future_value(
-                initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
-                test_price_asset1_up, test_price_asset2_down, 0.0, 0.0, is_new_pool=False
+            # Direction 1: Asset 1 price increases, Asset 2 price decreases proportionally
+            test_price_asset1_up = current_price_asset1 * divergence_factor
+            test_price_asset2_down = current_price_asset2 / divergence_factor if current_price_asset2 > 0 else current_price_asset2
+            test_pool_value_up_down, _ = calculate_pool_value(
+                initial_investment, initial_price_asset1, initial_price_asset2,
+                test_price_asset1_up, test_price_asset2_down
             )
-            net_return_up_down = future_value_up_down / initial_investment if initial_investment > 0 else 0
+            future_value_up_down = test_pool_value_up_down * (1 + monthly_apy) ** months
+            net_return_up_down = future_value_up_down / initial_investment
 
-            # Direction 2: Asset 1 down, Asset 2 up
-            test_price_asset1_down = current_price_asset1 * (1 - divergence_factor)
-            test_price_asset2_up = current_price_asset2 * (1 + divergence_factor) if current_price_asset2 > 0 else current_price_asset2
-            future_value_down_up, _ = calculate_future_value(
-                initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
-                test_price_asset1_down, test_price_asset2_up, 0.0, 0.0, is_new_pool=False
+            # Direction 2: Asset 1 price decreases, Asset 2 price increases proportionally
+            test_price_asset1_down = current_price_asset1 / divergence_factor
+            test_price_asset2_up = current_price_asset2 * divergence_factor if current_price_asset2 > 0 else current_price_asset2
+            test_pool_value_down_up, _ = calculate_pool_value(
+                initial_investment, initial_price_asset1, initial_price_asset2,
+                test_price_asset1_down, test_price_asset2_up
             )
-            net_return_down_up = future_value_down_up / initial_investment if initial_investment > 0 else 0
+            future_value_down_up = test_pool_value_down_up * (1 + monthly_apy) ** months
+            net_return_down_up = future_value_down_up / initial_investment
 
             # Debug print to trace values
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_up={test_price_asset1_up:.2f}, test_price_asset2_down={test_price_asset2_down:.2f}, future_value_up_down={future_value_up_down:.2f}, net_return_up_down={net_return_up_down:.3f}")
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_down={test_price_asset1_down:.2f}, test_price_asset2_up={test_price_asset2_up:.2f}, future_value_down_up={future_value_down_up:.2f}, net_return_down_up={net_return_down_up:.3f}, target_return={target_return:.3f}")
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_up={test_price_asset1_up:.2f}, test_price_asset2_down={test_price_asset2_down:.2f}, test_pool_value_up_down={test_pool_value_up_down:.2f}, future_value_up_down={future_value_up_down:.2f}, net_return_up_down={net_return_up_down:.3f}")
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_down={test_price_asset1_down:.2f}, test_price_asset2_up={test_price_asset2_up:.2f}, test_pool_value_down_up={test_pool_value_down_up:.2f}, future_value_down_up={future_value_down_up:.2f}, net_return_down_up={net_return_down_up:.3f}, target_return={target_return:.3f}")
 
-            # Use the minimum divergence that breaches the target return
+            # Check if either direction breaches the target return
             if net_return_up_down < target_return or net_return_down_up < target_return:
                 price_divergence_margin = round((divergence_factor - 1) * 100, 2)
                 break
