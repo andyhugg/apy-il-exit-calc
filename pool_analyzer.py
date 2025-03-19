@@ -265,7 +265,7 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
 def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value: float, value_if_held: float,
                               initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float,
                               current_price_asset2: float, risk_free_rate: float, months: int = 12) -> tuple[float, float]:
-    # APY Margin of Safety: How much can APY decrease before breakeven exceeds 12 months?
+    # APY Margin of Safety
     target_months = months
     if apy <= 0 or pool_value <= 0 or value_if_held <= pool_value:
         apy_margin = 0.0
@@ -285,15 +285,15 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
                 min_apy = test_apy
         min_apy_to_breakeven = min_apy
         apy_margin = ((apy - min_apy_to_breakeven) / apy * 100) if apy > 0 else 0.0
-        apy_margin = round(apy_margin, 0)  # Adjusted to round to nearest whole number for consistency
+        apy_margin = round(apy_margin, 0)
 
-    # Price Divergence Margin of Safety (Unified: Minimum of both directions)
-    target_return = (1 + risk_free_rate / 100) ** (months / 12)  # Adjust target return for the time period
+    # Price Divergence Margin of Safety
+    target_return = (1 + risk_free_rate / 100) ** (months / 12)
     price_divergence_margin = 0.0
     if pool_value > 0:
         divergence_factor = 1.0
-        step = 0.001  # Reduced step size for finer granularity
-        max_divergence = 10.0
+        step = 0.001  # Fine step size to detect 0.5% or higher
+        max_divergence = 1.0  # Limit to 100% divergence for efficiency
         while divergence_factor <= max_divergence:
             # Direction 1: Asset 1 up, Asset 2 down
             test_price_asset1_up = current_price_asset1 * (1 + divergence_factor)
@@ -314,14 +314,16 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
             net_return_down_up = future_value_down_up / initial_investment if initial_investment > 0 else 0
 
             # Debug print to trace values
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor}, net_return_up_down={net_return_up_down}, net_return_down_up={net_return_down_up}, target_return={target_return}")
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_up={test_price_asset1_up:.2f}, test_price_asset2_down={test_price_asset2_down:.2f}, future_value_up_down={future_value_up_down:.2f}, net_return_up_down={net_return_up_down:.3f}")
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, test_price_asset1_down={test_price_asset1_down:.2f}, test_price_asset2_up={test_price_asset2_up:.2f}, future_value_down_up={future_value_down_up:.2f}, net_return_down_up={net_return_down_up:.3f}, target_return={target_return:.3f}")
 
             # Use the minimum divergence that breaches the target return
             if net_return_up_down < target_return or net_return_down_up < target_return:
+                price_divergence_margin = round((divergence_factor - 1) * 100, 2)
                 break
             divergence_factor += step
 
-        price_divergence_margin = round((divergence_factor - 1) * 100, 2) if divergence_factor > 1 else 0.0
+        price_divergence_margin = price_divergence_margin if price_divergence_margin > 0 else 0.0
 
     return apy_margin, price_divergence_margin
 
@@ -394,8 +396,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     st.markdown("---")
 
+    # Updated Margin of Safety section
     st.subheader("Margin of Safety")
-    st.write("<span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
+    st.markdown("<span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
     min_apy = apy * (1 - apy_margin / 100)
     st.write(f"**APY Margin of Safety:** {apy_margin:.0f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
     st.write(f"**Price Divergence Margin of Safety:** {price_divergence_margin:.2f}% (Prices can diverge by this percentage in either direction before net return falls below the risk-free rate of {risk_free_rate}%)")
