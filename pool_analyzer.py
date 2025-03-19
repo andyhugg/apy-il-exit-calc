@@ -462,6 +462,7 @@ else:
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+st.sidebar.markdown("**Note:** For conservative projections, consider halving the entered APY to buffer against market volatility.")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
 st.sidebar.markdown("""
