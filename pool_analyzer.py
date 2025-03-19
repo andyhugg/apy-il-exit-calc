@@ -128,39 +128,30 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     tvl_decline = (initial_tvl - current_tvl) / initial_tvl * 100
     return round(tvl_decline, 2)
 
-def calculate_volatility_score(expected_price_change_asset1: float, expected_price_change_asset2: float, btc_growth_rate: float) -> tuple[float, str]:
-    divergence = abs(expected_price_change_asset1 - expected_price_change_asset2)
-    asset_volatility = max(abs(expected_price_change_asset1), abs(expected_price_change_asset2))
-    
-    def get_score(value):
-        if value <= 5:
-            return 0
-        elif value <= 15:
-            return 33
-        elif value <= 30:
-            return 66
-        else:
-            return 100
-    
-    divergence_score = get_score(divergence)
-    asset_score = get_score(asset_volatility)
-    btc_score = get_score(abs(btc_growth_rate))
-    
-    volatility_score = (0.5 * divergence_score) + (0.2 * asset_score) + (0.3 * btc_score)
-    final_score = min(volatility_score, max(divergence_score, asset_score, btc_score))
-    
+def calculate_apy_margin_of_safety(initial_pool_value: float, value_if_held: float, current_apy: float, months: int = 12) -> float:
+    """
+    Calculate APY Margin of Safety: how much APY can drop before breakeven exceeds 12 months.
+    Returns percentage (0-100%).
+    """
+    target_value = value_if_held * 1.02  # 2% risk-free rate buffer
+    min_apy = ((target_value / initial_pool_value) ** (12 / months) - 1) * 100
+    apy_mos = ((current_apy - min_apy) / current_apy) * 100 if current_apy > 0 else 0
+    return max(0, min(apy_mos, 100))  # Cap between 0-100%
+
+def calculate_volatility_score(il_percentage: float, tvl_decline: float) -> tuple[float, str]:
+    """
+    Calculate Volatility Score based on IL and TVL decline (no price divergence).
+    Returns score (0-50%) and message.
+    """
+    il_factor = min(il_percentage / 5, 1.0)  # Cap IL contribution at 5%
+    tvl_factor = min(abs(tvl_decline) / 20, 1.0)  # Cap TVL decline at 20%
+    volatility_score = (il_factor + tvl_factor) * 25  # Scale to 0-50%
+    final_score = min(volatility_score, 50)  # Cap at 50%
+
     if final_score <= 25:
-        category = "Low"
-        message = f"✅ Volatility Score: Low ({final_score:.0f}%). Price movements are unlikely to significantly impact IL or breakeven timing."
-    elif final_score <= 50:
-        category = "Moderate"
-        message = f"⚠️ Volatility Score: Moderate ({final_score:.0f}%). Price volatility may increase IL and delay breakeven."
-    elif final_score <= 75:
-        category = "High"
-        message = f"⚠️ Volatility Score: High ({final_score:.0f}%). Significant volatility risks could amplify IL and extend breakeven."
+        message = f"✅ Volatility Score: Low ({final_score:.0f}%). Stable conditions with low IL and TVL decline."
     else:
-        category = "Critical"
-        message = f"⚠️ Volatility Score: Critical ({final_score:.0f}%). Extreme volatility risks may lead to substantial IL and potentially unachievable breakeven."
+        message = f"⚠️ Volatility Score: Moderate ({final_score:.0f}%). Moderate IL or TVL decline may impact returns."
     
     return final_score, message
 
@@ -291,9 +282,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
     apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)
     
-    volatility_score, volatility_message = calculate_volatility_score(expected_price_change_asset1, expected_price_change_asset2, btc_growth_rate)
     apy_exit_threshold = max(apy_exit_threshold, risk_free_rate)
-    if volatility_score > 75 or il > 50 or future_il > 50:
+    if il > 50 or future_il > 50:
         apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
     
     break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
@@ -303,7 +293,17 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     )
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
 
-    st.subheader("Results:")
+    # Margin of Safety Calculation (APY only)
+    apy_mos = calculate_apy_margin_of_safety(pool_value, value_if_held, apy)
+
+    # Volatility Score (adjusted to use IL and TVL decline instead of price divergence)
+    volatility_score, volatility_message = calculate_volatility_score(il, tvl_decline)
+
+    # Protocol Risk
+    protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
+
+    # Streamlit Output with New Sections
+    st.subheader("Core Metrics")
     if initial_tvl <= 0:
         if is_new_pool:
             st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
@@ -313,7 +313,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
         st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)")
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
     else:
         if is_new_pool:
@@ -324,10 +324,16 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
         st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high volatility or IL conditions)")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)")
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
-    
     st.write(f"**Pool Share:** {pool_share:.2f}%")
+
+    st.subheader("Margin of Safety")
+    st.write(f"**APY Margin of Safety:** {apy_mos:.2f}% (APY can decrease by this percentage before breakeven exceeds 12 months)")
+    mos_assessment = "✅ High" if apy_mos > 50 else "⚠️ Low"
+    st.write(f"**Margin of Safety Assessment:** {mos_assessment} Margin of Safety")
+
+    st.subheader("Risk Management")
     if pool_share < 5:
         st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
     elif 5 <= pool_share < 10:
@@ -347,8 +353,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         else:
             st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
     
-    # Protocol Risk Alert
-    protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
     if protocol_risk_category == "Critical":
         st.error(protocol_risk_message)
     elif protocol_risk_category in ["High", "Advisory"]:
@@ -356,23 +360,22 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     else:
         st.success(protocol_risk_message)
 
-    # Volatility Score (moved under Protocol Risk)
-    if "Critical" in volatility_message:
-        st.error(volatility_message)
-    elif "High" in volatility_message or "Moderate" in volatility_message:
+    if volatility_score > 25:
         st.warning(volatility_message)
     else:
         st.success(volatility_message)
 
+    # Investment Risk Alert
+    st.subheader("Investment Risk Alert")
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
             st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
-        elif apy < apy_exit_threshold or net_return < 1.1:
-            st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%) or marginal profit (Net Return {net_return:.2f}x) indicates potential underperformance.")
+        elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
+            st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%), marginal profit (Net Return {net_return:.2f}x), or moderate volatility ({volatility_score:.0f}%) indicate potential underperformance.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         else:
-            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
+            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
     else:
         if net_return < 1.0:
@@ -456,7 +459,7 @@ btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next
 
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
 st.sidebar.markdown("""
-**Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high volatility (>75% Volatility Score) or IL (>50%) conditions, ensuring a margin of safety.
+**Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high IL conditions, ensuring a margin of safety.
 """)
 
 if st.sidebar.button("Calculate"):
@@ -605,6 +608,7 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
         writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
+        writer.writerow(["APY Margin of Safety (%)", f"{apy_mos:.2f}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
