@@ -65,16 +65,13 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
     if months == 0 or pool_value == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
 
-    # Apply APY compounding based on initial pool value
     apy_compounded_value = pool_value * (1 + monthly_apy) ** months
     print(f"Debug - calculate_future_value: apy_compounded_value={apy_compounded_value}")
 
-    # Use current prices as the baseline for final prices, adjusted by expected changes if applicable
     final_price_asset1 = current_price_asset1 * (1 + (expected_price_change_asset1 / 100) * (months / 12))
     final_price_asset2 = current_price_asset2 * (1 + (expected_price_change_asset2 / 100) * (months / 12))
     print(f"Debug - calculate_future_value: final_price_asset1={final_price_asset1}, final_price_asset2={final_price_asset2}")
 
-    # Recalculate pool value with final prices
     new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                             final_price_asset1, final_price_asset2)
     print(f"Debug - calculate_future_value: new_pool_value={new_pool_value}")
@@ -168,101 +165,6 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
     
     return final_score, message
 
-def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str, str]:
-    base_score = 0
-    
-    if apy < 10:
-        base_score += 40
-    elif apy <= 15:
-        base_score += 20
-    
-    if tvl_decline > 50:
-        base_score += 40
-    elif tvl_decline > 30:
-        base_score += 30
-    elif tvl_decline > 15:
-        base_score += 15
-    
-    if current_tvl < 50000:
-        base_score += 40
-    elif current_tvl <= 200000:
-        base_score += 20
-    
-    base_score = min(base_score, 100)
-    
-    if trust_score == 1:
-        adjusted_score = base_score * 1.5
-    elif trust_score == 2:
-        adjusted_score = base_score * 1.25
-    elif trust_score == 3:
-        adjusted_score = base_score * 0.9
-    elif trust_score == 4:
-        adjusted_score = base_score * 0.75
-    else:
-        adjusted_score = base_score * 0.5
-    
-    adjusted_score = min(adjusted_score, 100)
-    
-    risk_factors = []
-    if apy < 10:
-        risk_factors.append("low yield")
-    elif apy <= 15:
-        risk_factors.append("moderate yield")
-    if tvl_decline > 50:
-        risk_factors.append("major TVL decline")
-    elif tvl_decline > 30:
-        risk_factors.append("significant TVL decline")
-    elif tvl_decline > 15:
-        risk_factors.append("moderate TVL decline")
-    if current_tvl < 50000:
-        risk_factors.append("tiny pool size")
-    elif current_tvl <= 200000:
-        risk_factors.append("small pool size")
-    
-    category = None
-    if adjusted_score > 75:
-        category = "Critical"
-    elif adjusted_score > 50:
-        category = "High"
-    elif trust_score in [1, 2]:
-        category = "Advisory"
-    elif adjusted_score > 25:
-        category = "Advisory"
-    else:
-        category = "Low"
-    
-    if category == "Advisory" and trust_score >= 3 and adjusted_score <= 50 and tvl_decline <= 15 and current_tvl > 200000:
-        category = "Low"
-
-    if category == "Low":
-        if trust_score >= 3:
-            message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk due to moderate/good/excellent trust score, stable TVL, and adequate yield."
-        else:
-            message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk of protocol failure due to high yield, stable TVL, large pool size, or excellent trust score."
-    elif category == "Advisory":
-        if not risk_factors and trust_score in [1, 2]:
-            message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to low trust score."
-        else:
-            risk_message = " and ".join(risk_factors)
-            message = f"⚠️ Protocol Risk: Advisory ({adjusted_score:.0f}%). Potential protocol risk due to {risk_message}"
-            if trust_score in [1, 2]:
-                message += " and low trust score"
-            message += "."
-    elif category == "High":
-        risk_message = " and ".join(risk_factors)
-        message = f"⚠️ Protocol Risk: High ({adjusted_score:.0f}%). Elevated risk of protocol failure due to {risk_message}"
-        if trust_score in [1, 2]:
-            message += " and low trust score"
-        message += "."
-    else:
-        risk_message = " and ".join(risk_factors)
-        message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to {risk_message}"
-        if trust_score in [1, 2]:
-            message += " and low trust score"
-        message += "."
-    
-    return adjusted_score, message, category
-
 def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value: float, value_if_held: float,
                               initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float,
                               current_price_asset2: float, risk_free_rate: float, months: int = 12) -> tuple[float, float]:
@@ -270,10 +172,11 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
     target_months = months
     if apy <= 0 or pool_value <= 0 or value_if_held <= pool_value:
         apy_margin = 0.0
+        print(f"Debug - calculate_margin_of_safety: APY Margin early exit - apy={apy}, pool_value={pool_value}, value_if_held={value_if_held}")
     else:
         min_apy = 0.0
         max_apy = apy
-        tolerance = 0.01
+        tolerance = 0.001  # Increased precision
         while max_apy - min_apy > tolerance:
             test_apy = (min_apy + max_apy) / 2
             monthly_apy = (test_apy / 100) / 12
@@ -286,18 +189,19 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
                 min_apy = test_apy
         min_apy_to_breakeven = min_apy
         apy_margin = ((apy - min_apy_to_breakeven) / apy * 100) if apy > 0 else 0.0
-        apy_margin = round(apy_margin, 0)
+        apy_margin = round(apy_margin, 2)  # Preserve decimals
+        print(f"Debug - calculate_margin_of_safety: APY Margin - min_apy={min_apy_to_breakeven}, apy_margin={apy_margin}")
 
     # Price Divergence Margin of Safety
     target_return = (1 + risk_free_rate / 100) ** (months / 12)
     price_divergence_margin = 0.0
     if pool_value > 0 and initial_investment > 0:
         divergence_factor = 1.0
-        step = 0.01  # Increased step size for better resolution
-        max_divergence = 10.0  # Increased to allow larger divergence (e.g., 1000% change)
+        step = 0.001  # Finer granularity
+        max_divergence = 20.0  # Increased range
         monthly_apy = (apy / 100) / 12
         while divergence_factor <= max_divergence:
-            # Direction 1: Asset 1 price increases, Asset 2 price decreases proportionally
+            # Direction 1: Asset 1 price increases, Asset 2 price decreases
             test_price_asset1_up = current_price_asset1 * divergence_factor
             test_price_asset2_down = current_price_asset2 / divergence_factor if current_price_asset2 > 0 else current_price_asset2
             test_pool_value_up_down, _ = calculate_pool_value(
@@ -307,7 +211,7 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
             future_value_up_down = test_pool_value_up_down * (1 + monthly_apy) ** months
             net_return_up_down = future_value_up_down / initial_investment
 
-            # Direction 2: Asset 1 price decreases, Asset 2 price increases proportionally
+            # Direction 2: Asset 1 price decreases, Asset 2 price increases
             test_price_asset1_down = current_price_asset1 / divergence_factor if current_price_asset1 > 0 else current_price_asset1
             test_price_asset2_up = current_price_asset2 * divergence_factor
             test_pool_value_down_up, _ = calculate_pool_value(
@@ -317,19 +221,15 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
             future_value_down_up = test_pool_value_down_up * (1 + monthly_apy) ** months
             net_return_down_up = future_value_down_up / initial_investment
 
-            # Debug print to trace values
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.2f}, "
-                  f"test_price_asset1_up={test_price_asset1_up:.2f}, test_price_asset2_down={test_price_asset2_down:.2f}, "
-                  f"test_pool_value_up_down={test_pool_value_up_down:.2f}, future_value_up_down={future_value_up_down:.2f}, "
-                  f"net_return_up_down={net_return_up_down:.3f}")
-            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.2f}, "
-                  f"test_price_asset1_down={test_price_asset1_down:.2f}, test_price_asset2_up={test_price_asset2_up:.2f}, "
-                  f"test_pool_value_down_up={test_pool_value_down_up:.2f}, future_value_down_up={future_value_down_up:.2f}, "
-                  f"net_return_down_up={net_return_down_up:.3f}, target_return={target_return:.3f}")
+            # Debug print every 100 steps to avoid flooding
+            if int((divergence_factor - 1) * 1000) % 100 == 0:
+                print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor:.3f}, "
+                      f"net_return_up_down={net_return_up_down:.3f}, net_return_down_up={net_return_down_up:.3f}, "
+                      f"target_return={target_return:.3f}")
 
-            # Check if either direction breaches the target return
             if net_return_up_down < target_return or net_return_down_up < target_return:
                 price_divergence_margin = round((divergence_factor - 1) * 100, 2)
+                print(f"Debug - calculate_margin_of_safety: Price Divergence Margin set to {price_divergence_margin}% at factor={divergence_factor}")
                 break
             divergence_factor += step
 
@@ -505,7 +405,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.subheader("Margin of Safety")
     st.markdown("<span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
     min_apy = apy * (1 - apy_margin / 100)
-    st.write(f"**APY Margin of Safety:** {apy_margin:.0f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
+    st.write(f"**APY Margin of Safety:** {apy_margin:.2f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
     st.write(f"**Price Divergence Margin of Safety:** {price_divergence_margin:.2f}% (Prices can diverge by this percentage in either direction before net return falls below the risk-free rate of {risk_free_rate}%)")
     if apy_margin < 10 or price_divergence_margin < 10:
         st.write(f"**Margin of Safety Assessment:** ⚠️ Low Margin of Safety: Your position has limited buffer against adverse conditions.")
@@ -800,6 +700,6 @@ if st.sidebar.button("Calculate"):
             writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
             writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
             writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
-            writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.0f}"])
+            writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.2f}"])
             writer.writerow(["Price Divergence Margin of Safety (%)", f"{price_divergence_margin:.2f}"])
             st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
