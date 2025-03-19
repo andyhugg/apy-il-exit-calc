@@ -165,16 +165,13 @@ def calculate_volatility_score(expected_price_change_asset1: float, expected_pri
     return final_score, message
 
 def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str, str]:
-    # Base risk score based on APY, TVL decline, and pool size
     base_score = 0
     
-    # APY contribution
     if apy < 10:
         base_score += 40
     elif apy <= 15:
         base_score += 20
     
-    # TVL decline contribution
     if tvl_decline > 50:
         base_score += 40
     elif tvl_decline > 30:
@@ -182,31 +179,26 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     elif tvl_decline > 15:
         base_score += 15
     
-    # Pool size contribution
     if current_tvl < 50000:
         base_score += 40
     elif current_tvl <= 200000:
         base_score += 20
     
-    # Cap base score at 100
     base_score = min(base_score, 100)
     
-    # Adjust base score with Trust Score multiplier
-    if trust_score == 1:  # Unknown
+    if trust_score == 1:
         adjusted_score = base_score * 1.5
-    elif trust_score == 2:  # Poor
+    elif trust_score == 2:
         adjusted_score = base_score * 1.25
-    elif trust_score == 3:  # Moderate
+    elif trust_score == 3:
         adjusted_score = base_score * 0.9
-    elif trust_score == 4:  # Good
+    elif trust_score == 4:
         adjusted_score = base_score * 0.75
-    else:  # Excellent (5)
+    else:
         adjusted_score = base_score * 0.5
     
-    # Cap adjusted score at 100
     adjusted_score = min(adjusted_score, 100)
     
-    # Determine risk factors for the message
     risk_factors = []
     if apy < 10:
         risk_factors.append("low yield")
@@ -223,24 +215,21 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     elif current_tvl <= 200000:
         risk_factors.append("small pool size")
     
-    # Determine risk category with enhanced Trust Score influence
     category = None
     if adjusted_score > 75:
         category = "Critical"
     elif adjusted_score > 50:
         category = "High"
-    elif trust_score in [1, 2]:  # Trust Score 1 or 2 triggers Advisory as minimum
+    elif trust_score in [1, 2]:
         category = "Advisory"
     elif adjusted_score > 25:
         category = "Advisory"
     else:
         category = "Low"
     
-    # Override to Low for Trust Score 3, 4, or 5 with minimal risks
     if category == "Advisory" and trust_score >= 3 and adjusted_score <= 50 and tvl_decline <= 15 and current_tvl > 200000:
         category = "Low"
 
-    # Construct the message based on category and risk factors
     if category == "Low":
         if trust_score >= 3:
             message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk due to moderate/good/excellent trust score, stable TVL, and adequate yield."
@@ -261,7 +250,7 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
         if trust_score in [1, 2]:
             message += " and low trust score"
         message += "."
-    else:  # Critical
+    else:
         risk_message = " and ".join(risk_factors)
         message = f"⚠️ Protocol Risk: Critical ({adjusted_score:.0f}%). High risk of protocol failure due to {risk_message}"
         if trust_score in [1, 2]:
@@ -269,6 +258,66 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
         message += "."
     
     return adjusted_score, message, category
+
+def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value: float, value_if_held: float,
+                              initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float,
+                              current_price_asset2: float, risk_free_rate: float, months: int = 12) -> tuple[float, float]:
+    # APY Margin of Safety: How much can APY decrease before breakeven exceeds 12 months?
+    target_months = months
+    if apy <= 0 or pool_value <= 0 or value_if_held <= pool_value:
+        apy_margin = 0.0
+    else:
+        min_apy = 0.0
+        max_apy = apy
+        tolerance = 0.01
+        while max_apy - min_apy > tolerance:
+            test_apy = (min_apy + max_apy) / 2
+            monthly_apy = (test_apy / 100) / 12
+            current_value = pool_value
+            for m in range(target_months):
+                current_value *= (1 + monthly_apy)
+            if current_value >= value_if_held:
+                max_apy = test_apy
+            else:
+                min_apy = test_apy
+        min_apy_to_breakeven = min_apy
+        apy_margin = ((apy - min_apy_to_breakeven) / apy * 100) if apy > 0 else 0.0
+        apy_margin = round(apy_margin, 2)
+
+    # Price Divergence Margin of Safety (Unified: Minimum of both directions)
+    target_return = (1 + risk_free_rate / 100)
+    price_divergence_margin = 0.0
+    if pool_value > 0:
+        divergence_factor = 1.0
+        step = 0.01
+        max_divergence = 10.0
+        while divergence_factor <= max_divergence:
+            # Direction 1: Asset 1 up, Asset 2 down
+            test_price_asset1_up = current_price_asset1 * (1 + divergence_factor)
+            test_price_asset2_down = current_price_asset2 * (1 - divergence_factor) if current_price_asset2 > 0 else current_price_asset2
+            future_value_up_down, _ = calculate_future_value(
+                initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
+                test_price_asset1_up, test_price_asset2_down, 0.0, 0.0, is_new_pool=False
+            )
+            net_return_up_down = future_value_up_down / initial_investment if initial_investment > 0 else 0
+
+            # Direction 2: Asset 1 down, Asset 2 up
+            test_price_asset1_down = current_price_asset1 * (1 - divergence_factor)
+            test_price_asset2_up = current_price_asset2 * (1 + divergence_factor) if current_price_asset2 > 0 else current_price_asset2
+            future_value_down_up, _ = calculate_future_value(
+                initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
+                test_price_asset1_down, test_price_asset2_up, 0.0, 0.0, is_new_pool=False
+            )
+            net_return_down_up = future_value_down_up / initial_investment if initial_investment > 0 else 0
+
+            # Use the minimum divergence that breaches the target return
+            if net_return_up_down < target_return or net_return_down_up < target_return:
+                break
+            divergence_factor += step
+
+        price_divergence_margin = round((divergence_factor - 1) * 100, 2) if divergence_factor > 1 else 0.0
+
+    return apy_margin, price_divergence_margin
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
                          initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
@@ -303,7 +352,16 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     )
     pool_share = (initial_investment / current_tvl) * 100 if current_tvl > 0 else 0
 
+    # Calculate Margin of Safety
+    apy_margin, price_divergence_margin = calculate_margin_of_safety(
+        initial_investment, apy, pool_value, value_if_held, initial_price_asset1, initial_price_asset2,
+        current_price_asset1, current_price_asset2, risk_free_rate, months
+    )
+
+    # Results Sections
     st.subheader("Results:")
+    
+    st.subheader("Core Metrics")
     if initial_tvl <= 0:
         if is_new_pool:
             st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
@@ -328,62 +386,71 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
     
     st.write(f"**Pool Share:** {pool_share:.2f}%")
-    if pool_share < 5:
-        st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
-    elif 5 <= pool_share < 10:
-        st.warning(f"⚠️ Pool Share Risk: Moderate ({pool_share:.2f}%). Potential for price impact due to moderate pool share.")
-    elif 10 <= pool_share < 20:
-        st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
-    else:
-        st.error(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
+    st.markdown("---")
 
+    st.subheader("Margin of Safety <span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>")
+    min_apy = apy * (1 - apy_margin / 100)
+    st.write(f"**APY Margin of Safety:** {apy_margin:.2f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
+    st.write(f"**Price Divergence Margin of Safety:** {price_divergence_margin:.2f}% (Prices can diverge by this percentage in either direction before net return falls below the risk-free rate of {risk_free_rate}%)")
+    if apy_margin < 10 or price_divergence_margin < 10:
+        st.write(f"**Margin of Safety Assessment:** ⚠️ Low Margin of Safety: Your position has limited buffer against adverse conditions.")
+    else:
+        st.write(f"**Margin of Safety Assessment:** ✅ High Margin of Safety: Your position has a strong buffer against adverse conditions.")
+    st.markdown("---")
+
+    st.subheader("Risk Management")
     if initial_tvl > 0:
         if tvl_decline >= 50:
-            st.error(f"⚠️ TVL Decline Risk: Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
+            st.write(f"**TVL Decline Risk:** ⚠️ Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
         elif tvl_decline >= 30:
-            st.warning(f"⚠️ TVL Decline Risk: High ({tvl_decline:.2f}% decline). Elevated risk due to significant TVL reduction.")
+            st.write(f"**TVL Decline Risk:** ⚠️ High ({tvl_decline:.2f}% decline). Elevated risk due to significant TVL reduction.")
         elif tvl_decline >= 15:
-            st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
+            st.write(f"**TVL Decline Risk:** ⚠️ Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
         else:
-            st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
-    
-    # Protocol Risk Alert
+            st.write(f"**TVL Decline Risk:** ✅ Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
+
+    if pool_share < 5:
+        st.write(f"**Pool Share Risk:** ✅ Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
+    elif 5 <= pool_share < 10:
+        st.write(f"**Pool Share Risk:** ⚠️ Moderate ({pool_share:.2f}%). Potential for price impact due to moderate pool share.")
+    elif 10 <= pool_share < 20:
+        st.write(f"**Pool Share Risk:** ⚠️ High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
+    else:
+        st.write(f"**Pool Share Risk:** ⚠️ Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
+
     protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
     if protocol_risk_category == "Critical":
-        st.error(protocol_risk_message)
+        st.write(f"**Protocol Risk:** ⚠️ {protocol_risk_message}")
     elif protocol_risk_category in ["High", "Advisory"]:
-        st.warning(protocol_risk_message)
+        st.write(f"**Protocol Risk:** ⚠️ {protocol_risk_message}")
     else:
-        st.success(protocol_risk_message)
+        st.write(f"**Protocol Risk:** ✅ {protocol_risk_message}")
 
-    # Volatility Score (moved under Protocol Risk)
     if "Critical" in volatility_message:
-        st.error(volatility_message)
+        st.write(f"**Volatility Score:** ⚠️ {volatility_message}")
     elif "High" in volatility_message or "Moderate" in volatility_message:
-        st.warning(volatility_message)
+        st.write(f"**Volatility Score:** ⚠️ {volatility_message}")
     else:
-        st.success(volatility_message)
+        st.write(f"**Volatility Score:** ✅ {volatility_message}")
+    st.markdown("---")
 
+    st.subheader("Alerts")
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
             st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%) or marginal profit (Net Return {net_return:.2f}x) indicates potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         else:
             st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
     else:
         if net_return < 1.0:
             st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x indicates a loss.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         elif apy < apy_exit_threshold or net_return < 1.1:
             st.warning(f"⚠️ Investment Risk: Moderate. APY below threshold ({apy_exit_threshold:.2f}%) or marginal profit (Net Return {net_return:.2f}x) indicates potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         else:
             st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+
+    return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
 
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
@@ -429,7 +496,8 @@ else:
     current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=125000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f",
+                             help="Best Practice: Use the average APY over the longest period available (e.g., 6 months or more). For a conservative projection, consider halving this average to account for potential APY fluctuations.")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
 st.sidebar.markdown("""
@@ -473,7 +541,7 @@ if st.sidebar.button("Calculate"):
         net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
-        )[:7]  # Adjusted return to include volatility_score
+        )[:7]
         
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
@@ -607,4 +675,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
+        writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.2f}"])
+        writer.writerow(["Price Divergence Margin of Safety (%)", f"{price_divergence_margin:.2f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
