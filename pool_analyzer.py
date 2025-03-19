@@ -156,6 +156,23 @@ st.sidebar.header("Pool Input")
 pool_url = st.sidebar.text_input("Pool Page URL", "https://raydium.io/clmm/create-position/?pool_id=7KFSBUVDW1ajac2ku6AsZwMwUtcXn4bRxTtv52Q5ubUC")
 use_manual = st.sidebar.checkbox("Use Manual Input Instead", value=False)
 
+# Initialize variables with defaults
+apy = 0.0
+tvl = 0.0
+initial_investment = 10000.0
+initial_price_asset1 = 125.0
+initial_price_asset2 = 1.0
+current_price_asset1 = 125.0
+current_price_asset2 = 1.0
+expected_price_change_asset1 = 0.0
+expected_price_change_asset2 = 0.0
+months = 12
+risk_free_rate = 2.0
+trust_score = 3
+is_new_pool = False
+btc_growth_rate = 0.0
+initial_tvl = 1000000.0
+
 if not use_manual and pool_url:
     pool_id, chain, platform = parse_pool_url(pool_url)
     if pool_id:
@@ -170,12 +187,8 @@ if not use_manual and pool_url:
                 apy = st.sidebar.number_input("Manual APY (%) (since auto-fetch failed)", value=0.0, step=0.1)
             else:
                 st.sidebar.warning("Couldn’t fetch data automatically. Please enter details manually.")
-                apy = st.sidebar.number_input("Manual APY (%)", value=0.0, step=0.1)
-                tvl = st.sidebar.number_input("Manual TVL ($)", value=0.0, step=1000.0)
     else:
         st.sidebar.warning("Invalid URL format. Please enter a valid pool page URL or use manual input.")
-        apy = st.sidebar.number_input("Manual APY (%)", value=1.0, step=0.1)
-        tvl = st.sidebar.number_input("Manual TVL ($)", value=1000000.0, step=1000.0)
 else:
     apy = st.sidebar.number_input("APY (%)", value=1.0, step=0.1)
     tvl = st.sidebar.number_input("TVL ($)", value=1000000.0, step=1000.0)
@@ -193,21 +206,26 @@ else:
     btc_growth_rate = st.sidebar.number_input("BTC Growth Rate (%)", value=0.0, step=1.0)
     initial_tvl = st.sidebar.number_input("Initial TVL ($)", value=tvl, step=1000.0)
 
-# Perform calculations
-pool_value, il_impact = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
-future_value, future_il = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool)
-net_return = future_value / initial_investment if initial_investment > 0 else 0
-tvl_decline = ((initial_tvl - tvl) / initial_tvl * 100) if initial_tvl > 0 else 0.0
-pool_share = (initial_investment / tvl) * 100 if tvl > 0 else 0
+# Perform calculations only if all inputs are valid
+if st.sidebar.button("Calculate"):
+    try:
+        pool_value, il_impact = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+        future_value, future_il = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, is_new_pool)
+        net_return = future_value / initial_investment if initial_investment > 0 else 0
+        tvl_decline = ((initial_tvl - tvl) / initial_tvl * 100) if initial_tvl > 0 else 0.0
+        pool_share = (initial_investment / tvl) * 100 if tvl > 0 else 0
 
-# Display results
-st.subheader("Results")
-st.write(f"Impermanent Loss (Current): {il_impact:.2f}%")
-st.write(f"Projected Impermanent Loss ({months} months): {future_il:.2f}%")
-st.write(f"Future Value: ${future_value:,.2f}")
-st.write(f"Net Return: {net_return:.2f}x")
-st.write(f"TVL Decline: {tvl_decline:.2f}%")
-st.write(f"Pool Share: {pool_share:.2f}%")
+        # Display results
+        st.subheader("Results")
+        st.write(f"Impermanent Loss (Current): {il_impact:.2f}%")
+        st.write(f"Projected Impermanent Loss ({months} months): {future_il:.2f}%")
+        st.write(f"Future Value: ${future_value:,.2f}")
+        st.write(f"Net Return: {net_return:.2f}x")
+        st.write(f"TVL Decline: {tvl_decline:.2f}%")
+        st.write(f"Pool Share: {pool_share:.2f}%")
+    except Exception as e:
+        st.error(f"Calculation error: {str(e)}. Please check your inputs.")
+        logger.error(f"Calculation failed: {str(e)}")
 
 # Testing Section
 st.sidebar.header("Testing")
