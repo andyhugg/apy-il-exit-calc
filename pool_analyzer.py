@@ -302,74 +302,86 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     # Protocol Risk
     protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
 
-    # Streamlit Output with New Sections
-    st.subheader("Core Metrics")
+    # Streamlit Output with Improved Formatting
+    # Core Metrics
+    st.markdown("<h1>Core Metrics</h1>", unsafe_allow_html=True)
     if initial_tvl <= 0:
         if is_new_pool:
-            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
-            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
+            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)  ")
+            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)  ")
         else:
-            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
-        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
-        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
-        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)")
-        st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
+            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%  ")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months  ")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months  ")
+        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)  ")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)  ")
+        st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.  ")
     else:
         if is_new_pool:
-            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
-            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
+            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)  ")
+            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)  ")
         else:
-            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
-        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
-        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
-        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)")
-        st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
-    st.write(f"**Pool Share:** {pool_share:.2f}%")
+            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%  ")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months  ")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months  ")
+        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)  ")
+        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)  ")
+        st.write(f"**TVL Decline:** {tvl_decline:.2f}%  ")
+    st.write(f"**Pool Share:** {pool_share:.2f}%  ")
 
-    st.subheader("Margin of Safety")
-    st.write(f"**APY Margin of Safety:** {apy_mos:.2f}% (APY can decrease by this percentage before breakeven exceeds 12 months)")
+    # Separator
+    st.markdown("---")
+
+    # Margin of Safety
+    st.markdown("<h1>Margin of Safety</h1>", unsafe_allow_html=True)
+    st.write(f"**APY Margin of Safety:** {apy_mos:.2f}% (APY can decrease by this percentage before breakeven exceeds 12 months)  ")
     mos_assessment = "✅ High" if apy_mos > 50 else "⚠️ Low"
-    st.write(f"**Margin of Safety Assessment:** {mos_assessment} Margin of Safety")
+    st.write(f"**Margin of Safety Assessment:** {mos_assessment} Margin of Safety  ")
 
-    st.subheader("Risk Management")
+    # Separator
+    st.markdown("---")
+
+    # Risk Management
+    st.markdown("<h1>Risk Management</h1>", unsafe_allow_html=True)
     if pool_share < 5:
-        st.success(f"✅ Pool Share Risk: Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
+        st.success(f"✅ **Pool Share Risk:** Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
     elif 5 <= pool_share < 10:
-        st.warning(f"⚠️ Pool Share Risk: Moderate ({pool_share:.2f}%). Potential for price impact due to moderate pool share.")
+        st.warning(f"⚠️ **Pool Share Risk:** Moderate ({pool_share:.2f}%). Potential for price impact due to moderate pool share.")
     elif 10 <= pool_share < 20:
-        st.warning(f"⚠️ Pool Share Risk: High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
+        st.warning(f"⚠️ **Pool Share Risk:** High ({pool_share:.2f}%). Significant price impact possible due to high pool share.")
     else:
-        st.error(f"⚠️ Pool Share Risk: Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
+        st.error(f"⚠️ **Pool Share Risk:** Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
 
     if initial_tvl > 0:
         if tvl_decline >= 50:
-            st.error(f"⚠️ TVL Decline Risk: Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
+            st.error(f"⚠️ **TVL Decline Risk:** Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
         elif tvl_decline >= 30:
-            st.warning(f"⚠️ TVL Decline Risk: High ({tvl_decline:.2f}% decline). Elevated risk due to significant TVL reduction.")
+            st.warning(f"⚠️ **TVL Decline Risk:** High ({tvl_decline:.2f}% decline). Elevated risk due to significant TVL reduction.")
         elif tvl_decline >= 15:
-            st.warning(f"⚠️ TVL Decline Risk: Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
+            st.warning(f"⚠️ **TVL Decline Risk:** Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
         else:
-            st.success(f"✅ TVL Decline Risk: Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
+            st.success(f"✅ **TVL Decline Risk:** Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
     
     if protocol_risk_category == "Critical":
-        st.error(protocol_risk_message)
+        st.error(f"⚠️ **Protocol Risk:** {protocol_risk_message.split('⚠️ Protocol Risk: ')[1]}")
     elif protocol_risk_category in ["High", "Advisory"]:
-        st.warning(protocol_risk_message)
+        st.warning(f"⚠️ **Protocol Risk:** {protocol_risk_message.split('⚠️ Protocol Risk: ')[1]}")
     else:
-        st.success(protocol_risk_message)
+        st.success(f"✅ **Protocol Risk:** {protocol_risk_message.split('✅ Protocol Risk: ')[1]}")
 
     if volatility_score > 25:
-        st.warning(volatility_message)
+        st.warning(f"⚠️ **Volatility Score:** {volatility_message.split('⚠️ Volatility Score: ')[1]}")
     else:
-        st.success(volatility_message)
+        st.success(f"✅ **Volatility Score:** {volatility_message.split('✅ Volatility Score: ')[1]}")
 
-    # Investment Risk Alert (Corrected)
-    st.subheader("Investment Risk Alert")
+    # Separator
+    st.markdown("---")
+
+    # Investment Risk Alert
+    st.markdown("<h1>Investment Risk Alert</h1>", unsafe_allow_html=True)
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
-            st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
+            st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
             reasons = []
@@ -380,14 +392,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             if volatility_score > 25:
                 reasons.append(f"moderate volatility ({volatility_score:.0f}%)")
             reason_str = ", ".join(reasons)
-            st.warning(f"⚠️ Investment Risk: Moderate. {reason_str} indicate potential underperformance.")
+            st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         else:
-            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
+            st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
     else:
         if net_return < 1.0:
-            st.error(f"⚠️ Investment Risk: Critical. Net Return {net_return:.2f}x indicates a loss.")
+            st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x indicates a loss.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         elif apy < apy_exit_threshold or net_return < 1.1:
             reasons = []
@@ -396,11 +408,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             if net_return < 1.1:
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
             reason_str = ", ".join(reasons)
-            st.warning(f"⚠️ Investment Risk: Moderate. {reason_str} indicate potential underperformance.")
+            st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
             return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
         else:
-            st.success(f"✅ Investment Risk: Low. Net Return {net_return:.2f}x indicates profitability.")
+            st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability.")
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score
+
+    # Final Separator
+    st.markdown("---")
 
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
