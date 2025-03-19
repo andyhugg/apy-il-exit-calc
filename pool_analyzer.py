@@ -22,7 +22,7 @@ def calculate_il(initial_price_asset1: float, initial_price_asset2: float, curre
     il = (value_if_held - pool_value) / value_if_held if value_if_held > 0 else 0
     il_percentage = abs(il) * 100
     print(f"Debug - calculate_il: initial_price_asset1={initial_price_asset1}, initial_price_asset2={initial_price_asset2}, current_price_asset1={current_price_asset1}, current_price_asset2={current_price_asset2}, initial_investment={initial_investment}, il_percentage={il_percentage}")
-    return round(il_percentage, 2)  # Removed the conditional rounding to ensure consistent precision
+    return round(il_percentage, 2)
 
 def calculate_pool_value(initial_investment: float, initial_price_asset1: float, initial_price_asset2: float,
                         current_price_asset1: float, current_price_asset2: float) -> tuple[float, float]:
@@ -285,14 +285,14 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
                 min_apy = test_apy
         min_apy_to_breakeven = min_apy
         apy_margin = ((apy - min_apy_to_breakeven) / apy * 100) if apy > 0 else 0.0
-        apy_margin = round(apy_margin, 2)
+        apy_margin = round(apy_margin, 0)  # Adjusted to round to nearest whole number for consistency
 
     # Price Divergence Margin of Safety (Unified: Minimum of both directions)
     target_return = (1 + risk_free_rate / 100) ** (months / 12)  # Adjust target return for the time period
     price_divergence_margin = 0.0
     if pool_value > 0:
         divergence_factor = 1.0
-        step = 0.01
+        step = 0.001  # Reduced step size for finer granularity
         max_divergence = 10.0
         while divergence_factor <= max_divergence:
             # Direction 1: Asset 1 up, Asset 2 down
@@ -312,6 +312,9 @@ def calculate_margin_of_safety(initial_investment: float, apy: float, pool_value
                 test_price_asset1_down, test_price_asset2_up, 0.0, 0.0, is_new_pool=False
             )
             net_return_down_up = future_value_down_up / initial_investment if initial_investment > 0 else 0
+
+            # Debug print to trace values
+            print(f"Debug - calculate_margin_of_safety: divergence_factor={divergence_factor}, net_return_up_down={net_return_up_down}, net_return_down_up={net_return_down_up}, target_return={target_return}")
 
             # Use the minimum divergence that breaches the target return
             if net_return_up_down < target_return or net_return_down_up < target_return:
@@ -394,7 +397,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.subheader("Margin of Safety")
     st.write("<span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
     min_apy = apy * (1 - apy_margin / 100)
-    st.write(f"**APY Margin of Safety:** {apy_margin:.2f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
+    st.write(f"**APY Margin of Safety:** {apy_margin:.0f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
     st.write(f"**Price Divergence Margin of Safety:** {price_divergence_margin:.2f}% (Prices can diverge by this percentage in either direction before net return falls below the risk-free rate of {risk_free_rate}%)")
     if apy_margin < 10 or price_divergence_margin < 10:
         st.write(f"**Margin of Safety Assessment:** ⚠️ Low Margin of Safety: Your position has limited buffer against adverse conditions.")
@@ -497,10 +500,10 @@ if is_new_pool:
 else:
     initial_price_asset1 = st.sidebar.number_input("Initial Asset 1 Price (at Entry) ($)", min_value=0.01, step=0.01, value=88000.00, format="%.2f")
     initial_price_asset2 = st.sidebar.number_input("Initial Asset 2 Price (at Entry) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=129000.00, format="%.2f")
+    current_price_asset1 = st.sidebar.number_input("Current Asset 1 Price (Today) ($)", min_value=0.01, step=0.01, value=100000.00, format="%.2f")
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f",
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=10.00, format="%.2f",
                              help="Best Practice: Use the average APY over the longest period available (e.g., 6 months or more). For a conservative projection, consider halving this average to account for potential APY fluctuations.")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
@@ -526,7 +529,7 @@ initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or s
 current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
 btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=100.0, format="%.2f")
 
-risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
+risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=2.00, format="%.2f")
 st.sidebar.markdown("""
 **Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high volatility (>75% Volatility Score) or IL (>50%) conditions, ensuring a margin of safety.
 """)
@@ -689,6 +692,6 @@ if st.sidebar.button("Calculate"):
             writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
             writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
             writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
-            writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.2f}"])
+            writer.writerow(["APY Margin of Safety (%)", f"{apy_margin:.0f}"])
             writer.writerow(["Price Divergence Margin of Safety (%)", f"{price_divergence_margin:.2f}"])
             st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
