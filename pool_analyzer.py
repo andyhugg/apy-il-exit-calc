@@ -362,7 +362,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     )
 
     # Results Sections
-    st.subheader("Results:")
+    st.subheader("Results")
     
     st.subheader("Core Metrics")
     if initial_tvl <= 0:
@@ -391,7 +391,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.write(f"**Pool Share:** {pool_share:.2f}%")
     st.markdown("---")
 
-    st.subheader("Margin of Safety <span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
+    st.subheader("Margin of Safety")
+    st.write("<span title='Margin of Safety (MoS) indicates how much buffer your investment has against adverse conditions (e.g., APY drops or price divergence). A higher MoS reduces risk by ensuring profitability even if market conditions worsen, making it a key metric for risk management.' style='color: gray; font-size: 0.8em;'>ⓘ</span>", unsafe_allow_html=True)
     min_apy = apy * (1 - apy_margin / 100)
     st.write(f"**APY Margin of Safety:** {apy_margin:.2f}% (APY can decrease by this percentage to {min_apy:.2f}% before breakeven exceeds {months} months)")
     st.write(f"**Price Divergence Margin of Safety:** {price_divergence_margin:.2f}% (Prices can diverge by this percentage in either direction before net return falls below the risk-free rate of {risk_free_rate}%)")
