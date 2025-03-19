@@ -462,7 +462,7 @@ else:
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-st.sidebar.markdown("**Note:** For conservative projections, consider halving the entered APY to buffer against market volatility. **Global Average Inflation Hurdle Rate: 5%** (as of 2025 IMF data). This is the minimum return needed to outpace global inflation. Compare this to your pool APY to ensure real returns.")
+st.sidebar.markdown("**Note:** **Annual Percentage Yield** For conservative projections, consider halving the entered APY to buffer against market volatility. **Global Average Inflation Hurdle Rate: 5%** (as of 2025 IMF data). This is the minimum return needed to outpace global inflation. Compare this to your pool APY to ensure real returns.")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
 st.sidebar.markdown("""
@@ -475,7 +475,7 @@ st.sidebar.markdown("""
 """)
 
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
-initial_tvl = st.sidebar.number_input("Initial TVL (set to current TVL if entering today) ($)", 
+initial_tvl = st.sidebar.number_input("Initial TVL (set to current Total value Locked if entering today) ($)", 
                                      min_value=0.01, step=0.01, value=855000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1000000.00, format="%.2f")
 
