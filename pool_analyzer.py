@@ -131,10 +131,10 @@ def scrape_pool_data(url: str) -> tuple[float, str]:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        # Look for liquidity (adjust based on Raydium's HTML structure)
-        liquidity_element = soup.find(string=lambda text: "Liquidity" in text if text else False)
+        # Improved selector based on Raydium structure (e.g., liquidity value)
+        liquidity_element = soup.find("div", class_="sc-1g6z4xm-0 jZPiho", string=lambda text: "Liquidity" in text)
         if liquidity_element:
-            liquidity_text = liquidity_element.find_next(string=True).strip().replace("$", "").replace(",", "")
+            liquidity_text = liquidity_element.find_next("span").text.strip().replace("$", "").replace(",", "")
             tvl = float(liquidity_text) if liquidity_text.replace(".", "").isdigit() else 0.0
             logger.info(f"Scraped TVL: ${tvl:,.2f}")
             return tvl, "scraped"
@@ -206,7 +206,7 @@ else:
     btc_growth_rate = st.sidebar.number_input("BTC Growth Rate (%)", value=0.0, step=1.0)
     initial_tvl = st.sidebar.number_input("Initial TVL ($)", value=tvl, step=1000.0)
 
-# Perform calculations only if all inputs are valid
+# Perform calculations only when button is clicked
 if st.sidebar.button("Calculate"):
     try:
         pool_value, il_impact = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
