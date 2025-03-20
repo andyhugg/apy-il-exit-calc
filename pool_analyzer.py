@@ -414,7 +414,176 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability.")
             return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
 
-    # Final Separator
+    # Separator
+    st.markdown("---")
+
+    # Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes
+    st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
+    st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${initial_investment:,.2f}).")
+    time_periods = [0, 3, 6, 12]
+    future_values = []
+    future_ils = []
+    for months in time_periods:
+        value, il_at_time = calculate_future_value(initial_investment, apy, months, initial_price_asset1, initial_price_asset2,
+                                                  current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                  expected_price_change_asset2, is_new_pool)
+        future_values.append(value)
+        future_ils.append(il_at_time)
+    
+    formatted_pool_values = [f"{int(value):,}" for value in future_values]
+    formatted_ils = [f"{il:.2f}%" for il in future_ils]
+    df_projection = pd.DataFrame({
+        "Time Period (Months)": time_periods,
+        "Projected Value ($)": formatted_pool_values,
+        "Projected Impermanent Loss (%)": formatted_ils
+    })
+    styled_df = df_projection.style.set_properties(**{
+        'text-align': 'right'
+    }, subset=["Projected Value ($)", "Projected Impermanent Loss (%)"]).set_properties(**{
+        'text-align': 'right'
+    }, subset=["Time Period (Months)"])
+    st.dataframe(styled_df, hide_index=True, use_container_width=True)
+    
+    plt.figure(figsize=(10, 5))
+    plt.plot(time_periods, future_values, marker='o', label="Pool Value")
+    plt.axhline(y=initial_investment, color='r', linestyle='--', label="Initial Investment")
+    plt.title("Projected Pool Value Over Time")
+    plt.xlabel("Months")
+    plt.ylabel("Value ($)")
+    plt.legend()
+    st.pyplot(plt)
+
+    # Separator
+    st.markdown("---")
+
+    # Simplified Monte Carlo Scenarios
+    st.markdown("<h1>Simplified Monte Carlo Scenarios</h1>", unsafe_allow_html=True)
+    st.markdown("""
+    *This section provides a simplified Monte Carlo analysis by evaluating three scenarios—best case, most probable, and worst case—to estimate the range of outcomes for your pool investment over 12 months. We adjust APY (±50%), asset price changes (±50% for worst case, +10% for best case), and TVL decline (±30% for best case, 50% for worst case) to reflect optimistic, expected, and pessimistic conditions. The "Most Probable" scenario is adjusted to be 15% more conservative than your 12-month projection above to account for potential underperformance in APY due to market conditions.*
+    """)
+
+    # Define the scenarios
+    # First, calculate the target net return for the "Most Probable" scenario (15% more conservative)
+    target_most_probable_net_return = net_return * (1 - 0.15)  # 15% more conservative than the 12-month net return
+    # Approximate the APY needed to achieve this net return
+    # Since net return is roughly linear with APY (for small changes, ignoring IL and price effects), reduce APY by ~15%
+    conservative_apy = apy * (1 - 0.15)
+    # Fine-tune the APY to get closer to the target net return
+    future_value_test, _ = calculate_future_value(
+        initial_investment, conservative_apy, 12, initial_price_asset1, initial_price_asset2,
+        current_price_asset1, current_price_asset2, expected_price_change_asset1,
+        expected_price_change_asset2, is_new_pool
+    )
+    test_net_return = future_value_test / initial_investment if initial_investment > 0 else 0
+    # Adjust APY iteratively if needed (simple approximation for now)
+    if test_net_return > target_most_probable_net_return:
+        conservative_apy *= (target_most_probable_net_return / test_net_return)
+
+    scenarios = {
+        "Best Case (Optimistic)": {
+            "apy": apy * 1.5,  # +50%
+            "price_change_asset1": 10.0,  # +10%
+            "price_change_asset2": 10.0,  # +10%
+            "tvl_decline": -30.0  # TVL increases by 30%
+        },
+        "Most Probable (Conservative)": {
+            "apy": conservative_apy,  # Adjusted to achieve 15% more conservative net return
+            "price_change_asset1": expected_price_change_asset1,
+            "price_change_asset2": expected_price_change_asset2,
+            "tvl_decline": tvl_decline
+        },
+        "Worst Case (Pessimistic)": {
+            "apy": apy * 0.5,  # -50%
+            "price_change_asset1": -50.0,  # -50%
+            "price_change_asset2": 50.0,  # +50%
+            "tvl_decline": 50.0  # TVL drops by 50%
+        }
+    }
+
+    # Run calculations for each scenario
+    scenario_results = {}
+    for scenario_name, params in scenarios.items():
+        future_value, future_il = calculate_future_value(
+            initial_investment, params["apy"], 12, initial_price_asset1, initial_price_asset2,
+            current_price_asset1, current_price_asset2, params["price_change_asset1"],
+            params["price_change_asset2"], is_new_pool
+        )
+        scenario_net_return = future_value / initial_investment if initial_investment > 0 else 0
+        scenario_results[scenario_name] = {
+            "net_return": scenario_net_return,
+            "pool_value": future_value,
+            "impermanent_loss": future_il
+        }
+
+    # Create a DataFrame for the table
+    df_scenarios = pd.DataFrame({
+        "Metric": ["Net Return", "Pool Value (12 months)", "Impermanent Loss"],
+        "Best Case (Optimistic)": [
+            f"{scenario_results['Best Case (Optimistic)']['net_return']:.2f}x",
+            f"${scenario_results['Best Case (Optimistic)']['pool_value']:.2f}",
+            f"{scenario_results['Best Case (Optimistic)']['impermanent_loss']:.2f}%"
+        ],
+        "Most Probable (Conservative)": [
+            f"{scenario_results['Most Probable (Conservative)']['net_return']:.2f}x",
+            f"${scenario_results['Most Probable (Conservative)']['pool_value']:.2f}",
+            f"{scenario_results['Most Probable (Conservative)']['impermanent_loss']:.2f}%"
+        ],
+        "Worst Case (Pessimistic)": [
+            f"{scenario_results['Worst Case (Pessimistic)']['net_return']:.2f}x",
+            f"${scenario_results['Worst Case (Pessimistic)']['pool_value']:.2f}",
+            f"{scenario_results['Worst Case (Pessimistic)']['impermanent_loss']:.2f}%"
+        ]
+    })
+
+    # Display the table
+    styled_df_scenarios = df_scenarios.style.set_properties(**{
+        'text-align': 'right'
+    }, subset=["Best Case (Optimistic)", "Most Probable (Conservative)", "Worst Case (Pessimistic)"]).set_properties(**{
+        'text-align': 'left'
+    }, subset=["Metric"])
+    st.dataframe(styled_df_scenarios, hide_index=True, use_container_width=True)
+
+    # Add a bar chart for net returns
+    st.markdown("**Net Return Comparison Across Scenarios**")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    scenarios_names = list(scenario_results.keys())
+    net_returns = [scenario_results[name]["net_return"] for name in scenarios_names]
+    bars = ax.bar(scenarios_names, net_returns, color=['#4CAF50', '#2196F3', '#F44336'])
+    
+    # Add labels on top of the bars
+    for bar in bars:
+        yval = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2, yval + 0.02, f"{yval:.2f}x", ha='center', va='bottom')
+    
+    ax.set_title("Net Return After 12 Months by Scenario")
+    ax.set_ylabel("Net Return (x)")
+    ax.set_ylim(0, max(net_returns) + 0.2)
+    ax.axhline(y=1.0, color='gray', linestyle='--', label="Break-even (1.0x)")
+    ax.legend()
+    plt.xticks(rotation=15)
+    st.pyplot(fig)
+
+    # Provide insights
+    st.markdown("**Key Insights:**")
+    best_return = scenario_results['Best Case (Optimistic)']['net_return']
+    most_probable_return = scenario_results['Most Probable (Conservative)']['net_return']
+    worst_return = scenario_results['Worst Case (Pessimistic)']['net_return']
+    best_value = scenario_results['Best Case (Optimistic)']['pool_value']
+    most_probable_value = scenario_results['Most Probable (Conservative)']['pool_value']
+    worst_value = scenario_results['Worst Case (Pessimistic)']['pool_value']
+    best_il = scenario_results['Best Case (Optimistic)']['impermanent_loss']
+    worst_il = scenario_results['Worst Case (Pessimistic)']['impermanent_loss']
+    
+    st.write(f"- **Best Case**: With a higher APY ({scenarios['Best Case (Optimistic)']['apy']:.2f}%), slight asset appreciation (+10% each), and strong TVL growth (+30%), your ${initial_investment:.2f} investment could grow to ${best_value:.2f} ({best_return:.2f}x return) with {best_il:.2f}% impermanent loss.")
+    st.write(f"- **Most Probable (Conservative)**: Using a more conservative APY ({scenarios['Most Probable (Conservative)']['apy']:.2f}%), your expected price changes ({expected_price_change_asset1}% and {expected_price_change_asset2}%), and TVL decline ({tvl_decline:.2f}%), your investment is likely to grow to ${most_probable_value:.2f} ({most_probable_return:.2f}x return) with {scenario_results['Most Probable (Conservative)']['impermanent_loss']:.2f}% impermanent loss.")
+    st.write(f"- **Worst Case**: If APY drops to {scenarios['Worst Case (Pessimistic)']['apy']:.2f}%, assets diverge significantly (-50% and +50%), and TVL drops by 50%, your investment could fall to ${worst_value:.2f} ({worst_return:.2f}x return) with {worst_il:.2f}% impermanent loss.")
+
+    # Recommendation
+    worst_case_loss = (1 - worst_return) * 100 if worst_return < 1 else 0
+    best_case_gain = (best_return - 1) * 100 if best_return > 1 else 0
+    st.write(f"**Recommendation**: The most probable scenario (conservative) suggests a {((most_probable_return - 1) * 100 if most_probable_return > 1 else (1 - most_probable_return) * 100):.2f}% {'profit' if most_probable_return > 1 else 'loss'}, compared to your projected {((net_return - 1) * 100 if net_return > 1 else (1 - net_return) * 100):.2f}% {'profit' if net_return > 1 else 'loss'} at 12 months. The worst case indicates a potential {worst_case_loss:.2f}% loss. Consider whether the potential upside ({best_case_gain:.2f}% gain in the best case) justifies the risk, or explore pools with more stable assets or higher APY to mitigate downside risk.")
+
+    # Separator
     st.markdown("---")
 
 # Streamlit App
@@ -503,47 +672,13 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
             current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
         )
-        # Updated to capture apy_mos
         result = check_exit_conditions(
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
         
-        st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
-        st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
-        time_periods = [0, 3, 6, 12]
-        future_values = []
-        future_ils = []
-        for months in time_periods:
-            value, il_at_time = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
-                                                      current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                                      expected_price_change_asset2, is_new_pool)
-            future_values.append(value)
-            future_ils.append(il_at_time)
-        
-        formatted_pool_values = [f"{int(value):,}" for value in future_values]
-        formatted_ils = [f"{il:.2f}%" for il in future_ils]
-        df_projection = pd.DataFrame({
-            "Time Period (Months)": time_periods,
-            "Projected Value ($)": formatted_pool_values,
-            "Projected Impermanent Loss (%)": formatted_ils
-        })
-        styled_df = df_projection.style.set_properties(**{
-            'text-align': 'right'
-        }, subset=["Projected Value ($)", "Projected Impermanent Loss (%)"]).set_properties(**{
-            'text-align': 'right'
-        }, subset=["Time Period (Months)"])
-        st.dataframe(styled_df, hide_index=True, use_container_width=True)
-        
-        plt.figure(figsize=(10, 5))
-        plt.plot(time_periods, future_values, marker='o', label="Pool Value")
-        plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
-        plt.title("Projected Pool Value Over Time")
-        plt.xlabel("Months")
-        plt.ylabel("Value ($)")
-        plt.legend()
-        st.pyplot(plt)
+        # Projected Pool Value and Simplified Monte Carlo Scenarios are already added in the check_exit_conditions function
 
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
         asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
@@ -626,6 +761,7 @@ if st.sidebar.button("Calculate"):
         }, subset=["Scenario"])
         st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
         
+        # Update CSV Export to include Simplified Monte Carlo Scenarios
         output = StringIO()
         writer = csv.writer(output)
         writer.writerow(["Metric", "Value"])
@@ -643,4 +779,17 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["APY Margin of Safety (%)", f"{apy_mos:.2f}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
+        
+        # Add Simplified Monte Carlo Scenarios to CSV
+        writer.writerow([])  # Separator
+        writer.writerow(["Simplified Monte Carlo Scenarios", "", ""])
+        writer.writerow(["Scenario", "Net Return (x)", "Pool Value (12 months) ($)", "Impermanent Loss (%)"])
+        for scenario_name in scenarios:
+            writer.writerow([
+                scenario_name,
+                f"{scenario_results[scenario_name]['net_return']:.2f}",
+                f"{scenario_results[scenario_name]['pool_value']:.2f}",
+                f"{scenario_results[scenario_name]['impermanent_loss']:.2f}"
+            ])
+        
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
