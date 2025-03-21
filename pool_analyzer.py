@@ -297,7 +297,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     # Core Metrics Section with Updated Styling
     st.markdown("<h1 style='text-align: center; margin-bottom: 20px;'>Core Metrics</h1>", unsafe_allow_html=True)
 
-    # Custom CSS for metric cards with fixed height
+    # Custom CSS for metric cards with increased height to fit all text
     st.markdown("""
     <style>
     .metric-card {
@@ -307,11 +307,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         margin: 10px 0;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         transition: transform 0.2s;
-        height: 200px;  /* Fixed height for all cards */
+        height: 250px;  /* Increased height to fit all text */
         display: flex;
         flex-direction: column;
         justify-content: space-between;  /* Distribute content vertically */
-        overflow: hidden;  /* Prevent content from spilling out */
     }
     .metric-card:hover {
         transform: translateY(-5px);
@@ -340,12 +339,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         color: #b0b0b0;
         margin-top: 5px;
         flex: 1;  /* Allow note to take remaining space */
-        overflow: hidden;  /* Hide overflow */
-        display: -webkit-box;
-        -webkit-line-clamp: 3;  /* Limit to 3 lines */
-        -webkit-box-orient: vertical;  /* Enable line clamping */
-        line-height: 1.2em;  /* Consistent line height */
-        max-height: 3.6em;  /* 3 lines * 1.2em */
+        white-space: normal;  /* Allow text wrapping */
+        overflow-wrap: break-word;  /* Break long words */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -494,7 +489,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             elif tvl_decline > -50:
                 tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, which may impact fees and liquidity. Monitor closely for further decline before deciding to exit."
             else:
-                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, signaling high risk of reduced liquidity and fees. Consider exiting to avoid potential losses."
+                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, signaling high risk of reduced liquidity and fees. Consider植物 exiting to avoid potential losses."
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">📊 {metric_name}</div>
