@@ -289,45 +289,168 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     volatility_score, volatility_message = calculate_volatility_score(il, tvl_decline)
     protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
 
-    st.markdown("<h1>Core Metrics</h1>", unsafe_allow_html=True)
-    if initial_tvl <= 0:
-        if is_new_pool:
-            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
-            st.write("")
-            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
-            st.write("")
+    # Core Metrics Section with Improved Styling
+    st.markdown("<h1 style='text-align: center; margin-bottom: 20px;'>Core Metrics</h1>", unsafe_allow_html=True)
+
+    # Custom CSS for metric cards
+    st.markdown("""
+    <style>
+    .metric-card {
+        background-color: #1f2a44;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .metric-title {
+        font-weight: bold;
+        font-size: 16px;
+        color: #ffffff;
+        margin-bottom: 5px;
+    }
+    .metric-value {
+        font-size: 20px;
+        font-weight: 500;
+    }
+    .metric-value.green {
+        color: #00cc00;
+    }
+    .metric-value.red {
+        color: #ff3333;
+    }
+    .metric-value.neutral {
+        color: #ffffff;
+    }
+    .metric-note {
+        font-size: 12px;
+        color: #b0b0b0;
+        margin-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Split into two columns
+    col1, col2 = st.columns(2)
+
+    # Helper function to determine value color
+    def get_value_color(metric_name, value):
+        if metric_name in ["Impermanent Loss", "TVL Decline", "Projected Impermanent Loss"]:
+            return "red" if value > 0 else "green"
+        elif metric_name == "Net Return":
+            return "green" if value > 1 else "red"
+        elif metric_name in ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"]:
+            return "green" if value <= 12 else "red"
+        elif metric_name == "Pool Share":
+            return "green" if value < 5 else "red"
+        return "neutral"
+
+    # Metrics for Column 1
+    with col1:
+        if initial_tvl <= 0:
+            if is_new_pool:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-title">📉 Initial Impermanent Loss</div>
+                    <div class="metric-value {get_value_color('Impermanent Loss', 0.00)}">0.00%</div>
+                    <div class="metric-note">(new pool, IL starts at 0)</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-title">🔮 Projected Impermanent Loss (after {months} months)</div>
+                    <div class="metric-value {get_value_color('Projected Impermanent Loss', future_il)}">{future_il:.2f}%</div>
+                    <div class="metric-note">(based on expected price changes)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-title">📉 Impermanent Loss (at current time)</div>
+                    <div class="metric-value {get_value_color('Impermanent Loss', il)}">{il:.2f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
         else:
-            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
-            st.write("")
-        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
-        st.write("")
-        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
-        st.write("")
-        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write("")
-        st.write(f"**Hurdle Rate:** {hurdle_rate:.2f}% (Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)")
-        st.write("")
-        st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
-    else:
-        if is_new_pool:
-            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
-            st.write("")
-            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
-            st.write("")
+            if is_new_pool:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-title">📉 Initial Impermanent Loss</div>
+                    <div class="metric-value {get_value_color('Impermanent Loss', 0.00)}">0.00%</div>
+                    <div class="metric-note">(new pool, IL starts at 0)</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-title">🔮 Projected Impermanent Loss (after {months} months)</div>
+                    <div class="metric-value {get_value_color('Projected Impermanent Loss', future_il)}">{future_il:.2f}%</div>
+                    <div class="metric-note">(based on expected price changes)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-title">📉 Impermanent Loss (at current time)</div>
+                    <div class="metric-value {get_value_color('Impermanent Loss', il)}">{il:.2f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">⏳ Months to Breakeven Against IL</div>
+            <div class="metric-value {get_value_color('Months to Breakeven Against IL', break_even_months)}">{break_even_months} months</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">⏳ Months to Breakeven Including Expected Price Changes</div>
+            <div class="metric-value {get_value_color('Months to Breakeven Including Expected Price Changes', break_even_months_with_price)}">{break_even_months_with_price} months</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Metrics for Column 2
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">📈 Net Return</div>
+            <div class="metric-value {get_value_color('Net Return', net_return)}">{net_return:.2f}x</div>
+            <div class="metric-note">(includes expected price changes specified for Asset 1 and Asset 2)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">🎯 Hurdle Rate</div>
+            <div class="metric-value {get_value_color('Hurdle Rate', hurdle_rate)}">{hurdle_rate:.2f}%</div>
+            <div class="metric-note">(Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if initial_tvl <= 0:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">📊 TVL Decline</div>
+                <div class="metric-value">Cannot calculate</div>
+                <div class="metric-note">Set Initial TVL to Current TVL for new pool entry.</div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
-            st.write("")
-        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
-        st.write("")
-        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
-        st.write("")
-        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
-        st.write("")
-        st.write(f"**Hurdle Rate:** {hurdle_rate:.2f}% (Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)")
-        st.write("")
-        st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
-    st.write("")
-    st.write(f"**Pool Share:** {pool_share:.2f}%")
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">📊 TVL Decline</div>
+                <div class="metric-value {get_value_color('TVL Decline', tvl_decline)}">{tvl_decline:.2f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">🔗 Pool Share</div>
+            <div class="metric-value {get_value_color('Pool Share', pool_share)}">{pool_share:.2f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("<h1>Margin of Safety</h1>", unsafe_allow_html=True)
