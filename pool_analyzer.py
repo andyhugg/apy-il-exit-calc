@@ -780,11 +780,11 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
         
-        # Add Simplified Monte Carlo Scenarios to CSV
+        # Add Simplified Monte Carlo Scenarios to CSV with safety check
         writer.writerow([])  # Separator
         writer.writerow(["Simplified Monte Carlo Scenarios", "", ""])
         writer.writerow(["Scenario", "Net Return (x)", "Pool Value (12 months) ($)", "Impermanent Loss (%)"])
-        if scenarios and scenario_results:
+        if scenarios and scenario_results:  # Safety check to avoid errors if None
             for scenario_name in scenarios:
                 writer.writerow([
                     scenario_name,
@@ -792,5 +792,7 @@ if st.sidebar.button("Calculate"):
                     f"{scenario_results[scenario_name]['pool_value']:.2f}",
                     f"{scenario_results[scenario_name]['impermanent_loss']:.2f}"
                 ])
+        else:
+            writer.writerow(["No scenario data available", "", "", ""])
         
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
