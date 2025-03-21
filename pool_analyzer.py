@@ -172,26 +172,6 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
         risk_factors.append("low yield")
     elif apy <= 15:
         risk_factors.append("moderate yield")
-    if tvl_decline >(base_score, 100)
-    
-    if trust_score == 1:
-        adjusted_score = base_score * 1.5
-    elif trust_score == 2:
-        adjusted_score = base_score * 1.25
-    elif trust_score == 3:
-        adjusted_score = base_score * 0.9
-    elif trust_score == 4:
-        adjusted_score = base_score * 0.75
-    else:
-        adjusted_score = base_score * 0.5
-    
-    adjusted_score = min(adjusted_score, 100)
-    
-    risk_factors = []
-    if apy < 10:
-        risk_factors.append("low yield")
-    elif apy <= 15:
-        risk_factors.append("moderate yield")
     if tvl_decline > 50:
         risk_factors.append("major TVL decline")
     elif tvl_decline > 30:
