@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns  # Added for better Matplotlib styling
 from io import StringIO
 import csv
 
@@ -113,7 +114,6 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
         return 0.0
-    # Calculate percentage change: positive if TVL increases, negative if TVL decreases
     tvl_change = (current_tvl - initial_tvl) / initial_tvl * 100
     return round(tvl_change, 2)
 
@@ -290,10 +290,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     volatility_score, volatility_message = calculate_volatility_score(il, tvl_decline)
     protocol_risk_score, protocol_risk_message, protocol_risk_category = calculate_protocol_risk_score(apy, tvl_decline, current_tvl, trust_score)
 
-    # Core Metrics Section with Improved Styling
+    # Core Metrics Section with Simplified Styling
     st.markdown("<h1 style='text-align: center; margin-bottom: 20px;'>Core Metrics</h1>", unsafe_allow_html=True)
 
-    # Custom CSS for metric cards
+    # Custom CSS for metric cards with min-height for even blocks
     st.markdown("""
     <style>
     .metric-card {
@@ -303,6 +303,10 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         margin: 10px 0;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         transition: transform 0.2s;
+        min-height: 150px;  /* Set a min-height to make cards even */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;  /* Distribute content vertically */
     }
     .metric-card:hover {
         transform: translateY(-5px);
@@ -441,9 +445,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             </div>
             """, unsafe_allow_html=True)
         else:
-            # Determine if it's a growth or decline
             metric_name = "TVL Growth" if tvl_decline >= 0 else "TVL Decline"
-            display_value = abs(tvl_decline)  # Show the absolute value for clarity
+            display_value = abs(tvl_decline)
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">📊 {metric_name}</div>
@@ -476,13 +479,13 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.error(f"⚠️ **Pool Share Risk:** Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
 
     if initial_tvl > 0:
-        if tvl_decline <= -50:  # TVL decreased by 50% or more
+        if tvl_decline <= -50:
             st.error(f"⚠️ **TVL Decline Risk:** Critical ({abs(tvl_decline):.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
-        elif tvl_decline <= -30:  # TVL decreased by 30-50%
+        elif tvl_decline <= -30:
             st.warning(f"⚠️ **TVL Decline Risk:** High ({abs(tvl_decline):.2f}% decline). Elevated risk due to significant TVL reduction.")
-        elif tvl_decline <= -15:  # TVL decreased by 15-30%
+        elif tvl_decline <= -15:
             st.warning(f"⚠️ **TVL Decline Risk:** Moderate ({abs(tvl_decline):.2f}% decline). Potential risk due to moderate TVL reduction.")
-        else:  # TVL increased or decreased by less than 15%
+        else:
             st.success(f"✅ **TVL Change:** {tvl_decline:.2f}%. Pool health appears stable with minimal TVL reduction or growth.")
     
     if protocol_risk_category == "Critical":
@@ -653,13 +656,47 @@ if st.sidebar.button("Calculate"):
         }, subset=["Time Period (Months)"])
         st.dataframe(styled_df, hide_index=True, use_container_width=True)
         
-        plt.figure(figsize=(10, 5))
-        plt.plot(time_periods, future_values, marker='o', label="Pool Value")
-        plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
-        plt.title("Projected Pool Value Over Time")
-        plt.xlabel("Months")
-        plt.ylabel("Value ($)")
-        plt.legend()
+        # Enhanced Matplotlib Chart
+        plt.style.use('seaborn')  # Use seaborn style for better aesthetics
+        plt.figure(figsize=(10, 6))
+        
+        # Plot the pool value line with markers
+        plt.plot(time_periods, future_values, marker='o', markersize=10, linewidth=3, color='#1f77b4', label="Pool Value")
+        
+        # Fill the area under the line
+        plt.fill_between(time_periods, future_values, color='#1f77b4', alpha=0.2)
+        
+        # Plot the initial investment line
+        plt.axhline(y=investment_amount, color='#ff3333', linestyle='--', linewidth=2, label=f"Initial Investment (${investment_amount:,.0f})")
+        
+        # Add profit/loss zones
+        y_max = max(max(future_values), investment_amount) * 1.1  # Extend y-axis slightly
+        y_min = min(min(future_values), investment_amount) * 0.9
+        plt.fill_between(time_periods, investment_amount, y_max, color='green', alpha=0.1, label='Profit Zone')
+        plt.fill_between(time_periods, y_min, investment_amount, color='red', alpha=0.1, label='Loss Zone')
+        
+        # Add data labels above each point
+        for i, value in enumerate(future_values):
+            plt.text(time_periods[i], value + (y_max - y_min) * 0.05, f"${value:,.0f}", ha='center', fontsize=10, color='#1f77b4')
+        
+        # Add annotation for the final value at 12 months
+        final_value = future_values[-1]
+        plt.annotate(f"Final Value: ${final_value:,.0f}", 
+                     xy=(12, final_value), 
+                     xytext=(10, final_value + (y_max - y_min) * 0.15),
+                     arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=5),
+                     fontsize=10, color='black')
+        
+        # Customize the chart
+        plt.title("Projected Pool Value Over Time", fontsize=16, pad=20)
+        plt.xlabel("Months", fontsize=12)
+        plt.ylabel("Value ($)", fontsize=12)
+        plt.xticks(time_periods, fontsize=10)
+        plt.yticks(fontsize=10)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=10)
+        plt.gca().set_facecolor('#f0f0f0')  # Light gray background for the plot area
+        plt.tight_layout()
         st.pyplot(plt)
 
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
@@ -781,15 +818,18 @@ if st.sidebar.button("Calculate"):
         st.dataframe(styled_df_monte_carlo, hide_index=True, use_container_width=True)
         
         # Bar Chart
+        plt.style.use('seaborn')
         plt.figure(figsize=(8, 5))
         scenarios = ["Worst", "Expected", "Best"]
         values = [mc_results["worst"]["value"], mc_results["expected"]["value"], mc_results["best"]["value"]]
         colors = ["#ff4d4d", "#ffeb3b", "#4caf50"]
         plt.bar(scenarios, values, color=colors)
         plt.axhline(y=investment_amount, color='r', linestyle='--', label=f"Initial Investment (${investment_amount:,.0f})")
-        plt.title("Monte Carlo Scenarios - 12 Month Pool Value")
-        plt.ylabel("Value ($)")
-        plt.legend()
+        plt.title("Monte Carlo Scenarios - 12 Month Pool Value", fontsize=16)
+        plt.ylabel("Value ($)", fontsize=12)
+        plt.legend(fontsize=10)
+        plt.gca().set_facecolor('#f0f0f0')
+        plt.tight_layout()
         st.pyplot(plt)
         
         output = StringIO()
