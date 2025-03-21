@@ -275,16 +275,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                                                     expected_price_change_asset2, is_new_pool)
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
-    future_pool_value_no_apy, _ = calculate_future_value(initial_investment, 0.0, months, initial_price_asset1, initial_price_asset2,
-                                                        current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                                        expected_price_change_asset2, is_new_pool)
-    
-    total_loss_percentage = ((initial_investment - future_pool_value_no_apy) / initial_investment) * 100 if initial_investment > 0 else 0
-    apy_exit_threshold = max(0, total_loss_percentage * 12 / months if months > 0 else 0)
-    
-    apy_exit_threshold = max(apy_exit_threshold, risk_free_rate)
-    if il > 50 or future_il > 50:
-        apy_exit_threshold = max(apy_exit_threshold, risk_free_rate + 5.0)
+    # Simplified Hurdle Rate: Risk-Free Rate + 6% global inflation
+    hurdle_rate = risk_free_rate + 6.0
     
     break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
@@ -307,7 +299,19 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Months to Breakeven Against IL:** {break_even_months} months  ")
         st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months  ")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)  ")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)  ")
+        st.markdown(f"""
+        <div style="display: inline-block; position: relative;">
+            <span style="font-weight: bold;">Hurdle Rate:</span> {hurdle_rate:.2f}% 
+            <span style="cursor: pointer; color: #00f; text-decoration: underline;" 
+                  onmouseover="this.nextElementSibling.style.display='inline-block';" 
+                  onmouseout="this.nextElementSibling.style.display='none';">
+                (hover for details)
+            </span>
+            <span style="display: none; position: absolute; background-color: #f0f0f0; border: 1px solid #ccc; padding: 5px; z-index: 1;">
+                Your {risk_free_rate}% risk-free rate + 6% average global inflation (based on 2025 estimates).
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
         st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.  ")
     else:
         if is_new_pool:
@@ -318,7 +322,19 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.write(f"**Months to Breakeven Against IL:** {break_even_months} months  ")
         st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months  ")
         st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)  ")
-        st.write(f"**APY Exit Threshold:** {apy_exit_threshold:.2f}% (based on your risk-free rate; increased by 5% under high IL conditions)  ")
+        st.markdown(f"""
+        <div style="display: inline-block; position: relative;">
+            <span style="font-weight: bold;">Hurdle Rate:</span> {hurdle_rate:.2f}% 
+            <span style="cursor: pointer; color: #00f; text-decoration: underline;" 
+                  onmouseover="this.nextElementSibling.style.display='inline-block';" 
+                  onmouseout="this.nextElementSibling.style.display='none';">
+                (hover for details)
+            </span>
+            <span style="display: none; position: absolute; background-color: #f0f0f0; border: 1px solid #ccc; padding: 5px; z-index: 1;">
+                Your {risk_free_rate}% risk-free rate + 6% average global inflation (based on 2025 estimates).
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
         st.write(f"**TVL Decline:** {tvl_decline:.2f}%  ")
     st.write(f"**Pool Share:** {pool_share:.2f}%  ")
 
@@ -366,37 +382,37 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
             st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
-        elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+        elif apy < hurdle_rate or net_return < 1.1 or volatility_score > 25:
             reasons = []
-            if apy < apy_exit_threshold:
-                reasons.append(f"APY below threshold ({apy_exit_threshold:.2f}%)")
+            if apy < hurdle_rate:
+                reasons.append(f"APY below Hurdle Rate ({hurdle_rate:.2f}%)")
             if net_return < 1.1:
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
             if volatility_score > 25:
                 reasons.append(f"moderate volatility ({volatility_score:.0f}%)")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
     else:
         if net_return < 1.0:
             st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x indicates a loss.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
-        elif apy < apy_exit_threshold or net_return < 1.1:
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+        elif apy < hurdle_rate or net_return < 1.1:
             reasons = []
-            if apy < apy_exit_threshold:
-                reasons.append(f"APY below threshold ({apy_exit_threshold:.2f}%)")
+            if apy < hurdle_rate:
+                reasons.append(f"APY below Hurdle Rate ({hurdle_rate:.2f}%)")
             if net_return < 1.1:
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
 
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
@@ -443,7 +459,7 @@ else:
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
-st.sidebar.markdown("**Note:** **Annual Percentage Yield** For conservative projections, consider halving the entered APY to buffer against market volatility. **Global Average Inflation Hurdle Rate: 5%** (as of 2025 IMF data). This is the minimum return needed to outpace global inflation. Compare this to your pool APY to ensure real returns.")
+st.sidebar.markdown("**Note:** **Annual Percentage Yield** For conservative projections, consider halving the entered APY to buffer against market volatility.")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
 st.sidebar.markdown("""
@@ -471,7 +487,7 @@ btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next
 
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
 st.sidebar.markdown("""
-**Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high IL conditions, ensuring a margin of safety.
+**Note:** The Risk-Free Rate is what you could earn in a safe pool (e.g., 5-15%). The Hurdle Rate is this rate plus 6% (average global inflation in 2025), setting the minimum APY your pool needs to beat to outpace inflation and justify the risk.
 """)
 
 if st.sidebar.button("Calculate"):
@@ -489,7 +505,7 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
-        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
+        break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
         
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
@@ -610,12 +626,12 @@ if st.sidebar.button("Calculate"):
         # Simplified Monte Carlo Analysis
         st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
         st.write("""
-**Note:** The Simplified Monte Carlo Analysis runs 200 scenarios by tweaking your expected APY and price changes up and down by 50%. It’s a way to estimate a range of possible outcomes for your pool’s value over 12 months. Here’s how we get the results:  
-- **Worst Case:** The 10th percentile (20th lowest of 200 runs)—a plausible low-end outcome, not the absolute worst.  
-- **Expected Case:** The exact result using your inputs (APY and price changes), showing what happens if everything goes as you predict, no randomization.  
-- **Best Case:** The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
-This gives you a practical snapshot of your pool’s potential over the next year.
-""")
+        **Note:** The Simplified Monte Carlo Analysis runs 200 scenarios by tweaking your expected APY and price changes up and down by 50%. It’s a way to estimate a range of possible outcomes for your pool’s value over 12 months. Here’s how we get the results:  
+        - **Worst Case:** The 10th percentile (20th lowest of 200 runs)—a plausible low-end outcome, not the absolute worst.  
+        - **Expected Case:** The exact result using your inputs (APY and price changes), showing what happens if everything goes as you predict, no randomization.  
+        - **Best Case:** The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
+        This gives you a practical snapshot of your pool’s potential over the next year.
+        """)
         
         mc_results = simplified_monte_carlo_analysis(
             investment_amount, apy, initial_price_asset1, initial_price_asset2,
@@ -667,7 +683,7 @@ This gives you a practical snapshot of your pool’s potential over the next yea
         writer.writerow(["Months to Breakeven Against IL", f"{break_even_months}"])
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
-        writer.writerow(["APY Exit Threshold (%)", f"{apy_exit_threshold:.2f}"])
+        writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.2f}"])
         writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
         writer.writerow(["APY Margin of Safety (%)", f"{apy_mos:.2f}"])
