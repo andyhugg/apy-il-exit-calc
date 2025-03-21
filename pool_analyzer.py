@@ -608,53 +608,35 @@ if st.sidebar.button("Calculate"):
         st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
         
         # Simplified Monte Carlo Analysis
-st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
-st.write("""
-**Note:** The Simplified Monte Carlo Analysis runs 200 scenarios by tweaking your expected APY and price changes up and down by 50%. It’s a way to estimate a range of possible outcomes for your pool’s value over 12 months. Here’s how we get the results:  
-- **Worst Case:** The 10th percentile (20th lowest of 200 runs)—a plausible low-end outcome, not the absolute worst.  
-- **Expected Case:** The exact result using your inputs (APY and price changes), showing what happens if everything goes as you predict, no randomization.  
-- **Best Case:** The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
-This gives you a practical snapshot of your pool’s potential over the next year.
-""")
-
-mc_results = simplified_monte_carlo_analysis(
-    investment_amount, apy, initial_price_asset1, initial_price_asset2,
-    current_price_asset1, current_price_asset2, expected_price_change_asset1,
-    expected_price_change_asset2, is_new_pool
-)
-
-# Table with color-coded backgrounds
-df_monte_carlo = pd.DataFrame({
-    "Scenario": ["Worst Case", "Expected Case", "Best Case"],
-    "Projected Value ($)": [f"${mc_results['worst']['value']:,.0f}", f"${mc_results['expected']['value']:,.0f}", f"${mc_results['best']['value']:,.0f}"],
-    "Impermanent Loss (%)": [f"{mc_results['worst']['il']:.2f}%", f"{mc_results['expected']['il']:.2f}%", f"{mc_results['best']['il']:.2f}%"]
-})
-
-def highlight_rows(row):
-    if row["Scenario"] == "Worst Case":
-        return ['background-color: #ff4d4d; color: white'] * len(row)
-    elif row["Scenario"] == "Expected Case":
-        return ['background-color: #ffeb3b; color: black'] * len(row)
-    elif row["Scenario"] == "Best Case":
-        return ['background-color: #4caf50; color: white'] * len(row)
-    return [''] * len(row)
-
-styled_df_monte_carlo = df_monte_carlo.style.apply(highlight_rows, axis=1).set_properties(**{
-    'text-align': 'center'
-})
-st.dataframe(styled_df_monte_carlo, hide_index=True, use_container_width=True)
-
-# Bar Chart
-plt.figure(figsize=(8, 5))
-scenarios = ["Worst", "Expected", "Best"]
-values = [mc_results["worst"]["value"], mc_results["expected"]["value"], mc_results["best"]["value"]]
-colors = ["#ff4d4d", "#ffeb3b", "#4caf50"]
-plt.bar(scenarios, values, color=colors)
-plt.axhline(y=investment_amount, color='r', linestyle='--', label=f"Initial Investment (${investment_amount:,.0f})")
-plt.title("Monte Carlo Scenarios - 12 Month Pool Value")
-plt.ylabel("Value ($)")
-plt.legend()
-st.pyplot(plt)
+        st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
+        st.write("**Note:** We’ve run 200 scenarios, stretching your expected APY and price changes 50% up and down to project your pool’s value over 12 months.")
+        
+        mc_results = simplified_monte_carlo_analysis(
+            investment_amount, apy, initial_price_asset1, initial_price_asset2,
+            current_price_asset1, current_price_asset2, expected_price_change_asset1,
+            expected_price_change_asset2, is_new_pool
+        )
+        
+        # Table with color-coded backgrounds
+        df_monte_carlo = pd.DataFrame({
+            "Scenario": ["Worst Case", "Expected Case", "Best Case"],
+            "Projected Value ($)": [f"${mc_results['worst']['value']:,.0f}", f"${mc_results['expected']['value']:,.0f}", f"${mc_results['best']['value']:,.0f}"],
+            "Impermanent Loss (%)": [f"{mc_results['worst']['il']:.2f}%", f"{mc_results['expected']['il']:.2f}%", f"{mc_results['best']['il']:.2f}%"]
+        })
+        
+        def highlight_rows(row):
+            if row["Scenario"] == "Worst Case":
+                return ['background-color: #ff4d4d; color: white'] * len(row)
+            elif row["Scenario"] == "Expected Case":
+                return ['background-color: #ffeb3b; color: black'] * len(row)
+            elif row["Scenario"] == "Best Case":
+                return ['background-color: #4caf50; color: white'] * len(row)
+            return [''] * len(row)
+        
+        styled_df_monte_carlo = df_monte_carlo.style.apply(highlight_rows, axis=1).set_properties(**{
+            'text-align': 'center'
+        })
+        st.dataframe(styled_df_monte_carlo, hide_index=True, use_container_width=True)
         
         # Bar Chart
         plt.figure(figsize=(8, 5))
