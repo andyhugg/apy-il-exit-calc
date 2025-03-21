@@ -117,7 +117,7 @@ def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     return round(tvl_decline, 2)
 
 def calculate_apy_margin_of_safety(initial_pool_value: float, value_if_held: float, current_apy: float, months: int = 12) -> float:
-    target_value = value_if_held * 1.02  # 2% risk-free rate buffer
+    target_value = value_if_held * 1.02
     min_apy = ((target_value / initial_pool_value) ** (12 / months) - 1) * 100
     apy_mos = ((current_apy - min_apy) / current_apy) * 100 if current_apy > 0 else 0
     return max(0, min(apy_mos, 100))
@@ -227,37 +227,38 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     
     return adjusted_score, message, category
 
-def monte_carlo_analysis(initial_investment: float, apy: float, initial_price_asset1: float, initial_price_asset2: float,
-                        current_price_asset1: float, current_price_asset2: float, expected_price_change_asset1: float,
-                        expected_price_change_asset2: float, is_new_pool: bool, num_simulations: int = 1000) -> dict:
-    # Define deviation (50% up and down)
-    deviation = 0.5
+def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initial_price_asset1: float, initial_price_asset2: float,
+                                   current_price_asset1: float, current_price_asset2: float, expected_price_change_asset1: float,
+                                   expected_price_change_asset2: float, is_new_pool: bool, num_simulations: int = 200) -> dict:
+    apy_range = [max(apy * 0.5, 0), apy * 1.5]  # Floor APY at 0%
+    price_change_asset1_range = [expected_price_change_asset1 * 0.5, expected_price_change_asset1 * 1.5] if expected_price_change_asset1 >= 0 else [expected_price_change_asset1 * 1.5, expected_price_change_asset1 * 0.5]
+    price_change_asset2_range = [expected_price_change_asset2 * 0.5, expected_price_change_asset2 * 1.5] if expected_price_change_asset2 >= 0 else [expected_price_change_asset2 * 1.5, expected_price_change_asset2 * 0.5]
+
+    # Generate 200 random scenarios
+    apy_samples = np.random.uniform(apy_range[0], apy_range[1], num_simulations)
+    price_change_asset1_samples = np.random.uniform(price_change_asset1_range[0], price_change_asset1_range[1], num_simulations)
+    price_change_asset2_samples = np.random.uniform(price_change_asset2_range[0], price_change_asset2_range[1], num_simulations)
+
+    values = []
+    ils = []
+    for i in range(num_simulations):
+        value, il = calculate_future_value(initial_investment, apy_samples[i], 12, initial_price_asset1, initial_price_asset2,
+                                          current_price_asset1, current_price_asset2, price_change_asset1_samples[i],
+                                          price_change_asset2_samples[i], is_new_pool)
+        values.append(value)
+        ils.append(il)
     
-    # Expected case (based on user inputs)
+    # Percentiles and exact expected case
+    worst_value, worst_il = sorted(zip(values, ils))[19]  # 10th percentile (20th of 200)
+    best_value, best_il = sorted(zip(values, ils))[179]   # 90th percentile (180th of 200)
     expected_value, expected_il = calculate_future_value(initial_investment, apy, 12, initial_price_asset1, initial_price_asset2,
-                                                         current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                                         expected_price_change_asset2, is_new_pool)
-    
-    # Worst case: 50% reduction in APY and price changes
-    worst_apy = max(apy * (1 - deviation), 0)  # Ensure APY doesn't go negative
-    worst_price_change_asset1 = expected_price_change_asset1 * (1 - deviation)
-    worst_price_change_asset2 = expected_price_change_asset2 * (1 - deviation)
-    worst_value, worst_il = calculate_future_value(initial_investment, worst_apy, 12, initial_price_asset1, initial_price_asset2,
-                                                  current_price_asset1, current_price_asset2, worst_price_change_asset1,
-                                                  worst_price_change_asset2, is_new_pool)
-    
-    # Best case: 50% increase in APY and price changes
-    best_apy = apy * (1 + deviation)
-    best_price_change_asset1 = expected_price_change_asset1 * (1 + deviation)
-    best_price_change_asset2 = expected_price_change_asset2 * (1 + deviation)
-    best_value, best_il = calculate_future_value(initial_investment, best_apy, 12, initial_price_asset1, initial_price_asset2,
-                                                current_price_asset1, current_price_asset2, best_price_change_asset1,
-                                                best_price_change_asset2, is_new_pool)
+                                                        current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                        expected_price_change_asset2, is_new_pool)
     
     return {
-        "worst": {"value": worst_value, "il": worst_il, "apy": worst_apy, "price_change_asset1": worst_price_change_asset1, "price_change_asset2": worst_price_change_asset2},
-        "expected": {"value": expected_value, "il": expected_il, "apy": apy, "price_change_asset1": expected_price_change_asset1, "price_change_asset2": expected_price_change_asset2},
-        "best": {"value": best_value, "il": best_il, "apy": best_apy, "price_change_asset1": best_price_change_asset1, "price_change_asset2": best_price_change_asset2}
+        "worst": {"value": worst_value, "il": worst_il},
+        "expected": {"value": expected_value, "il": expected_il},
+        "best": {"value": best_value, "il": best_il}
     }
 
 def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_decline: float,
@@ -404,6 +405,27 @@ st.markdown("""
 Welcome to the Pool Profit and Risk Analyzer! This tool helps you evaluate the profitability and risks of liquidity pools in DeFi. By inputting your pool parameters, you can assess impermanent loss, net returns, and potential drawdowns, empowering you to make informed investment decisions. **Disclaimer:** This tool is for informational purposes only and does not constitute financial advice. Projections are estimates based on the inputs provided and are not guaranteed to reflect actual future outcomes.
 """)
 
+st.markdown("""
+<style>
+div[data-testid="stSidebar"] select {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+div[data-testid="stSidebar"] select option {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+div[data-testid="stSidebar"] select option:checked {
+    background-color: #333333;
+    color: #ffffff;
+}
+div[data-testid="stSidebar"] select option:hover {
+    background-color: #444444;
+    color: #ffffff;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.sidebar.header("Set Your Pool Parameters")
 
 pool_status = st.sidebar.selectbox("Pool Status", ["Existing Pool", "New Pool"])
@@ -421,16 +443,36 @@ else:
     current_price_asset2 = st.sidebar.number_input("Current Asset 2 Price (Today) ($)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
 
 apy = st.sidebar.number_input("Current APY (%)", min_value=0.01, step=0.01, value=1.00, format="%.2f")
+st.sidebar.markdown("**Note:** **Annual Percentage Yield** For conservative projections, consider halving the entered APY to buffer against market volatility. **Global Average Inflation Hurdle Rate: 5%** (as of 2025 IMF data). This is the minimum return needed to outpace global inflation. Compare this to your pool APY to ensure real returns.")
+
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, step=1, value=1)
+st.sidebar.markdown("""
+**Note:** Protocol Trust Score reflects your trust in the protocol's reliability:
+- 1 = Unknown (default, highest caution)
+- 2 = Poor (known but with concerns)
+- 3 = Moderate (neutral, some audits)
+- 4 = Good (trusted, audited)
+- 5 = Excellent (top-tier, e.g., Uniswap, Aave)
+""")
+
 investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
-initial_tvl = st.sidebar.number_input("Initial TVL ($)", min_value=0.01, step=0.01, value=855000.00, format="%.2f")
+initial_tvl = st.sidebar.number_input("Initial TVL (set to current Total value Locked if entering today) ($)", 
+                                     min_value=0.01, step=0.01, value=855000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1000000.00, format="%.2f")
+
 expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
 expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
-initial_btc_price = st.sidebar.number_input("Initial BTC Price ($)", min_value=0.0, step=0.01, value=100.00, format="%.2f")
+st.sidebar.markdown("**Note:** We’ll take your expected APY and price changes, stretch them 50% up and down (e.g., 10% becomes 5-15%), and run 200 scenarios to project your pool’s value over 12 months.")
+
+initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
+                                           min_value=0.0, step=0.01, value=100.00, format="%.2f")
 current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
-btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (%)", min_value=0.0, step=0.1, value=100.0, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=100.0, format="%.2f")
+
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
+st.sidebar.markdown("""
+**Note:** The Risk-Free Rate represents the APY you could earn in a low-risk stablecoin pool (e.g., 5-15% depending on market conditions). The APY Exit Threshold uses this as a baseline, increasing by 5% under high IL conditions, ensuring a margin of safety.
+""")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
@@ -450,6 +492,7 @@ if st.sidebar.button("Calculate"):
         break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
         
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
+        st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
         time_periods = [0, 3, 6, 12]
         future_values = []
         future_ils = []
@@ -467,7 +510,12 @@ if st.sidebar.button("Calculate"):
             "Projected Value ($)": formatted_pool_values,
             "Projected Impermanent Loss (%)": formatted_ils
         })
-        st.dataframe(df_projection.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
+        styled_df = df_projection.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Projected Value ($)", "Projected Impermanent Loss (%)"]).set_properties(**{
+            'text-align': 'right'
+        }, subset=["Time Period (Months)"])
+        st.dataframe(styled_df, hide_index=True, use_container_width=True)
         
         plt.figure(figsize=(10, 5))
         plt.plot(time_periods, future_values, marker='o', label="Pool Value")
@@ -478,73 +526,106 @@ if st.sidebar.button("Calculate"):
         plt.legend()
         st.pyplot(plt)
 
-        st.subheader("Pool vs. BTC Comparison | 12 Months")
+        st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
+        asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
+        asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
+        asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
+        asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
+        st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
+        
         projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
-        initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
-        btc_value_12_months = initial_btc_amount * projected_btc_price
+        
+        if initial_btc_price == 0.0 or initial_btc_price == current_btc_price:
+            initial_btc_amount = investment_amount / current_btc_price
+            btc_value_12_months = initial_btc_amount * projected_btc_price
+        else:
+            initial_btc_amount = investment_amount / initial_btc_price
+            btc_value_12_months = initial_btc_amount * projected_btc_price
+        
         pool_value_12_months = future_values[-1]
         difference = pool_value_12_months - btc_value_12_months
         pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
         btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
         
+        formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
+        formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
+        formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
+        formatted_pool_return = f"{pool_return_pct:.2f}%"
+        formatted_btc_return = f"{btc_return_pct:.2f}%"
+        
         df_btc_comparison = pd.DataFrame({
             "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
-            "Value": [f"{int(pool_value_12_months):,}", f"{int(btc_value_12_months):,}", f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})", f"{pool_return_pct:.2f}%", f"{btc_return_pct:.2f}%"]
+            "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
         })
-        st.dataframe(df_btc_comparison.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
+        styled_df_btc = df_btc_comparison.style.set_properties(**{
+            'text-align': 'right'
+        }).apply(lambda x: ['color: red' if x.name == 'Value' and x[1].startswith('(') else '' for i in x], axis=1)
+        st.dataframe(styled_df_btc, hide_index=True, use_container_width=True)
         
         st.subheader("Maximum Drawdown Risk Scenarios")
         mdd_scenarios = [10, 30, 65, 100]
         btc_mdd_scenarios = [10, 30, 65, 90]
+
+        st.subheader("MDD from Initial Investment")
+        st.write("**Note:** Simulated maximum drawdowns based on initial investment. Pool MDD assumes IL and TVL decline (e.g., 50% IL + 50% TVL decline for 100% loss). BTC MDD assumes price drops up to 90% (historical worst case).")
         pool_mdd_values_initial = [investment_amount * (1 - mdd / 100) for mdd in mdd_scenarios]
+        initial_btc_amount = investment_amount / (initial_btc_price if initial_btc_price > 0 else current_btc_price)
         btc_mdd_values_initial = [initial_btc_amount * (current_btc_price * (1 - mdd / 100)) for mdd in btc_mdd_scenarios]
-        pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
-        btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
+
+        formatted_pool_mdd_initial = [f"{int(value):,}" for value in pool_mdd_values_initial]
+        formatted_btc_mdd_initial = [f"{int(value):,}" for value in btc_mdd_values_initial]
 
         df_risk_scenarios_initial = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-            "Pool Value ($)": [f"{int(value):,}" for value in pool_mdd_values_initial],
-            "BTC Value ($)": [f"{int(value):,}" for value in btc_mdd_values_initial]
+            "Pool Value ($)": formatted_pool_mdd_initial,
+            "BTC Value ($)": formatted_btc_mdd_initial
         })
-        st.dataframe(df_risk_scenarios_initial.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
+        styled_df_risk_initial = df_risk_scenarios_initial.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Scenario"])
+        st.dataframe(styled_df_risk_initial, hide_index=True, use_container_width=True)
+
+        st.subheader("MDD from Projected Value After 12 Months")
+        st.write(f"**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., {expected_price_change_asset1}% appreciation of Asset 1, {expected_price_change_asset2}% change for Asset 2) and {apy}% APY for the pool, and {btc_growth_rate}% growth for BTC.")
+        pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
+        btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
+
+        formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
+        formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
 
         df_risk_scenarios_projected = pd.DataFrame({
             "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-            "Pool Value ($)": [f"{int(value):,}" for value in pool_mdd_values_projected],
-            "BTC Value ($)": [f"{int(value):,}" for value in btc_mdd_values_projected]
+            "Pool Value ($)": formatted_pool_mdd_projected,
+            "BTC Value ($)": formatted_btc_mdd_projected
         })
-        st.dataframe(df_risk_scenarios_projected.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
+        styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
+            'text-align': 'right'
+        }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
+            'text-align': 'left'
+        }, subset=["Scenario"])
+        st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
         
-        # Monte Carlo Analysis
-        st.subheader("Monte Carlo Analysis - 12 Month Projections")
-        st.write("**Note:** This simplified Monte Carlo analysis provides worst, expected, and best case scenarios for your pool value after 12 months. The expected case uses your input APY and price changes. Worst and best cases adjust APY and price changes by ±50%.")
+        # Simplified Monte Carlo Analysis
+        st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
+        st.write("**Note:** This simplified Monte Carlo analysis stretches your expected APY and price changes 50% up and down, running 200 scenarios to project your pool’s value over 12 months.")
         
-        mc_results = monte_carlo_analysis(
+        mc_results = simplified_monte_carlo_analysis(
             investment_amount, apy, initial_price_asset1, initial_price_asset2,
             current_price_asset1, current_price_asset2, expected_price_change_asset1,
             expected_price_change_asset2, is_new_pool
         )
         
-        df_monte_carlo = pd.DataFrame({
-            "Scenario": ["Worst Case", "Expected Case", "Best Case"],
-            "Projected Value ($)": [f"{int(mc_results['worst']['value']):,}", f"{int(mc_results['expected']['value']):,}", f"{int(mc_results['best']['value']):,}"],
-            "Impermanent Loss (%)": [f"{mc_results['worst']['il']:.2f}%", f"{mc_results['expected']['il']:.2f}%", f"{mc_results['best']['il']:.2f}%"],
-            "APY (%)": [f"{mc_results['worst']['apy']:.2f}", f"{mc_results['expected']['apy']:.2f}", f"{mc_results['best']['apy']:.2f}"],
-            "Asset 1 Price Change (%)": [f"{mc_results['worst']['price_change_asset1']:.2f}", f"{mc_results['expected']['price_change_asset1']:.2f}", f"{mc_results['best']['price_change_asset1']:.2f}"],
-            "Asset 2 Price Change (%)": [f"{mc_results['worst']['price_change_asset2']:.2f}", f"{mc_results['expected']['price_change_asset2']:.2f}", f"{mc_results['best']['price_change_asset2']:.2f}"]
-        })
-        st.dataframe(df_monte_carlo.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
-        
-        # Visualization
-        plt.figure(figsize=(10, 5))
-        scenarios = ["Worst", "Expected", "Best"]
-        values = [mc_results['worst']['value'], mc_results['expected']['value'], mc_results['best']['value']]
-        plt.bar(scenarios, values, color=['red', 'blue', 'green'])
-        plt.axhline(y=investment_amount, color='r', linestyle='--', label="Initial Investment")
-        plt.title("Monte Carlo Analysis - 12 Month Pool Value Scenarios")
-        plt.ylabel("Value ($)")
-        plt.legend()
-        st.pyplot(plt)
+        st.write(f"""
+        We’ve run the numbers with 200 scenarios, stretching your inputs 50% up and down to see how your pool might perform over 12 months.
+
+        In a tougher outcome—one of the lower possibilities—your APY could drop toward {apy * 0.5:.1f}% with Asset 1 moving against your expectations. That leaves your pool below your ${investment_amount:,.0f} starting point, with some impermanent loss to factor in.
+
+        Based on your expected case—an APY of {apy:.1f}%, Asset 1 at {expected_price_change_asset1:.1f}%, and Asset 2 at {expected_price_change_asset2:.1f}%—your pool settles around ${mc_results['expected']['value']:,.0f}. You’re still dealing with a bit of impermanent loss, but it’s manageable.
+
+        In a stronger scenario, among the top outcomes, an APY near {apy * 1.5:.1f}% and favorable price shifts could lift your pool to about ${mc_results['best']['value']:,.0f}, with minimal impermanent loss holding you back.
+        """)
         
         output = StringIO()
         writer = csv.writer(output)
@@ -563,4 +644,7 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["APY Margin of Safety (%)", f"{apy_mos:.2f}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
+        writer.writerow(["Monte Carlo Worst Case Value ($)", f"{mc_results['worst']['value']:.0f}"])
+        writer.writerow(["Monte Carlo Expected Value ($)", f"{mc_results['expected']['value']:.0f}"])
+        writer.writerow(["Monte Carlo Best Case Value ($)", f"{mc_results['best']['value']:.0f}"])
         st.download_button(label="Export Results as CSV", data=output.getvalue(), file_name="pool_analysis_results.csv", mime="text/csv")
