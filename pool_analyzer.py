@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns  # Added for better Matplotlib styling
+import seaborn as sns  # Ensure Seaborn is imported
 from io import StringIO
 import csv
 
@@ -610,7 +610,7 @@ btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next
 
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
 st.sidebar.markdown("""
-**Note:** The Risk-Free Rate is what you could earn in a safe pool (e.g., 5-15%). The Hurdle Rate is this rate plus 6% (average global inflation in 2025), setting the minimum APY your pool needs to beat to outpace inflation and justify the risk.
+**Note:** The Risk-Free Rate is what you could earn in a safe pool (e.g., 5-15%) with no price volatility, such as a stablecoin pool. This rate is used as the stablecoin yield in the "Pool vs. BTC vs. Stablecoin Comparison" section. The Hurdle Rate is this rate plus 6% (average global inflation in 2025), setting the minimum APY your pool needs to beat to outpace inflation and justify the risk.
 """)
 
 if st.sidebar.button("Calculate"):
@@ -657,7 +657,7 @@ if st.sidebar.button("Calculate"):
         st.dataframe(styled_df, hide_index=True, use_container_width=True)
         
         # Enhanced Matplotlib Chart
-        plt.style.use('seaborn')  # Use seaborn style for better aesthetics
+        sns.set_theme()  # Apply Seaborn's default theme for better aesthetics
         plt.figure(figsize=(10, 6))
         
         # Plot the pool value line with markers
@@ -699,12 +699,12 @@ if st.sidebar.button("Calculate"):
         plt.tight_layout()
         st.pyplot(plt)
 
-        st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
+        st.subheader("Pool vs. BTC vs. Stablecoin Comparison | 12 Months | Compounding on Pool Assets Only")
         asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
         asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
         asset1_change_text = f"{abs(expected_price_change_asset1):.1f}% {asset1_change_desc}" if expected_price_change_asset1 != 0 else "no change"
         asset2_change_text = f"{abs(expected_price_change_asset2):.1f}% {asset2_change_desc}" if expected_price_change_asset2 != 0 else "no change"
-        st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. This comparison assumes a {btc_growth_rate:.1f}% annual growth rate for BTC and no additional fees or slippage.")
+        st.write(f"**Note:** Pool Value is based on an expected {asset1_change_text} for Asset 1, {asset2_change_text} for Asset 2, and a compounded APY of {apy:.1f}% over 12 months. BTC comparison assumes a {btc_growth_rate:.1f}% annual growth rate. Stablecoin comparison assumes the risk-free rate of {risk_free_rate:.1f}% APY with no price volatility, for comparison purposes only.")
         
         projected_btc_price = initial_btc_price * (1 + btc_growth_rate / 100) if initial_btc_price > 0 else current_btc_price * (1 + btc_growth_rate / 100)
         
@@ -716,19 +716,45 @@ if st.sidebar.button("Calculate"):
             btc_value_12_months = initial_btc_amount * projected_btc_price
         
         pool_value_12_months = future_values[-1]
-        difference = pool_value_12_months - btc_value_12_months
+        difference_pool_btc = pool_value_12_months - btc_value_12_months
         pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
         btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
         
+        # Calculate Stablecoin return using the risk-free rate as the APY over 12 months
+        stablecoin_value_12_months = investment_amount * (1 + risk_free_rate / 100)
+        difference_pool_stablecoin = pool_value_12_months - stablecoin_value_12_months
+        stablecoin_return_pct = (stablecoin_value_12_months / investment_amount - 1) * 100
+        
         formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
         formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
-        formatted_difference = f"{int(difference):,}" if difference >= 0 else f"({int(abs(difference)):,})"
+        formatted_stablecoin_value_12 = f"{int(stablecoin_value_12_months):,}"
+        formatted_difference_pool_btc = f"{int(difference_pool_btc):,}" if difference_pool_btc >= 0 else f"({int(abs(difference_pool_btc)):,})"
+        formatted_difference_pool_stablecoin = f"{int(difference_pool_stablecoin):,}" if difference_pool_stablecoin >= 0 else f"({int(abs(difference_pool_stablecoin)):,})"
         formatted_pool_return = f"{pool_return_pct:.2f}%"
         formatted_btc_return = f"{btc_return_pct:.2f}%"
+        formatted_stablecoin_return = f"{stablecoin_return_pct:.2f}%"
         
         df_btc_comparison = pd.DataFrame({
-            "Metric": ["Projected Pool Value", "Value if Invested in BTC Only", "Difference (Pool - BTC)", "Pool Return (%)", "BTC Return (%)"],
-            "Value": [formatted_pool_value_12, formatted_btc_value_12, formatted_difference, formatted_pool_return, formatted_btc_return]
+            "Metric": [
+                "Projected Pool Value",
+                "Value if Invested in BTC Only",
+                f"Value if Invested in Stablecoin Pool (Risk-Free Rate: {risk_free_rate:.1f}% APY)",
+                "Difference (Pool - BTC)",
+                "Difference (Pool - Stablecoin)",
+                "Pool Return (%)",
+                "BTC Return (%)",
+                "Stablecoin Return (%)"
+            ],
+            "Value": [
+                formatted_pool_value_12,
+                formatted_btc_value_12,
+                formatted_stablecoin_value_12,
+                formatted_difference_pool_btc,
+                formatted_difference_pool_stablecoin,
+                formatted_pool_return,
+                formatted_btc_return,
+                formatted_stablecoin_return
+            ]
         })
         styled_df_btc = df_btc_comparison.style.set_properties(**{
             'text-align': 'right'
@@ -818,7 +844,7 @@ if st.sidebar.button("Calculate"):
         st.dataframe(styled_df_monte_carlo, hide_index=True, use_container_width=True)
         
         # Bar Chart
-        plt.style.use('seaborn')
+        sns.set_theme()  # Apply Seaborn theme for the bar chart
         plt.figure(figsize=(8, 5))
         scenarios = ["Worst", "Expected", "Best"]
         values = [mc_results["worst"]["value"], mc_results["expected"]["value"], mc_results["best"]["value"]]
