@@ -382,7 +382,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     if initial_tvl > 0:
         if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
             st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, None
         elif apy < apy_exit_threshold or net_return < 1.1 or volatility_score > 25:
             reasons = []
             if apy < apy_exit_threshold:
@@ -393,14 +393,13 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 reasons.append(f"moderate volatility ({volatility_score:.0f}%)")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, None
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
     else:
         if net_return < 1.0:
             st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x indicates a loss.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, None
         elif apy < apy_exit_threshold or net_return < 1.1:
             reasons = []
             if apy < apy_exit_threshold:
@@ -409,10 +408,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, None
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
 
     # Separator
     st.markdown("---")
@@ -586,6 +584,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     # Separator
     st.markdown("---")
 
+    # Return future_values along with other metrics
+    return break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, future_values
+
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
 
@@ -676,10 +677,9 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
-        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
+        break_even_months, net_return, break_even_months_with_price, apy_exit_threshold, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, future_values = result
         
-        # Projected Pool Value and Simplified Monte Carlo Scenarios are already added in the check_exit_conditions function
-
+        # Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only
         st.subheader("Pool vs. BTC Comparison | 12 Months | Compounding on Pool Assets Only")
         asset1_change_desc = "appreciation" if expected_price_change_asset1 >= 0 else "depreciation"
         asset2_change_desc = "appreciation" if expected_price_change_asset2 >= 0 else "depreciation"
@@ -696,10 +696,10 @@ if st.sidebar.button("Calculate"):
             initial_btc_amount = investment_amount / initial_btc_price
             btc_value_12_months = initial_btc_amount * projected_btc_price
         
-        pool_value_12_months = future_values[-1]
+        pool_value_12_months = future_values[-1] if future_values else 0
         difference = pool_value_12_months - btc_value_12_months
-        pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100
-        btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100
+        pool_return_pct = (pool_value_12_months / investment_amount - 1) * 100 if investment_amount > 0 else 0
+        btc_return_pct = (btc_value_12_months / investment_amount - 1) * 100 if investment_amount > 0 else 0
         
         formatted_pool_value_12 = f"{int(pool_value_12_months):,}"
         formatted_btc_value_12 = f"{int(btc_value_12_months):,}"
@@ -743,7 +743,7 @@ if st.sidebar.button("Calculate"):
 
         st.subheader("MDD from Projected Value After 12 Months")
         st.write(f"**Note:** Simulated maximum drawdowns based on projected values after 12 months, including expected price changes (e.g., {expected_price_change_asset1}% appreciation of Asset 1, {expected_price_change_asset2}% change for Asset 2) and {apy}% APY for the pool, and {btc_growth_rate}% growth for BTC.")
-        pool_mdd_values_projected = [future_values[-1] * (1 - mdd / 100) for mdd in mdd_scenarios]
+        pool_mdd_values_projected = [pool_value_12_months * (1 - mdd / 100) for mdd in mdd_scenarios]
         btc_mdd_values_projected = [btc_value_12_months * (1 - mdd / 100) for mdd in btc_mdd_scenarios]
 
         formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
