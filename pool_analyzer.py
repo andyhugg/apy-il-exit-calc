@@ -358,11 +358,13 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     col1, col2 = st.columns(2)
 
     # Helper function to determine value color
-    def get_value_color(metric_name, value):
-        if metric_name in ["Impermanent Loss", "TVL Decline", "Projected Impermanent Loss"]:
+    def get_value_color(metric_name, value, hurdle_rate=None, target_aril=None):
+        if metric_name in ["Impermanent Loss", "Projected Impermanent Loss"]:
             return "red" if value > 0 else "green"
         elif metric_name == "TVL Growth":
             return "green" if value >= 0 else "red"
+        elif metric_name == "TVL Decline":
+            return "red" if value > 0 else "green"  # Value is the absolute decline percentage, so red if positive
         elif metric_name == "Net Return":
             return "green" if value > 1 else "red"
         elif metric_name in ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"]:
@@ -370,11 +372,11 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         elif metric_name == "Pool Share":
             return "green" if value < 5 else "red"
         elif metric_name == "ARIL":
-            if value < 0:
+            if value < hurdle_rate:  # Red if ARIL is below the hurdle rate
                 return "red"
-            elif value >= target_aril:
+            elif value >= target_aril:  # Green if ARIL meets or exceeds 2x hurdle rate
                 return "green"
-            else:
+            else:  # Neutral if ARIL is between hurdle_rate and target_aril
                 return "neutral"
         return "neutral"
 
@@ -502,7 +504,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">📊 {metric_name}</div>
-                <div class="metric-value {get_value_color(metric_name, tvl_decline)}">{display_value:.2f}%</div>
+                <div class="metric-value {get_value_color(metric_name, display_value)}">{display_value:.2f}%</div>
                 <div class="metric-note">{tvl_note}</div>
             </div>
             """, unsafe_allow_html=True)
@@ -546,7 +548,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">📈 Annualized Return After IL (ARIL)</div>
-            <div class="metric-value {get_value_color('ARIL', aril)}">{aril:.1f}%</div>
+            <div class="metric-value {get_value_color('ARIL', aril, hurdle_rate, target_aril)}">{aril:.1f}%</div>
             <div class="metric-note">{aril_note}</div>
         </div>
         """, unsafe_allow_html=True)
