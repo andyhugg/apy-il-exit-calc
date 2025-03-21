@@ -368,13 +368,15 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 
     # Metrics for Column 1 (4 cards)
     with col1:
+        # Impermanent Loss (at current time) with Actionable Note
         if initial_tvl <= 0:
             if is_new_pool:
+                il_note = "Your pool has no impermanent loss as it’s a new pool. Monitor price changes to manage future IL."
                 st.markdown(f"""
                 <div class="metric-card">
                     <div class="metric-title">📉 Initial Impermanent Loss</div>
                     <div class="metric-value {get_value_color('Impermanent Loss', 0.00)}">0.00%</div>
-                    <div class="metric-note">(new pool, IL starts at 0)</div>
+                    <div class="metric-note">{il_note}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown(f"""
@@ -385,19 +387,27 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 </div>
                 """, unsafe_allow_html=True)
             else:
+                if il == 0:
+                    il_note = "Your pool has no impermanent loss, performing as well as holding the assets. Continue monitoring price changes to maintain this balance."
+                elif 0 < il <= 5:
+                    il_note = f"Your pool has a {il:.2f}% impermanent loss due to price divergence. This is relatively low but indicates a small loss compared to holding. Monitor price changes closely to ensure IL doesn’t increase further."
+                else:
+                    il_note = f"Your pool has a {il:.2f}% impermanent loss due to price divergence, which is significant. Consider reassessing your price change expectations or exiting the pool to minimize further loss."
                 st.markdown(f"""
                 <div class="metric-card">
                     <div class="metric-title">📉 Impermanent Loss (at current time)</div>
                     <div class="metric-value {get_value_color('Impermanent Loss', il)}">{il:.2f}%</div>
+                    <div class="metric-note">{il_note}</div>
                 </div>
                 """, unsafe_allow_html=True)
         else:
             if is_new_pool:
+                il_note = "Your pool has no impermanent loss as it’s a new pool. Monitor price changes to manage future IL."
                 st.markdown(f"""
                 <div class="metric-card">
                     <div class="metric-title">📉 Initial Impermanent Loss</div>
                     <div class="metric-value {get_value_color('Impermanent Loss', 0.00)}">0.00%</div>
-                    <div class="metric-note">(new pool, IL starts at 0)</div>
+                    <div class="metric-note">{il_note}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown(f"""
@@ -408,64 +418,111 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 </div>
                 """, unsafe_allow_html=True)
             else:
+                if il == 0:
+                    il_note = "Your pool has no impermanent loss, performing as well as holding the assets. Continue monitoring price changes to maintain this balance."
+                elif 0 < il <= 5:
+                    il_note = f"Your pool has a {il:.2f}% impermanent loss due to price divergence. This is relatively low but indicates a small loss compared to holding. Monitor price changes closely to ensure IL doesn’t increase further."
+                else:
+                    il_note = f"Your pool has a {il:.2f}% impermanent loss due to price divergence, which is significant. Consider reassessing your price change expectations or exiting the pool to minimize further loss."
                 st.markdown(f"""
                 <div class="metric-card">
                     <div class="metric-title">📉 Impermanent Loss (at current time)</div>
                     <div class="metric-value {get_value_color('Impermanent Loss', il)}">{il:.2f}%</div>
+                    <div class="metric-note">{il_note}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
+        # Months to Breakeven Against IL with Actionable Note
+        if break_even_months == 0:
+            break_even_note = "There’s no impermanent loss to breakeven against. Your pool is performing as well as holding—focus on maintaining this balance."
+        elif break_even_months == float('inf'):
+            break_even_note = "Your pool cannot breakeven against its impermanent loss with the current APY. Consider exiting or increasing APY through a different pool."
+        elif break_even_months <= 12:
+            break_even_note = f"Your pool will offset its impermanent loss in {break_even_months} months at the current APY. This is a short breakeven period, indicating good recovery potential. Ensure APY remains stable to achieve this."
+        else:
+            break_even_note = f"Your pool will take {break_even_months} months to offset its impermanent loss at the current APY, which is too long to justify the risk. Consider exiting or finding a pool with a higher APY."
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">⏳ Months to Breakeven Against IL</div>
             <div class="metric-value {get_value_color('Months to Breakeven Against IL', break_even_months)}">{break_even_months} months</div>
+            <div class="metric-note">{break_even_note}</div>
         </div>
         """, unsafe_allow_html=True)
 
+        # Months to Breakeven Including Expected Price Changes with Actionable Note
+        if break_even_months_with_price == 0:
+            break_even_price_note = "There’s no impermanent loss to breakeven against, even with expected price changes. Focus on maintaining this balance."
+        elif break_even_months_with_price == float('inf'):
+            break_even_price_note = "Your pool cannot breakeven against its impermanent loss with the current APY and price changes. Reassess your strategy or exit the pool."
+        elif break_even_months_with_price <= 12:
+            break_even_price_note = f"Including expected price changes, your pool will offset its impermanent loss in {break_even_months_with_price} months. This short timeline supports holding, but ensure your price change assumptions remain accurate."
+        else:
+            break_even_price_note = f"Including expected price changes, your pool will take {break_even_months_with_price} months to offset its impermanent loss, which is too long. Adjust your price change expectations or consider exiting the pool."
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">⏳ Months to Breakeven Including Expected Price Changes</div>
             <div class="metric-value {get_value_color('Months to Breakeven Including Expected Price Changes', break_even_months_with_price)}">{break_even_months_with_price} months</div>
+            <div class="metric-note">{break_even_price_note}</div>
         </div>
         """, unsafe_allow_html=True)
 
+        # TVL Growth with Actionable Note
         if initial_tvl <= 0:
+            tvl_note = "Set Initial TVL to Current TVL for new pool entry to calculate TVL change."
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">📊 TVL Change</div>
                 <div class="metric-value">Cannot calculate</div>
-                <div class="metric-note">Set Initial TVL to Current TVL for new pool entry.</div>
+                <div class="metric-note">{tvl_note}</div>
             </div>
             """, unsafe_allow_html=True)
         else:
             metric_name = "TVL Growth" if tvl_decline >= 0 else "TVL Decline"
             display_value = abs(tvl_decline)
+            if tvl_decline >= 0:
+                tvl_note = f"Your pool’s TVL has grown by {display_value:.2f}%, indicating increased liquidity and interest. This is a positive sign for fee stability—continue monitoring TVL trends to ensure growth persists."
+            elif tvl_decline > -15:
+                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, a small drop. This may affect fees slightly—watch for ongoing trends to assess risk."
+            elif tvl_decline > -50:
+                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, which may impact fees and liquidity. Monitor closely for further decline before deciding to exit."
+            else:
+                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, signaling high risk of reduced liquidity and fees. Consider exiting to avoid potential losses."
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">📊 {metric_name}</div>
                 <div class="metric-value {get_value_color(metric_name, tvl_decline)}">{display_value:.2f}%</div>
+                <div class="metric-note">{tvl_note}</div>
             </div>
             """, unsafe_allow_html=True)
 
     # Metrics for Column 2 (4 cards)
     with col2:
+        # Net Return with Actionable Note
+        if net_return < 0.95:
+            net_return_note = f"Your pool’s net return is {net_return:.2f}x after 12 months, indicating a loss (includes expected price changes for Asset 1 and Asset 2). Reassess your price change expectations or consider exiting the pool."
+        elif 0.95 <= net_return <= 1.05:
+            net_return_note = f"Your pool’s net return is {net_return:.2f}x after 12 months, close to breakeven (includes expected price changes for Asset 1 and Asset 2). Evaluate if the risk justifies staying in the pool."
+        else:
+            net_return_note = f"Your pool’s net return is {net_return:.2f}x after 12 months, indicating profitability (includes expected price changes for Asset 1 and Asset 2). Monitor price movements to sustain these gains."
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">📈 Net Return</div>
             <div class="metric-value {get_value_color('Net Return', net_return)}">{net_return:.2f}x</div>
-            <div class="metric-note">(includes expected price changes specified for Asset 1 and Asset 2)</div>
+            <div class="metric-note">{net_return_note}</div>
         </div>
         """, unsafe_allow_html=True)
 
+        # Hurdle Rate with Actionable Note
+        hurdle_rate_note = f"Your Hurdle Rate is {hurdle_rate:.1f}% ({risk_free_rate:.1f}% risk-free rate + 6% inflation). To justify risk, your ARIL should exceed this and ideally reach {target_aril:.1f}% (2× Hurdle Rate). Compare with your ARIL to assess performance."
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">🎯 Hurdle Rate</div>
             <div class="metric-value {get_value_color('Hurdle Rate', hurdle_rate)}">{hurdle_rate:.2f}%</div>
-            <div class="metric-note">(Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)</div>
+            <div class="metric-note">{hurdle_rate_note}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Add ARIL Metric with Actionable Note
+        # Annualized Return After IL (ARIL) with Actionable Note (unchanged)
         if aril < 0:  # Loss Scenario
             aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, below the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) and the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. This indicates a loss. Consider reallocating to a stablecoin pool yielding {risk_free_rate:.1f}% or reassessing price change expectations to reduce impermanent loss."
         elif 0 <= aril < hurdle_rate:  # Underperformance
@@ -474,7 +531,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, above the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) but below the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. Returns are marginal for the risk taken. Evaluate if this aligns with your investment goals."
         else:  # Outperformance (ARIL >= 2 × Hurdle Rate)
             aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, exceeding the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) and the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. This indicates strong profitability. Continue monitoring price changes to sustain this performance."
-
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">📈 Annualized Return After IL (ARIL)</div>
@@ -483,10 +539,18 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         </div>
         """, unsafe_allow_html=True)
 
+        # Pool Share with Actionable Note
+        if pool_share < 5:
+            pool_share_note = f"Your pool share is {pool_share:.2f}%, meaning your investment has minimal impact on pool prices. You can withdraw without significant price effects—proceed as needed."
+        elif 5 <= pool_share < 10:
+            pool_share_note = f"Your pool share is {pool_share:.2f}%, indicating a moderate impact on pool prices. Withdraw with caution to avoid affecting prices."
+        else:
+            pool_share_note = f"Your pool share is {pool_share:.2f}%, which could significantly impact pool prices. Plan withdrawals carefully to minimize price disruption."
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">🔗 Pool Share</div>
             <div class="metric-value {get_value_color('Pool Share', pool_share)}">{pool_share:.2f}%</div>
+            <div class="metric-note">{pool_share_note}</div>
         </div>
         """, unsafe_allow_html=True)
 
