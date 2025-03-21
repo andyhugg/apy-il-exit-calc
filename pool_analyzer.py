@@ -281,6 +281,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     # Simplified Hurdle Rate: Risk-Free Rate + 6% global inflation
     hurdle_rate = risk_free_rate + 6.0
+    target_aril = hurdle_rate * 2  # Double the Hurdle Rate for risk compensation
     
     break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
     break_even_months_with_price = calculate_break_even_months_with_price_changes(
@@ -357,7 +358,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         elif metric_name == "Pool Share":
             return "green" if value < 5 else "red"
         elif metric_name == "ARIL":
-            target_aril = hurdle_rate * 2  # Double the Hurdle Rate for risk compensation
             if value < 0:
                 return "red"
             elif value >= target_aril:
@@ -366,7 +366,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 return "neutral"
         return "neutral"
 
-    # Metrics for Column 1
+    # Metrics for Column 1 (4 cards)
     with col1:
         if initial_tvl <= 0:
             if is_new_pool:
@@ -429,33 +429,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         </div>
         """, unsafe_allow_html=True)
 
-    # Metrics for Column 2
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">📈 Net Return</div>
-            <div class="metric-value {get_value_color('Net Return', net_return)}">{net_return:.2f}x</div>
-            <div class="metric-note">(includes expected price changes specified for Asset 1 and Asset 2)</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">🎯 Hurdle Rate</div>
-            <div class="metric-value {get_value_color('Hurdle Rate', hurdle_rate)}">{hurdle_rate:.2f}%</div>
-            <div class="metric-note">(Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Add ARIL Metric
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">📈 Annualized Return After IL (ARIL)</div>
-            <div class="metric-value {get_value_color('ARIL', aril)}">{aril:.1f}%</div>
-            <div class="metric-note">Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation).</div>
-        </div>
-        """, unsafe_allow_html=True)
-
         if initial_tvl <= 0:
             st.markdown(f"""
             <div class="metric-card">
@@ -474,6 +447,42 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             </div>
             """, unsafe_allow_html=True)
 
+    # Metrics for Column 2 (4 cards)
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">📈 Net Return</div>
+            <div class="metric-value {get_value_color('Net Return', net_return)}">{net_return:.2f}x</div>
+            <div class="metric-note">(includes expected price changes specified for Asset 1 and Asset 2)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">🎯 Hurdle Rate</div>
+            <div class="metric-value {get_value_color('Hurdle Rate', hurdle_rate)}">{hurdle_rate:.2f}%</div>
+            <div class="metric-note">(Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Add ARIL Metric with Actionable Note
+        if aril < 0:  # Loss Scenario
+            aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, below the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) and the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. This indicates a loss. Consider reallocating to a stablecoin pool yielding {risk_free_rate:.1f}% or reassessing price change expectations to reduce impermanent loss."
+        elif 0 <= aril < hurdle_rate:  # Underperformance
+            aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, below the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) and the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. This indicates underperformance. Consider reallocating to a stablecoin pool yielding {risk_free_rate:.1f}% or adjusting your strategy to improve returns."
+        elif hurdle_rate <= aril < target_aril:  # Marginal Performance
+            aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, above the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) but below the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. Returns are marginal for the risk taken. Evaluate if this aligns with your investment goals."
+        else:  # Outperformance (ARIL >= 2 × Hurdle Rate)
+            aril_note = f"Your pool’s effective return (ARIL) is {aril:.1f}%, exceeding the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation) and the target of {target_aril:.1f}% (2× Hurdle Rate) to justify risk. This indicates strong profitability. Continue monitoring price changes to sustain this performance."
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">📈 Annualized Return After IL (ARIL)</div>
+            <div class="metric-value {get_value_color('ARIL', aril)}">{aril:.1f}%</div>
+            <div class="metric-note">{aril_note}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">🔗 Pool Share</div>
@@ -491,7 +500,6 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.markdown("<h1>Risk Management</h1>", unsafe_allow_html=True)
 
     # Add ARIL Assessment
-    target_aril = hurdle_rate * 2  # Double the Hurdle Rate for risk compensation
     if aril < 0:  # Loss Scenario
         st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool is projected to lose value, underperforming the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and falling far below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or reassessing your price change expectations to reduce impermanent loss.**")
     elif 0 <= aril < hurdle_rate:  # Underperformance
