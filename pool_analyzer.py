@@ -2,11 +2,11 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns  # Ensure Seaborn is imported
+import seaborn as sns
 from io import StringIO
 import csv
 
-# Pool Profit and Risk Analyzer
+# Pool Profit and Risk Analyzer Functions
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
@@ -276,6 +276,9 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                                                     expected_price_change_asset2, is_new_pool)
     net_return = future_value / initial_investment if initial_investment > 0 else 0
     
+    # Calculate ARIL (Annualized Return After Impermanent Loss)
+    aril = ((future_value / initial_investment) - 1) * 100  # Since it's over 12 months, this is already annualized
+    
     # Simplified Hurdle Rate: Risk-Free Rate + 6% global inflation
     hurdle_rate = risk_free_rate + 6.0
     
@@ -353,6 +356,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             return "green" if value <= 12 else "red"
         elif metric_name == "Pool Share":
             return "green" if value < 5 else "red"
+        elif metric_name == "ARIL":
+            target_aril = hurdle_rate * 2  # Double the Hurdle Rate for risk compensation
+            if value < 0:
+                return "red"
+            elif value >= target_aril:
+                return "green"
+            else:
+                return "neutral"
         return "neutral"
 
     # Metrics for Column 1
@@ -436,6 +447,15 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         </div>
         """, unsafe_allow_html=True)
 
+        # Add ARIL Metric
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">📈 Annualized Return After IL (ARIL)</div>
+            <div class="metric-value {get_value_color('ARIL', aril)}">{aril:.1f}%</div>
+            <div class="metric-note">Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation).</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         if initial_tvl <= 0:
             st.markdown(f"""
             <div class="metric-card">
@@ -469,6 +489,18 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
 
     st.markdown("---")
     st.markdown("<h1>Risk Management</h1>", unsafe_allow_html=True)
+
+    # Add ARIL Assessment
+    target_aril = hurdle_rate * 2  # Double the Hurdle Rate for risk compensation
+    if aril < 0:  # Loss Scenario
+        st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool is projected to lose value, underperforming the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and falling far below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or reassessing your price change expectations to reduce impermanent loss.**")
+    elif 0 <= aril < hurdle_rate:  # Underperformance
+        st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool underperforms the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and is below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or adjusting your strategy to improve returns.**")
+    elif hurdle_rate <= aril < target_aril:  # Marginal Performance
+        st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool meets the Hurdle Rate but is below the target of {target_aril:.1f}% to justify the risk. **The pool’s return is marginal compared to the risk; evaluate if it aligns with your investment goals.**")
+    else:  # Outperformance (ARIL >= 2 × Hurdle Rate)
+        st.markdown(f"✅ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool exceeds the target of {target_aril:.1f}%, justifying the risk. **Monitor impermanent loss and price changes to maintain this performance.**")
+
     if pool_share < 5:
         st.success(f"✅ **Pool Share Risk:** Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
     elif 5 <= pool_share < 10:
@@ -503,10 +535,20 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.markdown("---")
     st.markdown("<h1>Investment Risk Alert</h1>", unsafe_allow_html=True)
     if initial_tvl > 0:
-        if net_return < 1.0 or tvl_decline <= -50 or protocol_risk_score >= 75:
-            st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Change {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
-            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
-        elif apy < hurdle_rate or net_return < 1.1 or volatility_score > 25:
+        if net_return < 1.0 or tvl_decline <= -50 or protocol_risk_score >= 75 or aril < 0:  # Add ARIL < 0 condition
+            reasons = []
+            if net_return < 1.0:
+                reasons.append(f"Net Return {net_return:.2f}x indicates a loss")
+            if tvl_decline <= -50:
+                reasons.append(f"TVL Decline {abs(tvl_decline):.2f}%")
+            if protocol_risk_score >= 75:
+                reasons.append(f"Protocol Risk {protocol_risk_score:.0f}%")
+            if aril < 0:
+                reasons.append(f"ARIL {aril:.1f}% indicates a loss")
+            reason_str = ", ".join(reasons)
+            st.error(f"⚠️ **Investment Risk:** Critical. {reason_str} indicate severe risks.")
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril
+        elif apy < hurdle_rate or net_return < 1.1 or volatility_score > 25 or (aril < hurdle_rate - 10):  # Add ARIL vs Hurdle Rate condition
             reasons = []
             if apy < hurdle_rate:
                 reasons.append(f"APY below Hurdle Rate ({hurdle_rate:.2f}%)")
@@ -514,28 +556,38 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
             if volatility_score > 25:
                 reasons.append(f"moderate volatility ({volatility_score:.0f}%)")
+            if aril < hurdle_rate - 10:
+                reasons.append(f"ARIL {aril:.1f}% underperforms Hurdle Rate ({hurdle_rate:.1f}%) by {abs(aril - hurdle_rate):.1f}%")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability with low risk.")
-            return break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril
     else:
-        if net_return < 1.0:
-            st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x indicates a loss.")
-            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
-        elif apy < hurdle_rate or net_return < 1.1:
+        if net_return < 1.0 or aril < 0:  # Add ARIL < 0 condition
+            reasons = []
+            if net_return < 1.0:
+                reasons.append(f"Net Return {net_return:.2f}x indicates a loss")
+            if aril < 0:
+                reasons.append(f"ARIL {aril:.1f}% indicates a loss")
+            reason_str = ", ".join(reasons)
+            st.error(f"⚠️ **Investment Risk:** Critical. {reason_str}.")
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril
+        elif apy < hurdle_rate or net_return < 1.1 or (aril < hurdle_rate - 10):  # Add ARIL vs Hurdle Rate condition
             reasons = []
             if apy < hurdle_rate:
                 reasons.append(f"APY below Hurdle Rate ({hurdle_rate:.2f}%)")
             if net_return < 1.1:
                 reasons.append(f"marginal profit (Net Return {net_return:.2f}x)")
+            if aril < hurdle_rate - 10:
+                reasons.append(f"ARIL {aril:.1f}% underperforms Hurdle Rate ({hurdle_rate:.1f}%) by {abs(aril - hurdle_rate):.1f}%")
             reason_str = ", ".join(reasons)
             st.warning(f"⚠️ **Investment Risk:** Moderate. {reason_str} indicate potential underperformance.")
-            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril
         else:
             st.success(f"✅ **Investment Risk:** Low. Net Return {net_return:.2f}x indicates profitability.")
-            return break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
+            return break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril
 
 # Streamlit App
 st.title("Pool Profit and Risk Analyzer")
@@ -628,7 +680,7 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, il, tvl_decline, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, trust_score, 12, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, btc_growth_rate
         )
-        break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos = result
+        break_even_months, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos, aril = result
         
         st.subheader("Projected Pool Value Based on Yield, Impermanent Loss, and Price Changes")
         st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
@@ -858,6 +910,7 @@ if st.sidebar.button("Calculate"):
         plt.tight_layout()
         st.pyplot(plt)
         
+        # Export to CSV with ARIL included
         output = StringIO()
         writer = csv.writer(output)
         writer.writerow(["Metric", "Value"])
@@ -875,6 +928,8 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["APY Margin of Safety (%)", f"{apy_mos:.2f}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
         writer.writerow(["Protocol Risk Score (%)", f"{protocol_risk_score:.0f}"])
+        writer.writerow(["ARIL (%)", f"{aril:.1f}"])
+        writer.writerow(["Target ARIL (2x Hurdle Rate) (%)", f"{hurdle_rate * 2:.1f}"])
         writer.writerow(["Monte Carlo Worst Case Value ($)", f"{mc_results['worst']['value']:.0f}"])
         writer.writerow(["Monte Carlo Expected Value ($)", f"{mc_results['expected']['value']:.0f}"])
         writer.writerow(["Monte Carlo Best Case Value ($)", f"{mc_results['best']['value']:.0f}"])
