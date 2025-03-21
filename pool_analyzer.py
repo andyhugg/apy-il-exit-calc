@@ -609,7 +609,13 @@ if st.sidebar.button("Calculate"):
         
         # Simplified Monte Carlo Analysis
         st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
-        st.write("**Note:** We’ve run 200 scenarios, stretching your expected APY and price changes 50% up and down to project your pool’s value over 12 months.")
+        st.write("""
+**Note:** The Simplified Monte Carlo Analysis runs 200 scenarios by tweaking your expected APY and price changes up and down by 50%. It’s a way to estimate a range of possible outcomes for your pool’s value over 12 months. Here’s how we get the results:  
+- **Worst Case:** The 10th percentile (20th lowest of 200 runs)—a plausible low-end outcome, not the absolute worst.  
+- **Expected Case:** The exact result using your inputs (APY and price changes), showing what happens if everything goes as you predict, no randomization.  
+- **Best Case:** The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
+This gives you a practical snapshot of your pool’s potential over the next year.
+""")
         
         mc_results = simplified_monte_carlo_analysis(
             investment_amount, apy, initial_price_asset1, initial_price_asset2,
