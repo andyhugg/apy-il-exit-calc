@@ -138,16 +138,21 @@ def calculate_volatility_score(il_percentage: float, tvl_decline: float) -> tupl
 
 def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: float, trust_score: int) -> tuple[float, str, str]:
     base_score = 0
+    # APY-based risk
     if apy < 10:
         base_score += 40
     elif apy <= 15:
         base_score += 20
-    if tvl_decline > 50:
+
+    # TVL decline-based risk (only penalize declines, i.e., negative tvl_decline)
+    if tvl_decline < -50:  # Major decline
         base_score += 40
-    elif tvl_decline > 30:
+    elif tvl_decline < -30:  # Significant decline
         base_score += 30
-    elif tvl_decline > 15:
+    elif tvl_decline < -15:  # Moderate decline
         base_score += 15
+
+    # TVL size-based risk
     if current_tvl < 50000:
         base_score += 40
     elif current_tvl <= 200000:
@@ -155,6 +160,7 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     
     base_score = min(base_score, 100)
     
+    # Adjust score based on trust_score
     if trust_score == 1:
         adjusted_score = base_score * 1.5
     elif trust_score == 2:
@@ -168,22 +174,24 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     
     adjusted_score = min(adjusted_score, 100)
     
+    # Identify risk factors
     risk_factors = []
     if apy < 10:
         risk_factors.append("low yield")
     elif apy <= 15:
         risk_factors.append("moderate yield")
-    if tvl_decline > 50:
+    if tvl_decline < -50:
         risk_factors.append("major TVL decline")
-    elif tvl_decline > 30:
+    elif tvl_decline < -30:
         risk_factors.append("significant TVL decline")
-    elif tvl_decline > 15:
+    elif tvl_decline < -15:
         risk_factors.append("moderate TVL decline")
     if current_tvl < 50000:
         risk_factors.append("tiny pool size")
     elif current_tvl <= 200000:
         risk_factors.append("small pool size")
     
+    # Determine risk category
     category = None
     if adjusted_score > 75:
         category = "Critical"
@@ -196,9 +204,10 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
     else:
         category = "Low"
     
-    if category == "Advisory" and trust_score >= 3 and adjusted_score <= 50 and tvl_decline <= 15 and current_tvl > 200000:
+    if category == "Advisory" and trust_score >= 3 and adjusted_score <= 50 and tvl_decline >= -15 and current_tvl > 200000:
         category = "Low"
 
+    # Generate message
     if category == "Low":
         if trust_score >= 3:
             message = f"✅ Protocol Risk: Low ({adjusted_score:.0f}%). Minimal risk due to moderate/good/excellent trust score, stable TVL, and adequate yield."
@@ -489,7 +498,7 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
             elif tvl_decline > -50:
                 tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, which may impact fees and liquidity. Monitor closely for further decline before deciding to exit."
             else:
-                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, signaling high risk of reduced liquidity and fees. Consider植物 exiting to avoid potential losses."
+                tvl_note = f"Your pool’s TVL has declined by {display_value:.2f}%, signaling high risk of reduced liquidity and fees. Consider exiting to avoid potential losses."
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">📊 {metric_name}</div>
@@ -566,15 +575,15 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.markdown("---")
     st.markdown("<h1>Risk Management</h1>", unsafe_allow_html=True)
 
-    # Add ARIL Assessment
+    # Add ARIL Assessment with highlighting
     if aril < 0:  # Loss Scenario
-        st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool is projected to lose value, underperforming the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and falling far below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or reassessing your price change expectations to reduce impermanent loss.**")
+        st.warning(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool is projected to lose value, underperforming the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and falling far below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or reassessing your price change expectations to reduce impermanent loss.**")
     elif 0 <= aril < hurdle_rate:  # Underperformance
-        st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool underperforms the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and is below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or adjusting your strategy to improve returns.**")
+        st.warning(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool underperforms the Hurdle Rate by {abs(aril - hurdle_rate):.1f}% and is below the target of {target_aril:.1f}%. **Consider reallocating to a stablecoin pool yielding the risk-free rate of {risk_free_rate:.1f}% or adjusting your strategy to improve returns.**")
     elif hurdle_rate <= aril < target_aril:  # Marginal Performance
-        st.markdown(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool meets the Hurdle Rate but is below the target of {target_aril:.1f}% to justify the risk. **The pool’s return is marginal compared to the risk; evaluate if it aligns with your investment goals.**")
+        st.warning(f"⚠️ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool meets the Hurdle Rate but is below the target of {target_aril:.1f}% to justify the risk. **The pool’s return is marginal compared to the risk; evaluate if it aligns with your investment goals.**")
     else:  # Outperformance (ARIL >= 2 × Hurdle Rate)
-        st.markdown(f"✅ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool exceeds the target of {target_aril:.1f}%, justifying the risk. **Monitor impermanent loss and price changes to maintain this performance.**")
+        st.success(f"✅ **ARIL Assessment:** Your pool’s effective return (ARIL) is {aril:.1f}%, compared to the Hurdle Rate of {hurdle_rate:.1f}% (risk-free rate + 6% inflation). To compensate for risk, your ARIL should be at least double the Hurdle Rate (2 × {hurdle_rate:.1f}% = {target_aril:.1f}%). Your pool exceeds the target of {target_aril:.1f}%, justifying the risk. **Monitor impermanent loss and price changes to maintain this performance.**")
 
     if pool_share < 5:
         st.success(f"✅ **Pool Share Risk:** Low ({pool_share:.2f}%). Minimal impact expected on pool prices due to small share.")
