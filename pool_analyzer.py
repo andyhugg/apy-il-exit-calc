@@ -172,6 +172,26 @@ def calculate_protocol_risk_score(apy: float, tvl_decline: float, current_tvl: f
         risk_factors.append("low yield")
     elif apy <= 15:
         risk_factors.append("moderate yield")
+    if tvl_decline >(base_score, 100)
+    
+    if trust_score == 1:
+        adjusted_score = base_score * 1.5
+    elif trust_score == 2:
+        adjusted_score = base_score * 1.25
+    elif trust_score == 3:
+        adjusted_score = base_score * 0.9
+    elif trust_score == 4:
+        adjusted_score = base_score * 0.75
+    else:
+        adjusted_score = base_score * 0.5
+    
+    adjusted_score = min(adjusted_score, 100)
+    
+    risk_factors = []
+    if apy < 10:
+        risk_factors.append("low yield")
+    elif apy <= 15:
+        risk_factors.append("moderate yield")
     if tvl_decline > 50:
         risk_factors.append("major TVL decline")
     elif tvl_decline > 30:
@@ -292,51 +312,42 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.markdown("<h1>Core Metrics</h1>", unsafe_allow_html=True)
     if initial_tvl <= 0:
         if is_new_pool:
-            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)  ")
-            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)  ")
+            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
+            st.write("")
+            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
+            st.write("")
         else:
-            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%  ")
-        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months  ")
-        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months  ")
-        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)  ")
-        st.markdown(f"""
-        <div style="display: inline-block; position: relative;">
-            <span style="font-weight: bold;">Hurdle Rate:</span> {hurdle_rate:.2f}% 
-            <span style="cursor: pointer; color: #00f; text-decoration: underline;" 
-                  onmouseover="this.nextElementSibling.style.display='inline-block';" 
-                  onmouseout="this.nextElementSibling.style.display='none';">
-                (hover for details)
-            </span>
-            <span style="display: none; position: absolute; background-color: #f0f0f0; border: 1px solid #ccc; padding: 5px; z-index: 1;">
-                Your {risk_free_rate}% risk-free rate + 6% average global inflation (based on 2025 estimates).
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-        st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.  ")
+            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
+            st.write("")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
+        st.write("")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
+        st.write("")
+        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
+        st.write("")
+        st.write(f"**Hurdle Rate:** {hurdle_rate:.2f}% (Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)")
+        st.write("")
+        st.write(f"**TVL Decline:** Cannot calculate without a valid Initial TVL. Set Initial TVL to Current TVL for new pool entry.")
     else:
         if is_new_pool:
-            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)  ")
-            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)  ")
+            st.write(f"**Initial Impermanent Loss:** 0.00% (new pool, IL starts at 0)")
+            st.write("")
+            st.write(f"**Projected Impermanent Loss (after {months} months):** {future_il:.2f}% (based on expected price changes)")
+            st.write("")
         else:
-            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%  ")
-        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months  ")
-        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months  ")
-        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)  ")
-        st.markdown(f"""
-        <div style="display: inline-block; position: relative;">
-            <span style="font-weight: bold;">Hurdle Rate:</span> {hurdle_rate:.2f}% 
-            <span style="cursor: pointer; color: #00f; text-decoration: underline;" 
-                  onmouseover="this.nextElementSibling.style.display='inline-block';" 
-                  onmouseout="this.nextElementSibling.style.display='none';">
-                (hover for details)
-            </span>
-            <span style="display: none; position: absolute; background-color: #f0f0f0; border: 1px solid #ccc; padding: 5px; z-index: 1;">
-                Your {risk_free_rate}% risk-free rate + 6% average global inflation (based on 2025 estimates).
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-        st.write(f"**TVL Decline:** {tvl_decline:.2f}%  ")
-    st.write(f"**Pool Share:** {pool_share:.2f}%  ")
+            st.write(f"**Impermanent Loss (at current time):** {il:.2f}%")
+            st.write("")
+        st.write(f"**Months to Breakeven Against IL:** {break_even_months} months")
+        st.write("")
+        st.write(f"**Months to Breakeven Including Expected Price Changes:** {break_even_months_with_price} months")
+        st.write("")
+        st.write(f"**Net Return:** {net_return:.2f}x (includes expected price changes specified for Asset 1 and Asset 2)")
+        st.write("")
+        st.write(f"**Hurdle Rate:** {hurdle_rate:.2f}% (Your {risk_free_rate}% risk-free rate + 6% average global inflation based on 2025 estimates.)")
+        st.write("")
+        st.write(f"**TVL Decline:** {tvl_decline:.2f}%")
+    st.write("")
+    st.write(f"**Pool Share:** {pool_share:.2f}%")
 
     st.markdown("---")
     st.markdown("<h1>Margin of Safety</h1>", unsafe_allow_html=True)
