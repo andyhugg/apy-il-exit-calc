@@ -506,6 +506,13 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     
     st.write(f"**Note:** The initial projected value reflects the current market value of your liquidity position, adjusted for price changes and impermanent loss, not the cash invested (${investment_amount:,.2f}).")
 
+    # Additional Section to Verify Rendering
+    st.markdown("<h1 style='text-align: center; margin-top: 40px; margin-bottom: 20px;'>Additional Analysis</h1>", unsafe_allow_html=True)
+    st.write("This section confirms that content after 'Projected Pool Value Over Time' renders correctly.")
+    st.write("Here are some additional insights:")
+    st.write("- **Recommendation**: Based on the risk scores, review your position and consider adjusting your strategy.")
+    st.write("- **Next Steps**: Monitor price changes and TVL trends over the next few weeks to make an informed decision.")
+
 # Streamlit App
 st.title("Liquidity Pool Exit Analyzer")
 
@@ -525,7 +532,7 @@ else:
     current_price_asset1 = initial_price_asset1
     current_price_asset2 = initial_price_asset2
 
-apy = st.sidebar.number_input("Current APY (%)", min_value=0.0, value=3.0, step=0.1)
+apy = st.sidebar.number_input("Current APY (%)", min_value=0.0, value=1.0, step=0.1)
 st.sidebar.markdown("**Note:** Annual Percentage Yield for conservative projections, consider halving the entered APY to buffer against market volatility.")
 
 trust_score = st.sidebar.number_input("Protocol Trust Score (1-5)", min_value=1, max_value=5, value=3, step=1)
@@ -538,7 +545,7 @@ st.sidebar.markdown("""
 - **5** = Excellent (top-tier, e.g., Uniswap, Aave)
 """)
 
-investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.0, value=10000.0, step=1000.0)
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.0, value=250000.0, step=1000.0)
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current Total value Locked if entering today) ($)", min_value=0.0, value=750000.0, step=10000.0)
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.0, value=399999.97, step=10000.0)
 
@@ -555,30 +562,35 @@ st.sidebar.markdown("**Note:** Typically the yield of a 10-year Treasury note or
 btc_growth_rate = st.sidebar.number_input("Expected Annual BTC Growth Rate (%)", value=0.0, step=1.0)
 st.sidebar.markdown("**Note:** Used for benchmarking against BTC performance. Set to 0 to ignore.")
 
-# Calculate Impermanent Loss for Existing Pool
-if not is_new_pool:
-    _, il = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+# Calculate Button
+st.markdown("<h3 style='text-align: center; margin-top: 20px;'>Run Analysis</h3>", unsafe_allow_html=True)
+if st.button("Calculate"):
+    # Calculate Impermanent Loss for Existing Pool
+    if not is_new_pool:
+        _, il = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2)
+    else:
+        il = 0.0
+
+    # Calculate TVL Decline
+    tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
+
+    # Run Analysis
+    check_exit_conditions(
+        initial_investment=investment_amount,
+        apy=apy,
+        il=il,
+        tvl_decline=tvl_decline,
+        initial_price_asset1=initial_price_asset1,
+        initial_price_asset2=initial_price_asset2,
+        current_price_asset1=current_price_asset1,
+        current_price_asset2=current_price_asset2,
+        current_tvl=current_tvl,
+        risk_free_rate=risk_free_rate,
+        trust_score=trust_score,
+        expected_price_change_asset1=expected_price_change_asset1,
+        expected_price_change_asset2=expected_price_change_asset2,
+        is_new_pool=is_new_pool,
+        btc_growth_rate=btc_growth_rate
+    )
 else:
-    il = 0.0
-
-# Calculate TVL Decline
-tvl_decline = calculate_tvl_decline(initial_tvl, current_tvl)
-
-# Run Analysis
-check_exit_conditions(
-    initial_investment=investment_amount,
-    apy=apy,
-    il=il,
-    tvl_decline=tvl_decline,
-    initial_price_asset1=initial_price_asset1,
-    initial_price_asset2=initial_price_asset2,
-    current_price_asset1=current_price_asset1,
-    current_price_asset2=current_price_asset2,
-    current_tvl=current_tvl,
-    risk_free_rate=risk_free_rate,
-    trust_score=trust_score,
-    expected_price_change_asset1=expected_price_change_asset1,
-    expected_price_change_asset2=expected_price_change_asset2,
-    is_new_pool=is_new_pool,
-    btc_growth_rate=btc_growth_rate
-)
+    st.write("Please click the 'Calculate' button to run the analysis with the provided inputs.")
