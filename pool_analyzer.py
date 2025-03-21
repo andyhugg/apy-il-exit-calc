@@ -113,8 +113,9 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
 def calculate_tvl_decline(initial_tvl: float, current_tvl: float) -> float:
     if initial_tvl <= 0:
         return 0.0
-    tvl_decline = (initial_tvl - current_tvl) / initial_tvl * 100
-    return round(tvl_decline, 2)
+    # Calculate percentage change: positive if TVL increases, negative if TVL decreases
+    tvl_change = (current_tvl - initial_tvl) / initial_tvl * 100
+    return round(tvl_change, 2)
 
 def calculate_apy_margin_of_safety(initial_pool_value: float, value_if_held: float, current_apy: float, months: int = 12) -> float:
     target_value = value_if_held * 1.02
@@ -340,6 +341,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     def get_value_color(metric_name, value):
         if metric_name in ["Impermanent Loss", "TVL Decline", "Projected Impermanent Loss"]:
             return "red" if value > 0 else "green"
+        elif metric_name == "TVL Growth":
+            return "green" if value >= 0 else "red"
         elif metric_name == "Net Return":
             return "green" if value > 1 else "red"
         elif metric_name in ["Months to Breakeven Against IL", "Months to Breakeven Including Expected Price Changes"]:
@@ -432,16 +435,19 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         if initial_tvl <= 0:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">📊 TVL Decline</div>
+                <div class="metric-title">📊 TVL Change</div>
                 <div class="metric-value">Cannot calculate</div>
                 <div class="metric-note">Set Initial TVL to Current TVL for new pool entry.</div>
             </div>
             """, unsafe_allow_html=True)
         else:
+            # Determine if it's a growth or decline
+            metric_name = "TVL Growth" if tvl_decline >= 0 else "TVL Decline"
+            display_value = abs(tvl_decline)  # Show the absolute value for clarity
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">📊 TVL Decline</div>
-                <div class="metric-value {get_value_color('TVL Decline', tvl_decline)}">{tvl_decline:.2f}%</div>
+                <div class="metric-title">📊 {metric_name}</div>
+                <div class="metric-value {get_value_color(metric_name, tvl_decline)}">{display_value:.2f}%</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -470,14 +476,14 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
         st.error(f"⚠️ **Pool Share Risk:** Critical ({pool_share:.2f}%). High risk of severe price impact due to very large pool share.")
 
     if initial_tvl > 0:
-        if tvl_decline >= 50:
-            st.error(f"⚠️ **TVL Decline Risk:** Critical ({tvl_decline:.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
-        elif tvl_decline >= 30:
-            st.warning(f"⚠️ **TVL Decline Risk:** High ({tvl_decline:.2f}% decline). Elevated risk due to significant TVL reduction.")
-        elif tvl_decline >= 15:
-            st.warning(f"⚠️ **TVL Decline Risk:** Moderate ({tvl_decline:.2f}% decline). Potential risk due to moderate TVL reduction.")
-        else:
-            st.success(f"✅ **TVL Decline Risk:** Low ({tvl_decline:.2f}% decline). Pool health appears stable with minimal TVL reduction.")
+        if tvl_decline <= -50:  # TVL decreased by 50% or more
+            st.error(f"⚠️ **TVL Decline Risk:** Critical ({abs(tvl_decline):.2f}% decline). High risk of significant loss due to substantial TVL reduction.")
+        elif tvl_decline <= -30:  # TVL decreased by 30-50%
+            st.warning(f"⚠️ **TVL Decline Risk:** High ({abs(tvl_decline):.2f}% decline). Elevated risk due to significant TVL reduction.")
+        elif tvl_decline <= -15:  # TVL decreased by 15-30%
+            st.warning(f"⚠️ **TVL Decline Risk:** Moderate ({abs(tvl_decline):.2f}% decline). Potential risk due to moderate TVL reduction.")
+        else:  # TVL increased or decreased by less than 15%
+            st.success(f"✅ **TVL Change:** {tvl_decline:.2f}%. Pool health appears stable with minimal TVL reduction or growth.")
     
     if protocol_risk_category == "Critical":
         st.error(f"⚠️ **Protocol Risk:** {protocol_risk_message.split('⚠️ Protocol Risk: ')[1]}")
@@ -494,8 +500,8 @@ def check_exit_conditions(initial_investment: float, apy: float, il: float, tvl_
     st.markdown("---")
     st.markdown("<h1>Investment Risk Alert</h1>", unsafe_allow_html=True)
     if initial_tvl > 0:
-        if net_return < 1.0 or tvl_decline >= 50 or protocol_risk_score >= 75:
-            st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Decline {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
+        if net_return < 1.0 or tvl_decline <= -50 or protocol_risk_score >= 75:
+            st.error(f"⚠️ **Investment Risk:** Critical. Net Return {net_return:.2f}x, TVL Change {tvl_decline:.2f}%, Protocol Risk {protocol_risk_score:.0f}% indicate severe risks.")
             return 0, net_return, break_even_months_with_price, hurdle_rate, pool_share, future_il, protocol_risk_score, volatility_score, apy_mos
         elif apy < hurdle_rate or net_return < 1.1 or volatility_score > 25:
             reasons = []
@@ -585,19 +591,19 @@ st.sidebar.markdown("""
 - 5 = Excellent (top-tier, e.g., Uniswap, Aave)
 """)
 
-investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=169.00, format="%.2f")
+investment_amount = st.sidebar.number_input("Initial Investment ($)", min_value=0.01, step=0.01, value=2000.00, format="%.2f")
 initial_tvl = st.sidebar.number_input("Initial TVL (set to current Total value Locked if entering today) ($)", 
-                                     min_value=0.01, step=0.01, value=855000.00, format="%.2f")
+                                     min_value=0.01, step=0.01, value=750000.00, format="%.2f")
 current_tvl = st.sidebar.number_input("Current TVL ($)", min_value=0.01, step=0.01, value=1000000.00, format="%.2f")
 
-expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
-expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=0.0, format="%.2f")
+expected_price_change_asset1 = st.sidebar.number_input("Expected Annual Price Change for Asset 1 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=-25.0, format="%.2f")
+expected_price_change_asset2 = st.sidebar.number_input("Expected Annual Price Change for Asset 2 (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=-30.0, format="%.2f")
 st.sidebar.markdown("**Note:** We’ll take your expected APY and price changes, stretch them 50% up and down (e.g., 10% becomes 5-15%), and run 200 scenarios to project your pool’s value over 12 months.")
 
 initial_btc_price = st.sidebar.number_input("Initial BTC Price (leave blank or set to current price if entering pool today) ($)", 
-                                           min_value=0.0, step=0.01, value=100.00, format="%.2f")
-current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=90.00, format="%.2f")
-btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=0.0, step=0.1, value=100.0, format="%.2f")
+                                           min_value=0.0, step=0.01, value=84000.00, format="%.2f")
+current_btc_price = st.sidebar.number_input("Current BTC Price ($)", min_value=0.01, step=0.01, value=84000.00, format="%.2f")
+btc_growth_rate = st.sidebar.number_input("Expected BTC Annual Growth Rate (Next 12 Months) (%)", min_value=-100.0, max_value=1000.0, step=0.1, value=-25.0, format="%.2f")
 
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, max_value=100.0, step=0.1, value=10.0, format="%.2f")
 st.sidebar.markdown("""
@@ -798,7 +804,7 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Months to Breakeven Including Expected Price Changes", f"{break_even_months_with_price}"])
         writer.writerow(["Net Return (x)", f"{net_return:.2f}"])
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.2f}"])
-        writer.writerow(["TVL Decline (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
+        writer.writerow(["TVL Change (%)", f"{tvl_decline:.2f}" if initial_tvl > 0 else "N/A"])
         writer.writerow(["Pool Share (%)", f"{pool_share:.2f}"])
         writer.writerow(["APY Margin of Safety (%)", f"{apy_mos:.2f}"])
         writer.writerow(["Volatility Score (%)", f"{volatility_score:.0f}"])
