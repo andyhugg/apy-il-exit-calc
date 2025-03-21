@@ -609,7 +609,7 @@ if st.sidebar.button("Calculate"):
         
         # Simplified Monte Carlo Analysis
         st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
-        st.write("**Note:** This simplified Monte Carlo analysis stretches your expected APY and price changes 50% up and down, running 200 scenarios to project your pool’s value over 12 months.")
+        st.write("**Note:** We’ve run 200 scenarios, stretching your expected APY and price changes 50% up and down to project your pool’s value over 12 months.")
         
         mc_results = simplified_monte_carlo_analysis(
             investment_amount, apy, initial_price_asset1, initial_price_asset2,
@@ -617,15 +617,38 @@ if st.sidebar.button("Calculate"):
             expected_price_change_asset2, is_new_pool
         )
         
-        st.write(f"""
-        We’ve run the numbers with 200 scenarios, stretching your inputs 50% up and down to see how your pool might perform over 12 months.
-
-        In a tougher outcome—one of the lower possibilities—your APY could drop toward {apy * 0.5:.1f}% with Asset 1 moving against your expectations. That leaves your pool below your ${investment_amount:,.0f} starting point, with some impermanent loss to factor in.
-
-        Based on your expected case—an APY of {apy:.1f}%, Asset 1 at {expected_price_change_asset1:.1f}%, and Asset 2 at {expected_price_change_asset2:.1f}%—your pool settles around ${mc_results['expected']['value']:,.0f}. You’re still dealing with a bit of impermanent loss, but it’s manageable.
-
-        In a stronger scenario, among the top outcomes, an APY near {apy * 1.5:.1f}% and favorable price shifts could lift your pool to about ${mc_results['best']['value']:,.0f}, with minimal impermanent loss holding you back.
-        """)
+        # Table with color-coded backgrounds
+        df_monte_carlo = pd.DataFrame({
+            "Scenario": ["Worst Case", "Expected Case", "Best Case"],
+            "Projected Value ($)": [f"${mc_results['worst']['value']:,.0f}", f"${mc_results['expected']['value']:,.0f}", f"${mc_results['best']['value']:,.0f}"],
+            "Impermanent Loss (%)": [f"{mc_results['worst']['il']:.2f}%", f"{mc_results['expected']['il']:.2f}%", f"{mc_results['best']['il']:.2f}%"]
+        })
+        
+        def highlight_rows(row):
+            if row["Scenario"] == "Worst Case":
+                return ['background-color: #ff4d4d; color: white'] * len(row)
+            elif row["Scenario"] == "Expected Case":
+                return ['background-color: #ffeb3b; color: black'] * len(row)
+            elif row["Scenario"] == "Best Case":
+                return ['background-color: #4caf50; color: white'] * len(row)
+            return [''] * len(row)
+        
+        styled_df_monte_carlo = df_monte_carlo.style.apply(highlight_rows, axis=1).set_properties(**{
+            'text-align': 'center'
+        })
+        st.dataframe(styled_df_monte_carlo, hide_index=True, use_container_width=True)
+        
+        # Bar Chart
+        plt.figure(figsize=(8, 5))
+        scenarios = ["Worst", "Expected", "Best"]
+        values = [mc_results["worst"]["value"], mc_results["expected"]["value"], mc_results["best"]["value"]]
+        colors = ["#ff4d4d", "#ffeb3b", "#4caf50"]
+        plt.bar(scenarios, values, color=colors)
+        plt.axhline(y=investment_amount, color='r', linestyle='--', label=f"Initial Investment (${investment_amount:,.0f})")
+        plt.title("Monte Carlo Scenarios - 12 Month Pool Value")
+        plt.ylabel("Value ($)")
+        plt.legend()
+        st.pyplot(plt)
         
         output = StringIO()
         writer = csv.writer(output)
