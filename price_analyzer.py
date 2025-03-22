@@ -116,20 +116,9 @@ if calculate:
     breakeven_50 = breakeven_requirement(50)
     breakeven_90 = breakeven_requirement(90)
 
-    # Break-even timeline (in months)
-    def breakeven_timeline(drop):
-        if drop == 0 or asset_monthly_rate <= 0:
-            return float('inf')
-        remaining_value = 1 - (drop / 100)
-        required_growth = 1 / remaining_value
-        t = np.log(required_growth) / np.log(1 + asset_monthly_rate)
-        return t
-
-    breakeven_time_20 = breakeven_timeline(20)
-    breakeven_time_50 = breakeven_timeline(50)
-    breakeven_time_90 = breakeven_timeline(90)
-
     # Display results in tiles
+    st.subheader("Key Metrics")
+    st.markdown("These metrics show the projected price, investment value, and risk-adjusted return of the asset.")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -146,8 +135,11 @@ if calculate:
         st.metric("Sharpe Ratio",
                  f"{sharpe_ratio:.2f}")
 
+    st.divider()
+
     # Price Projections Chart
     st.subheader("Asset Price Projections")
+    st.markdown("This chart shows how the asset’s price might grow over time compared to Bitcoin and stablecoins, helping you see potential returns.")
     df_proj = pd.DataFrame({
         'Month': range(months + 1),
         'Asset Price': asset_projections,
@@ -164,8 +156,11 @@ if calculate:
     st.pyplot(plt)
     plt.clf()
 
+    st.divider()
+
     # Additional Metrics
     st.subheader("Risk and Performance Metrics")
+    st.markdown("These metrics help you understand the asset’s risk (volatility), likelihood of loss, and how it compares to Bitcoin’s historical performance.")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Annualized Volatility", f"{annualized_volatility:.2f}%")
@@ -175,8 +170,11 @@ if calculate:
         historical_btc_return = 50  # Historical average annualized return for Bitcoin (simplified)
         st.metric("Historical BTC Return", f"{historical_btc_return}%")
 
+    st.divider()
+
     # Hurdle Rate Comparison
     st.subheader("Performance vs. Hurdle Rates")
+    st.markdown("This section compares the asset’s return to the risk-free rate and inflation, ensuring it meets minimum performance goals.")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Annualized Asset ROI", f"{annualized_asset_roi:.2f}%")
@@ -185,33 +183,25 @@ if calculate:
     with col3:
         st.metric("Hurdle Rate (Inflation)", f"{inflation_rate:.2f}%")
 
-    # Investment Value After Price Drops with Break-even Timeline
+    st.divider()
+
+    # Investment Value After Price Drops
     st.subheader("Investment Value After Price Drops")
+    st.markdown("This table shows how much your investment would be worth if the asset’s price drops by 20%, 50%, or 90%, and the growth needed to recover.")
     mdd_data = {
         "Price Drop (%)": ["20%", "50%", "90%"],
         "Asset Price After Drop ($)": [f"${price_after_20:,.2f}", f"${price_after_50:,.2f}", f"${price_after_90:,.2f}"],
         "Investment Value After Drop ($)": [f"${investment_after_20:,.2f}", f"${investment_after_50:,.2f}", f"${investment_after_90:,.2f}"],
-        "Breakeven Requirement (%)": [f"{breakeven_20:.2f}%", f"{breakeven_50:.2f}%", f"{breakeven_90:.2f}%"],
-        "Breakeven Time (Months)": [f"{breakeven_time_20:.1f}", f"{breakeven_time_50:.1f}", f"{breakeven_time_90:.1f}"]
+        "Breakeven Requirement (%)": [f"{breakeven_20:.2f}%", f"{breakeven_50:.2f}%", f"{breakeven_90:.2f}%"]
     }
     mdd_df = pd.DataFrame(mdd_data)
     st.table(mdd_df)
 
-    # Break-even Timeline Chart
-    st.subheader("Break-even Timeline After Price Drops")
-    breakeven_df = pd.DataFrame({
-        "Price Drop (%)": ["20%", "50%", "90%"],
-        "Months to Break-even": [breakeven_time_20, breakeven_time_50, breakeven_time_90]
-    })
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=breakeven_df, x="Price Drop (%)", y="Months to Break-even")
-    plt.title("Time to Recover from Price Drops")
-    plt.ylabel("Months")
-    st.pyplot(plt)
-    plt.clf()
+    st.divider()
 
     # Comparison Section
     st.subheader("Comparison vs BTC and Stablecoin")
+    st.markdown("This section compares the asset’s return to Bitcoin and stablecoin returns, helping you decide where to invest.")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Asset ROI", f"{asset_roi:.2f}%")
@@ -222,8 +212,11 @@ if calculate:
         rf_roi = ((rf_projections[-1] / initial_investment) - 1) * 100
         st.metric("Stablecoin ROI", f"{rf_roi:.2f}%")
 
+    st.divider()
+
     # Monte Carlo Results
     st.subheader("Monte Carlo Analysis (200 Scenarios)")
+    st.markdown("This section shows the best, worst, and expected outcomes for your investment based on 200 simulations, giving you a range of possibilities.")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Best Case", f"${best_case:,.2f}")
@@ -232,8 +225,11 @@ if calculate:
     with col3:
         st.metric("Expected Case", f"${expected_case:,.2f}")
 
-    # Monte Carlo Distribution with Risk Heatmap
+    st.divider()
+
+    # Monte Carlo Distribution
     st.subheader("Distribution of Possible Outcomes")
+    st.markdown("This chart shows the range of possible investment values after the time horizon, helping you understand the likelihood of different outcomes.")
     plt.figure(figsize=(10, 6))
     sns.histplot(simulations, bins=50)
     plt.axvline(initial_investment, color='red', linestyle='--', label='Initial Investment')
@@ -243,8 +239,11 @@ if calculate:
     st.pyplot(plt)
     plt.clf()
 
-    # Risk Heatmap (simplified as probability ranges)
+    st.divider()
+
+    # Outcome Probabilities
     st.subheader("Outcome Probabilities")
+    st.markdown("This chart shows the chances of losing money, breaking even, or making a profit, based on the simulations.")
     prob_profit = sum(1 for sim in simulations if sim > initial_investment) / len(simulations) * 100
     prob_breakeven = sum(1 for sim in simulations if initial_investment * 0.95 <= sim <= initial_investment * 1.05) / len(simulations) * 100
     prob_loss = sum(1 for sim in simulations if sim < initial_investment) / len(simulations) * 100
@@ -259,8 +258,11 @@ if calculate:
     st.pyplot(plt)
     plt.clf()
 
+    st.divider()
+
     # Actionable Insights and Alerts
     st.subheader("Actionable Insights and Alerts")
+    st.markdown("This section provides recommendations and warnings based on the analysis, helping you make informed decisions.")
 
     # Insight 1: Risk-Adjusted Return
     if sharpe_ratio > 1:
