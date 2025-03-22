@@ -95,7 +95,7 @@ Welcome to the Crypto Asset and Pool Analyzer! This tool helps you analyze crypt
 - **New Asset**: Analyze a single asset’s growth potential and risks.  
 - **Existing Pool**: Evaluate an existing liquidity pool’s performance, including impermanent loss and risk.  
 - **New Pool**: Project the performance of a new liquidity pool with expected price changes.  
-All data (except Fully Diluted Market Cap) can be sourced from Certik.com for a streamlined experience.
+All data can be sourced from Certik.com for a streamlined experience.
 """)
 
 # Sidebar for Analysis Selection
@@ -117,9 +117,7 @@ if analysis_type == "New Asset":
     volume_24h = st.sidebar.number_input("24-Hour Trading Volume ($)", min_value=0.0, value=1_000_000.0, step=100_000.0, help="Source from Certik.com")
     twitter_followers = st.sidebar.number_input("Total Twitter Followers", min_value=0, value=526609, step=1000, help="Source from Certik.com")
     total_tweets = st.sidebar.number_input("Total Tweets", min_value=0, value=1642, step=100, help="Source from Certik.com")
-    fully_diluted_mcap = st.sidebar.number_input("Fully Diluted Mcap ($)", min_value=0.0, value=200_000_000.0, step=1_000_000.0, help="Source from CoinGecko/CoinMarketCap")
     certik_trust_score = st.sidebar.number_input("Certik.com Trust Score (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Source from Certik.com")
-    token_scan_score = st.sidebar.number_input("Token Scan Score (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Source from Certik.com")
     btc_current_price = st.sidebar.number_input("BTC Current Price ($)", min_value=0.0, value=50_000.0, step=1_000.0)
     btc_expected_growth_rate = st.sidebar.number_input("BTC Expected Growth Rate (%)", value=20.0, step=1.0)
     risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, step=0.1)
@@ -134,8 +132,6 @@ if analysis_type == "New Asset":
     # Base Calculations
     projected_price = asset_1_price * (1 + expected_growth_rate / 100)
     projected_market_cap = market_cap * (1 + expected_growth_rate / 100)
-    fd_mcap_growth = ((projected_market_cap / fully_diluted_mcap) - 1) * 100
-    mcap_to_fd_mcap_ratio = (market_cap / fully_diluted_mcap) * 100
     
     # Hurdle Rate with Macro Adjustment
     base_hurdle_rate = risk_free_rate + 6.0
@@ -187,10 +183,7 @@ if analysis_type == "New Asset":
     # Followers-to-Tweets Ratio
     followers_to_tweets_ratio = (total_tweets / twitter_followers) * 100 if twitter_followers > 0 else 0
     
-    # Token Security Risk (Token Scan Score)
-    token_security_risk_score = 100 - token_scan_score if token_scan_score > 0 else 50
-    
-    # Composite Score
+    # Composite Score (Removed FD Mcap Growth, Mcap to FD Mcap Ratio, Token Security Risk)
     total_score = 0
     
     # 1. Projected Growth Rate
@@ -229,31 +222,7 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 4. Fully Diluted Mcap Growth
-    if fd_mcap_growth < -20:
-        total_score += 2
-    elif fd_mcap_growth < 0:
-        total_score += 1
-    elif fd_mcap_growth < 20:
-        total_score += 0
-    elif fd_mcap_growth < 50:
-        total_score -= 1
-    else:
-        total_score -= 2
-    
-    # 5. Market Cap to Fully Diluted Mcap Ratio
-    if mcap_to_fd_mcap_ratio > 80:
-        total_score += 2
-    elif mcap_to_fd_mcap_ratio > 50:
-        total_score += 1
-    elif mcap_to_fd_mcap_ratio > 30:
-        total_score += 0
-    elif mcap_to_fd_mcap_ratio > 10:
-        total_score -= 1
-    else:
-        total_score -= 2
-    
-    # 6. Volatility Risk Score
+    # 4. Volatility Risk Score
     if volatility_score < 25:
         total_score += 2
     elif volatility_score < 50:
@@ -265,10 +234,10 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 7. Market Cap Rank Risk
+    # 5. Market Cap Rank Risk
     total_score += market_cap_rank_score
     
-    # 8. Risk-Adjusted Return (Sharpe Ratio)
+    # 6. Risk-Adjusted Return (Sharpe Ratio)
     if sharpe_ratio > 2:
         total_score += 2
     elif sharpe_ratio > 1:
@@ -280,7 +249,7 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 9. Liquidity Risk Score
+    # 7. Liquidity Risk Score
     if liquidity_risk_score < 25:
         total_score += 2
     elif liquidity_risk_score < 50:
@@ -292,7 +261,7 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 10. Maximum Drawdown Risk
+    # 8. Maximum Drawdown Risk
     if average_mdd < 15:
         total_score += 2
     elif average_mdd < 30:
@@ -304,7 +273,7 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 11. Contract/Program Risk (Certik Trust Score)
+    # 9. Contract/Program Risk (Certik Trust Score)
     if contract_risk_score < 25:
         total_score += 2
     elif contract_risk_score < 50:
@@ -316,7 +285,7 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 12. Community Engagement Score
+    # 10. Community Engagement Score
     if community_engagement_score > 75:
         total_score += 2
     elif community_engagement_score > 50:
@@ -328,36 +297,24 @@ if analysis_type == "New Asset":
     else:
         total_score -= 2
     
-    # 13. Token Security Risk (Token Scan Score)
-    if token_security_risk_score < 25:
-        total_score += 2
-    elif token_security_risk_score < 50:
-        total_score += 1
-    elif token_security_risk_score < 75:
-        total_score += 0
-    elif token_security_risk_score < 90:
-        total_score -= 1
-    else:
-        total_score -= 2
-    
-    # Decision Outcome
-    if total_score >= 20:
+    # Decision Outcome (Adjusted for 10 Metrics, Range -20 to +20)
+    if total_score >= 15:
         recommendation = "Strong Buy"
         rec_color = "green"
-    elif total_score >= 10:
+    elif total_score >= 8:
         recommendation = "Buy"
         rec_color = "lightgreen"
-    elif total_score >= -9:
+    elif total_score >= -7:
         recommendation = "Wait"
         rec_color = "yellow"
-    elif total_score >= -19:
+    elif total_score >= -14:
         recommendation = "Sell"
         rec_color = "orange"
     else:
         recommendation = "Strong Sell"
         rec_color = "red"
     
-    # Metric Cards
+    # Metric Cards (Restored Original Stacking Style)
     col1, col2 = st.columns(2)
     
     with col1:
@@ -365,8 +322,6 @@ if analysis_type == "New Asset":
         st.markdown(f"<div style='background-color: {rec_color}; padding: 10px; border-radius: 5px; text-align: center;'>Recommendation: {recommendation}</div>", unsafe_allow_html=True)
         st.metric("Projected Price (12 Months)", f"${projected_price:.2f}", f"{expected_growth_rate}%")
         st.metric("Projected Market Cap (12 Months)", f"${projected_market_cap:,.0f}")
-        st.metric("Fully Diluted Mcap Growth", f"{fd_mcap_growth:.2f}%")
-        st.metric("Market Cap to Fully Diluted Mcap Ratio", f"{mcap_to_fd_mcap_ratio:.2f}%")
         market_cap_label = "Very Low Risk" if market_cap > 5_000_000_000 else "Low Risk" if market_cap > 1_000_000_000 else "Neutral" if market_cap > 500_000_000 else "Moderate Risk" if market_cap > 100_000_000 else "High Risk"
         market_cap_color = "green" if market_cap > 5_000_000_000 else "lightgreen" if market_cap > 1_000_000_000 else "yellow" if market_cap > 500_000_000 else "orange" if market_cap > 100_000_000 else "red"
         st.metric("Market Cap Risk", market_cap_label, f"Market Cap: ${market_cap:,.0f}", delta_color="off")
@@ -385,10 +340,6 @@ if analysis_type == "New Asset":
         st.metric("Contract/Program Risk", f"{contract_risk_score:.2f}% ({contract_label})", "Based on Certik Trust Score", delta_color="off")
         st.markdown(f"<div style='background-color: {contract_color}; padding: 5px; border-radius: 5px; text-align: center;'>{contract_label}</div>", unsafe_allow_html=True)
         st.metric("Community Engagement Score", f"{community_engagement_score:.2f}%")
-        token_security_label = "Low Risk" if token_security_risk_score < 25 else "Moderate Risk" if token_security_risk_score < 50 else "Neutral" if token_security_risk_score < 75 else "High Risk" if token_security_risk_score < 90 else "Very High Risk"
-        token_security_color = "green" if token_security_risk_score < 25 else "yellow" if token_security_risk_score < 50 else "orange" if token_security_risk_score < 75 else "red" if token_security_risk_score < 90 else "darkred"
-        st.metric("On-Chain Security and Integrity", f"{token_security_risk_score:.2f}% ({token_security_label})", "Based on Certik Token Scan Score", delta_color="off")
-        st.markdown(f"<div style='background-color: {token_security_color}; padding: 5px; border-radius: 5px; text-align: center;'>{token_security_label}</div>", unsafe_allow_html=True)
         ratio_label = "Low Activity" if followers_to_tweets_ratio < 0.1 else "Balanced Activity" if followers_to_tweets_ratio < 1 else "High Activity" if followers_to_tweets_ratio < 5 else "Very High Activity"
         ratio_color = "orange" if followers_to_tweets_ratio < 0.1 else "green" if followers_to_tweets_ratio < 1 else "yellow" if followers_to_tweets_ratio < 5 else "red"
         st.metric("Followers-to-Tweets Ratio", f"{followers_to_tweets_ratio:.2f}% ({ratio_label})", "Measures Twitter activity relative to followers", delta_color="off")
@@ -438,10 +389,6 @@ if analysis_type == "New Asset":
         st.markdown("✅ **Community Engagement**: High ({:.2f}%) indicates strong social presence, which may support price growth.".format(community_engagement_score))
     else:
         st.markdown("⚠️ **Community Engagement**: Low ({:.2f}%) suggests limited social presence, which may hinder adoption.".format(community_engagement_score))
-    if token_security_risk_score > 50:
-        st.markdown("⚠️ **On-Chain Security**: High risk ({:.2f}%) based on a Token Scan Score of {:.0f}. Potential vulnerabilities or suspicious activity detected.".format(token_security_risk_score, token_scan_score))
-    else:
-        st.markdown("✅ **On-Chain Security**: Low risk ({:.2f}%) based on a Token Scan Score of {:.0f}. The token’s smart contracts and on-chain activity appear secure.".format(token_security_risk_score, token_scan_score))
     if followers_to_tweets_ratio < 0.1:
         st.markdown("⚠️ **Twitter Activity**: Low ({:.2f}%) suggests potential inactivity or fake followers.".format(followers_to_tweets_ratio))
     elif followers_to_tweets_ratio > 5:
@@ -455,8 +402,6 @@ if analysis_type == "New Asset":
         "Total Score": [total_score],
         "Projected Price": [projected_price],
         "Projected Market Cap": [projected_market_cap],
-        "Fully Diluted Mcap Growth (%)": [fd_mcap_growth],
-        "Market Cap to FD Mcap Ratio (%)": [mcap_to_fd_mcap_ratio],
         "Market Cap Risk": [market_cap_label],
         "Hurdle Rate (%)": [hurdle_rate],
         "Asset vs. Hurdle Rate (%)": [asset_vs_hurdle],
@@ -472,9 +417,7 @@ if analysis_type == "New Asset":
         "Total Twitter Followers": [twitter_followers],
         "Total Tweets": [total_tweets],
         "Community Engagement Score (%)": [community_engagement_score],
-        "Followers-to-Tweets Ratio (%)": [followers_to_tweets_ratio],
-        "Token Scan Score": [token_scan_score],
-        "On-Chain Security Risk Score (%)": [token_security_risk_score]
+        "Followers-to-Tweets Ratio (%)": [followers_to_tweets_ratio]
     }
     export_df = pd.DataFrame(export_data)
     csv = export_df.to_csv(index=False)
@@ -494,8 +437,6 @@ elif analysis_type == "Existing Pool":
     twitter_followers = st.sidebar.number_input("Total Twitter Followers", min_value=0, value=526609, step=1000, help="Average of both tokens, source from Certik.com")
     total_tweets = st.sidebar.number_input("Total Tweets", min_value=0, value=1642, step=100, help="Average of both tokens, source from Certik.com")
     certik_trust_score = st.sidebar.number_input("Certik.com Trust Score (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Average of both tokens, source from Certik.com")
-    token_scan_score_asset1 = st.sidebar.number_input("Token Scan Score Asset 1 (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Source from Certik.com")
-    token_scan_score_asset2 = st.sidebar.number_input("Token Scan Score Asset 2 (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Source from Certik.com")
     risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, step=0.1)
     
     # Pool Analysis
@@ -523,30 +464,28 @@ elif analysis_type == "Existing Pool":
     tvl_size_risk = (1e9 / current_tvl) * 10
     base_protocol_risk_score = apy_risk + tvl_decline_risk + tvl_size_risk
     contract_risk_score = 100 - certik_trust_score if certik_trust_score > 0 else 50
-    token_scan_score = (token_scan_score_asset1 + token_scan_score_asset2) / 2 if token_scan_score_asset1 > 0 and token_scan_score_asset2 > 0 else token_scan_score_asset1 if token_scan_score_asset1 > 0 else token_scan_score_asset2 if token_scan_score_asset2 > 0 else 50
-    token_security_risk_score = 100 - token_scan_score
     liquidity_factor = (1e9 / volume_24h) * 10
     liquidity_factor = min(liquidity_factor, 1.0)
-    protocol_risk_score = base_protocol_risk_score * (1 + (contract_risk_score / 100 - 0.5)) * (1 + (token_security_risk_score / 100 - 0.5)) * (1 + liquidity_factor)
+    protocol_risk_score = base_protocol_risk_score * (1 + (contract_risk_score / 100 - 0.5)) * (1 + liquidity_factor)
     protocol_risk_score = min(protocol_risk_score, 100)
     
     # Risk Category
     if protocol_risk_score < 25:
         risk_category = "Low"
         risk_color = "green"
-        risk_message = "✅ Minimal risk due to a strong Certik Trust Score, secure tokens, stable TVL, and adequate yield."
+        risk_message = "✅ Minimal risk due to a strong Certik Trust Score, stable TVL, and adequate yield."
     elif protocol_risk_score < 50:
         risk_category = "Advisory"
         risk_color = "yellow"
-        risk_message = "⚠️ Moderate risk. Review the Certik Trust Score, token security, TVL decline, and yield sustainability."
+        risk_message = "⚠️ Moderate risk. Review the Certik Trust Score, TVL decline, and yield sustainability."
     elif protocol_risk_score < 75:
         risk_category = "High"
         risk_color = "orange"
-        risk_message = "⚠️ High risk. Significant concerns with Certik Trust Score, token security, TVL, or yield."
+        risk_message = "⚠️ High risk. Significant concerns with Certik Trust Score, TVL, or yield."
     else:
         risk_category = "Critical"
         risk_color = "red"
-        risk_message = "🚨 Critical risk. Major issues with Certik Trust Score, token security, TVL decline, or unsustainable yield."
+        risk_message = "🚨 Critical risk. Major issues with Certik Trust Score, TVL decline, or unsustainable yield."
     
     # Community Engagement Score
     follower_score = (twitter_followers / 1e6) * 50
@@ -579,10 +518,6 @@ elif analysis_type == "Existing Pool":
         st.metric("Protocol Risk Score", f"{protocol_risk_score:.2f}%")
         st.metric("Volatility Score", f"{volatility_score:.2f}%")
         st.metric("Community Engagement Score", f"{community_engagement_score:.2f}%")
-        token_security_label = "Low Risk" if token_security_risk_score < 25 else "Moderate Risk" if token_security_risk_score < 50 else "Neutral" if token_security_risk_score < 75 else "High Risk" if token_security_risk_score < 90 else "Very High Risk"
-        token_security_color = "green" if token_security_risk_score < 25 else "yellow" if token_security_risk_score < 50 else "orange" if token_security_risk_score < 75 else "red" if token_security_risk_score < 90 else "darkred"
-        st.metric("On-Chain Security and Integrity", f"{token_security_risk_score:.2f}% ({token_security_label})", "Based on average Token Scan Score", delta_color="off")
-        st.markdown(f"<div style='background-color: {token_security_color}; padding: 5px; border-radius: 5px; text-align: center;'>{token_security_label}</div>", unsafe_allow_html=True)
         ratio_label = "Low Activity" if followers_to_tweets_ratio < 0.1 else "Balanced Activity" if followers_to_tweets_ratio < 1 else "High Activity" if followers_to_tweets_ratio < 5 else "Very High Activity"
         ratio_color = "orange" if followers_to_tweets_ratio < 0.1 else "green" if followers_to_tweets_ratio < 1 else "yellow" if followers_to_tweets_ratio < 5 else "red"
         st.metric("Followers-to-Tweets Ratio", f"{followers_to_tweets_ratio:.2f}% ({ratio_label})", "Measures Twitter activity relative to followers", delta_color="off")
@@ -625,10 +560,6 @@ elif analysis_type == "Existing Pool":
         st.markdown("✅ **Community Engagement**: High ({:.2f}%) indicates strong social presence, which may support pool stability.".format(community_engagement_score))
     else:
         st.markdown("⚠️ **Community Engagement**: Low ({:.2f}%) suggests limited social presence, which may impact adoption.".format(community_engagement_score))
-    if token_security_risk_score > 50:
-        st.markdown("⚠️ **On-Chain Security**: High risk ({:.2f}%) based on an average Token Scan Score of {:.0f}. Potential vulnerabilities or suspicious activity detected.".format(token_security_risk_score, token_scan_score))
-    else:
-        st.markdown("✅ **On-Chain Security**: Low risk ({:.2f}%) based on an average Token Scan Score of {:.0f}. The pool’s tokens appear secure.".format(token_security_risk_score, token_scan_score))
     if followers_to_tweets_ratio < 0.1:
         st.markdown("⚠️ **Twitter Activity**: Low ({:.2f}%) suggests potential inactivity or fake followers.".format(followers_to_tweets_ratio))
     elif followers_to_tweets_ratio > 5:
@@ -653,9 +584,7 @@ elif analysis_type == "Existing Pool":
         "Community Engagement Score (%)": [community_engagement_score],
         "Followers-to-Tweets Ratio (%)": [followers_to_tweets_ratio],
         "Certik Trust Score": [certik_trust_score],
-        "Contract/Program Risk Score (%)": [contract_risk_score],
-        "Average Token Scan Score": [token_scan_score],
-        "On-Chain Security Risk Score (%)": [token_security_risk_score]
+        "Contract/Program Risk Score (%)": [contract_risk_score]
     }
     export_df = pd.DataFrame(export_data)
     csv = export_df.to_csv(index=False)
@@ -674,8 +603,6 @@ elif analysis_type == "New Pool":
     twitter_followers = st.sidebar.number_input("Total Twitter Followers", min_value=0, value=526609, step=1000, help="Average of both tokens, source from Certik.com")
     total_tweets = st.sidebar.number_input("Total Tweets", min_value=0, value=1642, step=100, help="Average of both tokens, source from Certik.com")
     certik_trust_score = st.sidebar.number_input("Certik.com Trust Score (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Average of both tokens, source from Certik.com")
-    token_scan_score_asset1 = st.sidebar.number_input("Token Scan Score Asset 1 (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Source from Certik.com")
-    token_scan_score_asset2 = st.sidebar.number_input("Token Scan Score Asset 2 (0-100, optional)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Source from Certik.com")
     risk_free_rate = st.sidebar.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, step=0.1)
     
     # Pool Analysis
@@ -702,30 +629,28 @@ elif analysis_type == "New Pool":
     tvl_size_risk = (1e9 / current_tvl) * 10
     base_protocol_risk_score = apy_risk + tvl_size_risk
     contract_risk_score = 100 - certik_trust_score if certik_trust_score > 0 else 50
-    token_scan_score = (token_scan_score_asset1 + token_scan_score_asset2) / 2 if token_scan_score_asset1 > 0 and token_scan_score_asset2 > 0 else token_scan_score_asset1 if token_scan_score_asset1 > 0 else token_scan_score_asset2 if token_scan_score_asset2 > 0 else 50
-    token_security_risk_score = 100 - token_scan_score
     liquidity_factor = (1e9 / volume_24h) * 10
     liquidity_factor = min(liquidity_factor, 1.0)
-    protocol_risk_score = base_protocol_risk_score * (1 + (contract_risk_score / 100 - 0.5)) * (1 + (token_security_risk_score / 100 - 0.5)) * (1 + liquidity_factor)
+    protocol_risk_score = base_protocol_risk_score * (1 + (contract_risk_score / 100 - 0.5)) * (1 + liquidity_factor)
     protocol_risk_score = min(protocol_risk_score, 100)
     
     # Risk Category
     if protocol_risk_score < 25:
         risk_category = "Low"
         risk_color = "green"
-        risk_message = "✅ Minimal risk due to a strong Certik Trust Score, secure tokens, and adequate yield."
+        risk_message = "✅ Minimal risk due to a strong Certik Trust Score and adequate yield."
     elif protocol_risk_score < 50:
         risk_category = "Advisory"
         risk_color = "yellow"
-        risk_message = "⚠️ Moderate risk. Review the Certik Trust Score, token security, and yield sustainability."
+        risk_message = "⚠️ Moderate risk. Review the Certik Trust Score and yield sustainability."
     elif protocol_risk_score < 75:
         risk_category = "High"
         risk_color = "orange"
-        risk_message = "⚠️ High risk. Significant concerns with Certik Trust Score, token security, or yield."
+        risk_message = "⚠️ High risk. Significant concerns with Certik Trust Score or yield."
     else:
         risk_category = "Critical"
         risk_color = "red"
-        risk_message = "🚨 Critical risk. Major issues with Certik Trust Score, token security, or unsustainable yield."
+        risk_message = "🚨 Critical risk. Major issues with Certik Trust Score or unsustainable yield."
     
     # Community Engagement Score
     follower_score = (twitter_followers / 1e6) * 50
@@ -755,10 +680,6 @@ elif analysis_type == "New Pool":
         st.metric("Protocol Risk Score", f"{protocol_risk_score:.2f}%")
         st.metric("Volatility Score", f"{volatility_score:.2f}%")
         st.metric("Community Engagement Score", f"{community_engagement_score:.2f}%")
-        token_security_label = "Low Risk" if token_security_risk_score < 25 else "Moderate Risk" if token_security_risk_score < 50 else "Neutral" if token_security_risk_score < 75 else "High Risk" if token_security_risk_score < 90 else "Very High Risk"
-        token_security_color = "green" if token_security_risk_score < 25 else "yellow" if token_security_risk_score < 50 else "orange" if token_security_risk_score < 75 else "red" if token_security_risk_score < 90 else "darkred"
-        st.metric("On-Chain Security and Integrity", f"{token_security_risk_score:.2f}% ({token_security_label})", "Based on average Token Scan Score", delta_color="off")
-        st.markdown(f"<div style='background-color: {token_security_color}; padding: 5px; border-radius: 5px; text-align: center;'>{token_security_label}</div>", unsafe_allow_html=True)
         ratio_label = "Low Activity" if followers_to_tweets_ratio < 0.1 else "Balanced Activity" if followers_to_tweets_ratio < 1 else "High Activity" if followers_to_tweets_ratio < 5 else "Very High Activity"
         ratio_color = "orange" if followers_to_tweets_ratio < 0.1 else "green" if followers_to_tweets_ratio < 1 else "yellow" if followers_to_tweets_ratio < 5 else "red"
         st.metric("Followers-to-Tweets Ratio", f"{followers_to_tweets_ratio:.2f}% ({ratio_label})", "Measures Twitter activity relative to followers", delta_color="off")
@@ -801,10 +722,6 @@ elif analysis_type == "New Pool":
         st.markdown("✅ **Community Engagement**: High ({:.2f}%) indicates strong social presence, which may support pool stability.".format(community_engagement_score))
     else:
         st.markdown("⚠️ **Community Engagement**: Low ({:.2f}%) suggests limited social presence, which may impact adoption.".format(community_engagement_score))
-    if token_security_risk_score > 50:
-        st.markdown("⚠️ **On-Chain Security**: High risk ({:.2f}%) based on an average Token Scan Score of {:.0f}. Potential vulnerabilities or suspicious activity detected.".format(token_security_risk_score, token_scan_score))
-    else:
-        st.markdown("✅ **On-Chain Security**: Low risk ({:.2f}%) based on an average Token Scan Score of {:.0f}. The pool’s tokens appear secure.".format(token_security_risk_score, token_scan_score))
     if followers_to_tweets_ratio < 0.1:
         st.markdown("⚠️ **Twitter Activity**: Low ({:.2f}%) suggests potential inactivity or fake followers.".format(followers_to_tweets_ratio))
     elif followers_to_tweets_ratio > 5:
@@ -828,9 +745,7 @@ elif analysis_type == "New Pool":
         "Community Engagement Score (%)": [community_engagement_score],
         "Followers-to-Tweets Ratio (%)": [followers_to_tweets_ratio],
         "Certik Trust Score": [certik_trust_score],
-        "Contract/Program Risk Score (%)": [contract_risk_score],
-        "Average Token Scan Score": [token_scan_score],
-        "On-Chain Security Risk Score (%)": [token_security_risk_score]
+        "Contract/Program Risk Score (%)": [contract_risk_score]
     }
     export_df = pd.DataFrame(export_data)
     csv = export_df.to_csv(index=False)
