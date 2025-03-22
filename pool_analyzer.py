@@ -1,3 +1,45 @@
+I see the issue. The `SyntaxError: '[' was never closed` occurs in the Monte Carlo analysis section of the Streamlit app because the list definition for `"Projected Value ($)"` in the DataFrame is incomplete—it’s missing the closing bracket and the third value for the "Best Case" scenario. This happened because the code was cut off mid-line in my previous response. Let me fix that by providing the corrected section and ensuring the code is complete.
+
+Here’s the corrected portion of the code starting from the Monte Carlo analysis section, followed by the full, properly closed DataFrame definition. I’ll then provide the entire updated file to avoid any further truncation issues.
+
+### Corrected Monte Carlo Analysis Section
+Replace the incomplete section starting at line 1042 with this:
+```python
+            st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
+            st.write("""
+            **Note:** The Simplified Monte Carlo Analysis runs 200 scenarios by tweaking your expected APY and price changes up and down by 50%. It’s a way to estimate a range of possible outcomes for your pool’s value over 12 months. Here’s how we get the results:  
+            - **Worst Case:** The 10th percentile (20th lowest of 200 runs)—a plausible low-end outcome, not the absolute worst.  
+            - **Expected Case:** The exact result using your inputs (APY and price changes), showing what happens if everything goes as you predict, no randomization.  
+            - **Best Case:** The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
+            This gives you a practical snapshot of your pool’s potential over the next year.
+            """)
+            
+            mc_results = simplified_monte_carlo_analysis(
+                investment_amount, apy, initial_price_asset1, initial_price_asset2,
+                current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                expected_price_change_asset2, is_new_pool
+            )
+            
+            df_monte_carlo = pd.DataFrame({
+                "Scenario": ["Worst Case", "Expected Case", "Best Case"],
+                "Projected Value ($)": [
+                    f"${mc_results['worst']['value']:,.0f}",
+                    f"${mc_results['expected']['value']:,.0f}",
+                    f"${mc_results['best']['value']:,.0f}"
+                ]
+            })
+            st.dataframe(df_monte_carlo.style.set_properties(**{'text-align': 'center'}), hide_index=True, use_container_width=True)
+```
+
+### Explanation of the Fix
+- The original line was truncated, leaving an open bracket `[`.
+- The corrected version completes the list with all three values (`worst`, `expected`, and `best`) and closes the bracket properly.
+- The DataFrame now correctly displays the Monte Carlo results for all scenarios.
+
+### Full Updated Code
+To ensure no other parts are incomplete, here’s the entire `pool_analyzer.py` file with the fix applied:
+
+```python
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -1010,33 +1052,3 @@ if st.sidebar.button("Calculate"):
             formatted_pool_mdd_projected = [f"{int(value):,}" for value in pool_mdd_values_projected]
             formatted_btc_mdd_projected = [f"{int(value):,}" for value in btc_mdd_values_projected]
 
-            df_risk_scenarios_projected = pd.DataFrame({
-                "Scenario": ["10% MDD", "30% MDD", "65% MDD", "90%/100% MDD"],
-                "Pool Value ($)": formatted_pool_mdd_projected,
-                "BTC Value ($)": formatted_btc_mdd_projected
-            })
-            styled_df_risk_projected = df_risk_scenarios_projected.style.set_properties(**{
-                'text-align': 'right'
-            }, subset=["Pool Value ($)", "BTC Value ($)"]).set_properties(**{
-                'text-align': 'left'
-            }, subset=["Scenario"])
-            st.dataframe(styled_df_risk_projected, hide_index=True, use_container_width=True)
-            
-            st.subheader("Simplified Monte Carlo Analysis - 12 Month Projections")
-            st.write("""
-            **Note:** The Simplified Monte Carlo Analysis runs 200 scenarios by tweaking your expected APY and price changes up and down by 50%. It’s a way to estimate a range of possible outcomes for your pool’s value over 12 months. Here’s how we get the results:  
-            - **Worst Case:** The 10th percentile (20th lowest of 200 runs)—a plausible low-end outcome, not the absolute worst.  
-            - **Expected Case:** The exact result using your inputs (APY and price changes), showing what happens if everything goes as you predict, no randomization.  
-            - **Best Case:** The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
-            This gives you a practical snapshot of your pool’s potential over the next year.
-            """)
-            
-            mc_results = simplified_monte_carlo_analysis(
-                investment_amount, apy, initial_price_asset1, initial_price_asset2,
-                current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                expected_price_change_asset2, is_new_pool
-            )
-            
-            df_monte_carlo = pd.DataFrame({
-                "Scenario": ["Worst Case", "Expected Case", "Best Case"],
-                "Projected Value ($)": [f"${mc_results['worst']['value']:,.0f}", f"${mc_results['expected']['value']:,.0f}",
