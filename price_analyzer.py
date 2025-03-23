@@ -267,9 +267,9 @@ if calculate:
 
         # Hurdle Rate vs. Bitcoin
         hurdle_rate = (risk_free_rate + 6) * 2  # (Risk-Free Rate + 6% inflation) * 2
-        btc_vs_hurdle = btc_growth - hurdle_rate  # Difference between Bitcoin growth and hurdle rate
+        asset_vs_hurdle = growth_rate - hurdle_rate  # Difference between crypto asset growth and hurdle rate
 
-        # Composite Risk Score
+        # Composite Risk Score (needed for Risk-Adjusted Return Score)
         scores = {}
         # Max Drawdown
         if max_drawdown < 30:
@@ -329,6 +329,14 @@ if calculate:
             scores['Market Cap'] = 0
 
         composite_score = sum(scores.values()) / len(scores)
+
+        # Risk-Adjusted Return Score
+        return_to_hurdle_ratio = (growth_rate / hurdle_rate) if hurdle_rate > 0 else 1  # Avoid division by zero
+        return_to_hurdle_ratio = min(return_to_hurdle_ratio, 3)  # Cap the ratio at 3
+        risk_adjusted_score = composite_score * return_to_hurdle_ratio
+        risk_adjusted_score = min(risk_adjusted_score, 100)  # Cap the final score at 100
+
+        # Composite Risk Score Assessment
         if composite_score >= 70:
             bg_class = "risk-green"
             insight = (
@@ -372,7 +380,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Key Metrics (4x2 grid to accommodate the new card)
+        # Key Metrics (4x2 grid with 8 cards)
         st.subheader("Key Metrics")
         col1, col2 = st.columns(2)
         
@@ -404,8 +412,8 @@ if calculate:
             st.markdown(f"""
                 <div class="metric-tile">
                     <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
-                    <div class="metric-value {'green-text' if btc_vs_hurdle < 0 else 'red-text'}">{btc_vs_hurdle:.2f}%</div>
-                    <div class="metric-desc">This is the minimum return your investment needs to achieve to justify its risk compared to holding Bitcoin. It’s calculated as the stablecoin pool risk-free rate plus 6% inflation, doubled. A negative value means Bitcoin’s expected growth ({btc_growth:.2f}%) is below the hurdle rate ({hurdle_rate:.2f}%), making the investment more attractive.</div>
+                    <div class="metric-value {'green-text' if asset_vs_hurdle > 0 else 'red-text'}">{asset_vs_hurdle:.2f}%</div>
+                    <div class="metric-desc">This compares your crypto asset’s projected return to the hurdle rate—the minimum return needed to justify its risk compared to holding Bitcoin. The hurdle rate is the stablecoin pool risk-free rate plus 6% inflation, doubled. A negative value means the asset’s expected growth ({growth_rate:.2f}%) is below the hurdle rate ({hurdle_rate:.2f}%), suggesting it’s better to hold Bitcoin with less risk.</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -431,6 +439,14 @@ if calculate:
                     <div class="metric-title">📉 Sortino Ratio</div>
                     <div class="metric-value {'red-text' if sortino_ratio < 0 else ''}">{sortino_ratio:.2f}</div>
                     <div class="metric-desc">This focuses on the risk of losing money (downside risk). Above 1 means you're getting good returns compared to the chance of losses. Below 0 suggests the risk of losing money might outweigh the gains.</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">🎯 Risk-Adjusted Return Score</div>
+                    <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
+                    <div class="metric-desc">This score combines the Composite Risk Score with the asset’s expected return relative to the hurdle rate (stablecoin pool risk-free rate plus 6% inflation, doubled). A higher score means a better balance of risk and reward. Below 40 indicates a high-risk asset with insufficient returns to justify the risk—a potential gamble.</div>
                 </div>
             """, unsafe_allow_html=True)
 
