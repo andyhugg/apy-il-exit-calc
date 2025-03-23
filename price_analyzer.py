@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS for dark-themed tiles
+# Custom CSS for dark-themed tiles and table
 st.markdown("""
     <style>
     .metric-tile {
@@ -14,7 +14,7 @@ st.markdown("""
         color: white;
         margin-bottom: 10px;
         max-width: 300px;
-        min-height: 150px;
+        min-height: 180px;
     }
     .metric-title {
         font-size: 16px;
@@ -38,6 +38,40 @@ st.markdown("""
     }
     .yellow-text {
         color: #FFD700;
+    }
+    .risk-assessment {
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    .risk-red {
+        background-color: #FF4D4D;
+    }
+    .risk-yellow {
+        background-color: #FFD700;
+    }
+    .risk-green {
+        background-color: #32CD32;
+    }
+    .proj-table th, .proj-table td {
+        padding: 10px;
+        text-align: center;
+        color: white;
+    }
+    .proj-table th {
+        background-color: #1E2A44;
+    }
+    .proj-table tr:nth-child(1) td {
+        background: linear-gradient(to right, #4B5EAA, #1E2A44);
+    }
+    .proj-table tr:nth-child(2) td {
+        background: linear-gradient(to right, #5A6EBB, #2A3555);
+    }
+    .proj-table tr:nth-child(3) td {
+        background: linear-gradient(to right, #697ECC, #364066);
+    }
+    .proj-table tr:nth-child(4) td {
+        background: linear-gradient(to right, #788EDD, #424B77);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -68,21 +102,19 @@ def parse_market_value(value_str):
         return 0.0
 
 asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=1.0, step=0.0001, format="%.4f")
+volatility = st.sidebar.number_input("Asset Volatility % (Annual)", min_value=0.0, max_value=100.0, value=50.0)
+certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=50.0)
+st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
 growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=10.0)
 market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="1000000")
 market_cap = parse_market_value(market_cap_input)
-st.sidebar.write(f"Parsed Market Cap: ${market_cap:,.2f}")
 st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional.")
 fdv_input = st.sidebar.text_input("Fully Diluted Valuation (FDV) ($)", value="2000000")
 fdv = parse_market_value(fdv_input)
-st.sidebar.write(f"Parsed FDV: ${fdv:,.2f}")
 initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=1000.0)
 btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=60000.0)
 btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate % (12 months)", min_value=-100.0, value=15.0)
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=5.0)
-volatility = st.sidebar.number_input("Volatility % (Annual)", min_value=0.0, max_value=100.0, value=50.0)
-certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=50.0)
-st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
 
 calculate = st.sidebar.button("Calculate")
 
@@ -103,8 +135,9 @@ if calculate:
     asset_values = [initial_investment * p / asset_price for p in asset_projections]
     btc_values = [initial_investment * p / btc_price for p in btc_projections]
     
-    # Monte Carlo Simulation with Normal Distribution
+    # Monte Carlo Simulation with capped returns
     n_simulations = 200
+    max_annual_return = growth_rate / 100  # User-specified max return (e.g., 50% = 0.5)
     monthly_volatility = volatility / 100 / np.sqrt(12)  # Annual volatility to monthly
     monthly_expected_return = asset_monthly_rate
     simulations = []
@@ -112,10 +145,17 @@ if calculate:
     all_monthly_returns = []
     
     for _ in range(n_simulations):
-        monthly_returns = np.random.normal(monthly_expected_return, monthly_volatility, months)
+        # Generate annual return between -volatility and +max_annual_return
+        annual_return = np.random.uniform(-volatility/100, max_annual_return)
+        # Distribute the annual return across months with some variation
+        monthly_base_return = (1 + annual_return) ** (1/12) - 1
+        monthly_returns = np.random.normal(monthly_base_return, monthly_volatility/2, months)
         sim_prices = [initial_investment]
         for i in range(months):
             sim_prices.append(sim_prices[-1] * (1 + monthly_returns[i]))
+        # Cap the final value to ensure it doesn't exceed the max return
+        max_allowed_value = initial_investment * (1 + max_annual_return)
+        sim_prices[-1] = min(sim_prices[-1], max_allowed_value)
         simulations.append(sim_prices[-1])
         sim_paths.append(sim_prices)
         all_monthly_returns.extend(monthly_returns)
@@ -229,20 +269,47 @@ if calculate:
     composite_score = sum(scores.values()) / len(scores)
     if composite_score >= 70:
         color_class = "green-text"
-        insight = "Low overall risk: This asset appears to be a relatively safe investment with strong risk-adjusted returns and low dilution risk."
+        bg_class = "risk-green"
+        insight = (
+            "This asset shows a low overall risk profile, making it a relatively safe investment option. "
+            "The projected returns are strong compared to the risk-free rate, with a good balance of reward and risk (Sharpe and Sortino ratios). "
+            "Dilution risk is minimal, meaning future token releases are unlikely to significantly impact the price. "
+            "The market cap growth is plausible, and the CertiK score indicates solid security. "
+            "Consider allocating a portion of your portfolio to this asset, but always monitor market conditions and diversify to manage any unexpected risks."
+        )
     elif composite_score >= 40:
         color_class = "yellow-text"
-        insight = "Moderate overall risk: Consider the specific risks (e.g., drawdown, dilution) before investing. Diversification may help."
+        bg_class = "risk-yellow"
+        insight = (
+            "This asset has a moderate overall risk profile, suggesting a balanced but cautious approach. "
+            f"Key concerns include {'high drawdown risk' if max_drawdown > 50 else 'moderate drawdown risk' if max_drawdown > 30 else ''}"
+            f"{', significant dilution risk' if dilution_ratio > 50 else ', moderate dilution risk' if dilution_ratio > 20 else ''}"
+            f"{', ambitious market cap growth' if mcap_vs_btc > 5 else ''}"
+            f"{', low risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
+            f"{', and a concerning CertiK score' if certik_adjusted < 40 else ''}. "
+            "You might consider a smaller position in this asset while diversifying across other investments to mitigate these risks. "
+            "Keep an eye on token unlock schedules and security updates to reassess your position."
+        )
     else:
         color_class = "red-text"
-        insight = "High overall risk: This asset carries significant risks. Proceed with caution or explore safer alternatives."
+        bg_class = "risk-red"
+        insight = (
+            "This asset carries a high overall risk profile, indicating significant challenges for potential investors. "
+            f"Key issues include {'extreme drawdown risk' if max_drawdown > 50 else 'high drawdown risk' if max_drawdown > 30 else ''}"
+            f"{', high dilution risk from future token releases' if dilution_ratio > 50 else ''}"
+            f"{', unrealistic market cap growth expectations' if mcap_vs_btc > 5 else ''}"
+            f"{', poor risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
+            f"{', and a low CertiK score indicating security concerns' if certik_adjusted < 40 else ''}. "
+            "Proceed with caution—consider waiting for better entry points, improved security scores, or more favorable market conditions. "
+            "Alternatively, explore safer assets with stronger fundamentals to protect your capital."
+        )
 
     # Composite Risk Score
     st.subheader("Composite Risk Assessment")
     st.markdown(f"""
-        <div>
-            <div style="font-size: 20px; font-weight: bold;">Composite Risk Score: <span class="{color_class}">{composite_score:.1f}</span></div>
-            <div style="font-size: 14px; margin-top: 5px;">{insight}</div>
+        <div class="risk-assessment {bg_class}">
+            <div style="font-size: 20px; font-weight: bold; color: white;">Composite Risk Score: <span class="{color_class}">{composite_score:.1f}</span></div>
+            <div style="font-size: 14px; margin-top: 5px; color: white;">{insight}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -255,7 +322,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">💰 Investment Value (1 Year)</div>
                 <div class="metric-value">${asset_values[-1]:,.2f}</div>
-                <div class="metric-desc">Projected value of your ${initial_investment:,.2f} investment after 12 months.</div>
+                <div class="metric-desc">This is how much your ${initial_investment:,.2f} investment could be worth in 12 months, based on the expected growth rate you provided. It shows the potential reward if the asset grows as expected.</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -263,7 +330,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">📉 Max Drawdown</div>
                 <div class="metric-value {'red-text' if max_drawdown > 30 else ''}">{max_drawdown:.2f}%</div>
-                <div class="metric-desc">Maximum peak-to-trough decline in the worst-case scenario over 12 months.</div>
+                <div class="metric-desc">This shows the biggest potential loss you might face in a worst-case scenario over 12 months. A higher percentage means more risk of losing value during a market dip.</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -271,7 +338,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">📊 Sharpe Ratio</div>
                 <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
-                <div class="metric-desc">Risk-adjusted return. >1 indicates good performance relative to risk.</div>
+                <div class="metric-desc">This measures how much extra return you get for the risk you're taking. Above 1 is good—it means you're getting a nice reward for the risk. Below 0 means the risk might not be worth it.</div>
             </div>
         """, unsafe_allow_html=True)
     
@@ -280,7 +347,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">⚖️ Dilution Risk</div>
                 <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
-                <div class="metric-desc">{dilution_text}</div>
+                <div class="metric-desc">This shows how much the token's value might drop if more tokens are released. A higher percentage means more new tokens could flood the market, lowering the price.</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -288,7 +355,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">📈 MCap Growth Plausibility</div>
                 <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
-                <div class="metric-desc">{mcap_text}</div>
+                <div class="metric-desc">This checks if the asset's projected growth is realistic compared to Bitcoin's market size. A high percentage means the asset would need a huge market share, which might be hard to achieve.</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -296,7 +363,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">📉 Sortino Ratio</div>
                 <div class="metric-value {'red-text' if sortino_ratio < 0 else ''}">{sortino_ratio:.2f}</div>
-                <div class="metric-desc">Downside risk-adjusted return. >1 indicates good performance relative to downside risk.</div>
+                <div class="metric-desc">This focuses on the risk of losing money (downside risk). Above 1 means you're getting good returns compared to the chance of losses. Below 0 suggests the risk of losing money might outweigh the gains.</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -304,14 +371,18 @@ if calculate:
     st.subheader("Projected Investment Value Over Time")
     st.markdown("**Note**: The projected value reflects the growth of your initial investment, adjusted for expected price changes.")
     
-    # Table for months 0, 3, 6, 12
+    # Table for months 0, 3, 6, 12 with styled gradient
     proj_data = {
         "Time Period (Months)": [0, 3, 6, 12],
         "Projected Value ($)": [asset_values[i] for i in [0, 3, 6, 12]],
         "ROI (%)": [((asset_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]]
     }
     proj_df = pd.DataFrame(proj_data)
-    st.table(proj_df)
+    styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
+        "Projected Value ($)": "${:,.2f}",
+        "ROI (%)": "{:.2f}%"
+    })
+    st.table(styled_proj_df)
 
     # Line Plot
     df_proj = pd.DataFrame({
