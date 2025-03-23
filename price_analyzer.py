@@ -73,118 +73,133 @@ st.title("Crypto Price and Risk Calculator")
 # Sidebar inputs with tooltips
 st.sidebar.header("Input Parameters")
 
-# Default values
-default_values = {
-    "asset_price": 0.02,
-    "growth_rate": 50.0,
-    "initial_investment": 1000.0,
-    "btc_price": 84000.0,
-    "btc_growth": 15.0,
-    "risk_free_rate": 10.0,
-    "volatility": 25.0,
-    "time_horizon": 12,
-    "market_cap_input": "0.05B",
-    "fdv_input": "0.1B",
-    "investor_profile": "Bitcoin Strategy"
-}
-
-# Initialize session state for inputs
-if "inputs" not in st.session_state:
-    st.session_state.inputs = default_values.copy()
+# Initialize session state for each input with default values
+if "asset_price" not in st.session_state:
+    st.session_state.asset_price = 0.02
+if "growth_rate" not in st.session_state:
+    st.session_state.growth_rate = 50.0
+if "initial_investment" not in st.session_state:
+    st.session_state.initial_investment = 1000.0
+if "btc_price" not in st.session_state:
+    st.session_state.btc_price = 84000.0
+if "btc_growth" not in st.session_state:
+    st.session_state.btc_growth = 15.0
+if "risk_free_rate" not in st.session_state:
+    st.session_state.risk_free_rate = 10.0
+if "volatility" not in st.session_state:
+    st.session_state.volatility = 25.0
+if "time_horizon" not in st.session_state:
+    st.session_state.time_horizon = 12
+if "market_cap_input" not in st.session_state:
+    st.session_state.market_cap_input = "0.05B"
+if "fdv_input" not in st.session_state:
+    st.session_state.fdv_input = "0.1B"
+if "investor_profile" not in st.session_state:
+    st.session_state.investor_profile = "Bitcoin Strategy"
 
 # Reset button
 if st.sidebar.button("Reset Inputs"):
-    st.session_state.inputs = default_values.copy()
+    st.session_state.asset_price = 0.02
+    st.session_state.growth_rate = 50.0
+    st.session_state.initial_investment = 1000.0
+    st.session_state.btc_price = 84000.0
+    st.session_state.btc_growth = 15.0
+    st.session_state.risk_free_rate = 10.0
+    st.session_state.volatility = 25.0
+    st.session_state.time_horizon = 12
+    st.session_state.market_cap_input = "0.05B"
+    st.session_state.fdv_input = "0.1B"
+    st.session_state.investor_profile = "Bitcoin Strategy"
     st.rerun()
 
 # Inputs with tooltips
 asset_price = st.sidebar.number_input(
     "Current Asset Price ($)",
     min_value=0.0,
-    value=st.session_state.inputs["asset_price"],
+    value=st.session_state.asset_price,
     help="The current price of the asset you’re analyzing."
 )
-st.session_state.inputs["asset_price"] = asset_price
+st.session_state.asset_price = asset_price
 
 growth_rate = st.sidebar.number_input(
     "Expected Growth Rate % (Annual)",
     min_value=-100.0,
-    value=st.session_state.inputs["growth_rate"],
+    value=st.session_state.growth_rate,
     help="The annual growth rate you expect for the asset. Higher values increase projected returns but may be less realistic."
 )
-st.session_state.inputs["growth_rate"] = growth_rate
+st.session_state.growth_rate = growth_rate
 
 initial_investment = st.sidebar.number_input(
     "Initial Investment Amount ($)",
     min_value=0.0,
-    value=st.session_state.inputs["initial_investment"],
+    value=st.session_state.initial_investment,
     help="The amount you plan to invest in the asset."
 )
-st.session_state.inputs["initial_investment"] = initial_investment
+st.session_state.initial_investment = initial_investment
 
 btc_price = st.sidebar.number_input(
     "Current Bitcoin Price ($)",
     min_value=0.0,
-    value=st.session_state.inputs["btc_price"],
+    value=st.session_state.btc_price,
     help="The current price of Bitcoin for comparison."
 )
-st.session_state.inputs["btc_price"] = btc_price
+st.session_state.btc_price = btc_price
 
 btc_growth = st.sidebar.number_input(
     "Bitcoin Expected Growth Rate %",
     min_value=-100.0,
-    value=st.session_state.inputs["btc_growth"],
+    value=st.session_state.btc_growth,
     help="The annual growth rate you expect for Bitcoin."
 )
-st.session_state.inputs["btc_growth"] = btc_growth
+st.session_state.btc_growth = btc_growth
 
 risk_free_rate = st.sidebar.number_input(
     "Risk-Free Rate % (Stablecoin Pool)",
     min_value=0.0,
-    value=st.session_state.inputs["risk_free_rate"],
+    value=st.session_state.risk_free_rate,
     help="The expected return from a stablecoin pool, representing a risk-free rate."
 )
-st.session_state.inputs["risk_free_rate"] = risk_free_rate
+st.session_state.risk_free_rate = risk_free_rate
 
 volatility = st.sidebar.number_input(
     "Expected Monthly Volatility %",
     min_value=0.0,
-    value=st.session_state.inputs["volatility"],
+    value=st.session_state.volatility,
     help="The expected monthly volatility of the asset’s price, as a percentage."
 ) / 100  # Convert to decimal
-st.session_state.inputs["volatility"] = volatility * 100
+st.session_state.volatility = volatility * 100
 
 time_horizon = st.sidebar.number_input(
     "Time Horizon (Months)",
     min_value=1,
-    value=int(st.session_state.inputs["time_horizon"]),
+    value=int(st.session_state.time_horizon),
     help="The number of months over which to project the asset’s performance."
 )
-st.session_state.inputs["time_horizon"] = time_horizon
+st.session_state.time_horizon = time_horizon
 
 # Market Cap and FDV Inputs
 market_cap_input = st.sidebar.text_input(
     "Market Cap (e.g., 138.17B, 1.66T, 1.5M)",
-    value=st.session_state.inputs["market_cap_input"],
+    value=st.session_state.market_cap_input,
     help="Enter the market cap of the asset (e.g., 138.17B for 138.17 billion, 1.66T for 1.66 trillion, 1.5M for 1.5 million)."
 )
-st.session_state.inputs["market_cap_input"] = market_cap_input
+st.session_state.market_cap_input = market_cap_input
 
 fdv_input = st.sidebar.text_input(
     "Fully Diluted Value (e.g., 138.17B, 1.66T, 1.5M)",
-    value=st.session_state.inputs["fdv_input"],
+    value=st.session_state.fdv_input,
     help="Enter the fully diluted value of the asset (e.g., 138.17B for 138.17 billion, 1.66T for 1.66 trillion, 1.5M for 1.5 million)."
 )
-st.session_state.inputs["fdv_input"] = fdv_input
+st.session_state.fdv_input = fdv_input
 
 # Investor Profile Selector
 investor_profile = st.sidebar.selectbox(
     "Investor Profile",
     ["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"],
-    index=["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"].index(st.session_state.inputs["investor_profile"]),
+    index=["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"].index(st.session_state.investor_profile),
     help="Your investor profile, which determines the suggested portfolio allocation."
 )
-st.session_state.inputs["investor_profile"] = investor_profile
+st.session_state.investor_profile = investor_profile
 
 calculate = st.sidebar.button("Calculate")
 
@@ -225,8 +240,8 @@ def parse_market_value(value_str, default_value):
     return value_in_billions
 
 # Parse MCAP and FDV
-mcap = parse_market_value(market_cap_input, default_value=0.05)  # Default to 0.05B
-fdv = parse_market_value(fdv_input, default_value=0.1)  # Default to 0.1B
+mcap = parse_market_value(st.session_state.market_cap_input, default_value=0.05)  # Default to 0.05B
+fdv = parse_market_value(st.session_state.fdv_input, default_value=0.1)  # Default to 0.1B
 
 # Main content
 if calculate:
