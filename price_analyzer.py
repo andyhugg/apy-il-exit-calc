@@ -15,6 +15,11 @@ st.markdown("""
         margin-bottom: 10px;
         max-width: 300px;
         min-height: 200px;
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: scale(0.95); }
+        100% { opacity: 1; transform: scale(1); }
     }
     .metric-title {
         font-size: 18px;
@@ -39,6 +44,9 @@ st.markdown("""
     .yellow-text {
         color: #FFD700;
     }
+    .neutral-text {
+        color: #A9A9A9;
+    }
     .risk-assessment {
         padding: 15px;
         border-radius: 10px;
@@ -60,8 +68,8 @@ st.markdown("""
         max-width: 620px;
         margin: 0 auto;
         border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        background: linear-gradient(to bottom, #1E2A44, #4B5EAA);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(to bottom, #1E2A44, #6A82FB);
     }
     .proj-table th, .proj-table td {
         padding: 12px;
@@ -73,8 +81,15 @@ st.markdown("""
         background-color: #1E2A44;
         font-weight: bold;
     }
-    .proj-table td {
+    .proj-table tr:nth-child(even) td {
         background: rgba(255, 255, 255, 0.05);
+    }
+    .proj-table tr:nth-child(odd) td {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    .proj-table tr:hover td {
+        background: rgba(255, 255, 255, 0.2);
+        transition: background 0.3s ease;
     }
     .disclaimer {
         border: 2px solid #FF4D4D;
@@ -173,30 +188,32 @@ if calculate:
         asset_values = [initial_investment * p / asset_price for p in asset_projections]
         btc_values = [initial_investment * p / btc_price for p in btc_projections]
         
-        # Monte Carlo Simulation with capped returns
-        n_simulations = 200
-        max_annual_return = growth_rate / 100  # User-specified max return (e.g., 50% = 0.5)
-        monthly_volatility = volatility / 100 / np.sqrt(12) if volatility > 0 else 0.1  # Default to 10% if volatility is 0
-        monthly_expected_return = asset_monthly_rate
-        simulations = []
-        sim_paths = []
-        all_monthly_returns = []
-        
-        for _ in range(n_simulations):
-            # Generate annual return between -volatility and +max_annual_return
-            annual_return = np.random.uniform(-volatility/100, max_annual_return)
-            # Distribute the annual return across months with some variation
-            monthly_base_return = (1 + annual_return) ** (1/12) - 1
-            monthly_returns = np.random.normal(monthly_base_return, monthly_volatility/2, months)
-            sim_prices = [initial_investment]
-            for i in range(months):
-                sim_prices.append(sim_prices[-1] * (1 + monthly_returns[i]))
-            # Cap the final value to ensure it doesn't exceed the max return
-            max_allowed_value = initial_investment * (1 + max_annual_return)
-            sim_prices[-1] = min(sim_prices[-1], max_allowed_value)
-            simulations.append(sim_prices[-1])
-            sim_paths.append(sim_prices)
-            all_monthly_returns.extend(monthly_returns)
+        # Monte Carlo Simulation with caching
+        @st.cache_data
+        def run_monte_carlo(initial_investment, growth_rate, volatility, months, n_simulations=200):
+            max_annual_return = growth_rate / 100
+            monthly_volatility = volatility / 100 / np.sqrt(12) if volatility > 0 else 0.1
+            monthly_expected_return = (1 + growth_rate/100) ** (1/12) - 1
+            simulations = []
+            sim_paths = []
+            all_monthly_returns = []
+            
+            for _ in range(n_simulations):
+                annual_return = np.random.uniform(-volatility/100, max_annual_return)
+                monthly_base_return = (1 + annual_return) ** (1/12) - 1
+                monthly_returns = np.random.normal(monthly_base_return, monthly_volatility/2, months)
+                sim_prices = [initial_investment]
+                for i in range(months):
+                    sim_prices.append(sim_prices[-1] * (1 + monthly_returns[i]))
+                max_allowed_value = initial_investment * (1 + max_annual_return)
+                sim_prices[-1] = min(sim_prices[-1], max_allowed_value)
+                simulations.append(sim_prices[-1])
+                sim_paths.append(sim_prices)
+                all_monthly_returns.extend(monthly_returns)
+            
+            return simulations, sim_paths, all_monthly_returns
+
+        simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, volatility, months)
         
         # Use percentiles for worst, expected, and best cases
         worst_case = np.percentile(simulations, 10)  # 10th percentile
@@ -406,40 +423,51 @@ if calculate:
         st.subheader("Projected Investment Value Over Time")
         st.markdown("**Note**: The projected value reflects the growth of your initial investment, adjusted for expected price changes.")
         
-        # Table for months 0, 3, 6, 12 with styled gradient
+        # Table for months 0, 3, 6, 12 with enhanced styling
         proj_data = {
             "Time Period (Months)": [0, 3, 6, 12],
             "Projected Value ($)": [asset_values[i] for i in [0, 3, 6, 12]],
             "ROI (%)": [((asset_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]]
         }
         proj_df = pd.DataFrame(proj_data)
+
+        # Apply conditional formatting to ROI column
+        def color_roi(val):
+            if val > 0:
+                return 'color: #32CD32'
+            elif val < 0:
+                return 'color: #FF4D4D'
+            else:
+                return 'color: #A9A9A9'
+
         styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
             "Projected Value ($)": "${:,.2f}",
             "ROI (%)": "{:.2f}%"
-        })
+        }).applymap(color_roi, subset=["ROI (%)"])
         st.table(styled_proj_df)
 
         # Line Plot
-        df_proj = pd.DataFrame({
-            'Month': range(months + 1),
-            'Asset Value': asset_values,
-            'Bitcoin Value': btc_values,
-            'Stablecoin Value': rf_projections
-        })
-        
-        plt.figure(figsize=(10, 6))
-        sns.set_style("whitegrid")
-        sns.lineplot(data=df_proj, x='Month', y='Asset Value', label='Asset', color='teal', linewidth=2.5, marker='o')
-        sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='gold', linewidth=2.5, marker='o')
-        sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin', color='gray', linewidth=2.5, marker='o')
-        plt.axhline(y=initial_investment, color='red', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
-        plt.fill_between(df_proj['Month'], initial_investment, df_proj['Asset Value'], where=(df_proj['Asset Value'] < initial_investment), color='red', alpha=0.1, label='Loss Zone')
-        plt.title('Projected Investment Value Over 12 Months')
-        plt.xlabel('Months')
-        plt.ylabel('Value ($)')
-        plt.legend()
-        st.pyplot(plt)
-        plt.clf()
+        with st.spinner("Generating chart..."):
+            df_proj = pd.DataFrame({
+                'Month': range(months + 1),
+                'Asset Value': asset_values,
+                'Bitcoin Value': btc_values,
+                'Stablecoin Value': rf_projections
+            })
+            
+            plt.figure(figsize=(10, 6))
+            sns.set_style("whitegrid")
+            sns.lineplot(data=df_proj, x='Month', y='Asset Value', label='Asset', color='#4B5EAA', linewidth=2.5, marker='o')
+            sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFD700', linewidth=2.5, marker='o')
+            sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin', color='#A9A9A9', linewidth=2.5, marker='o')
+            plt.axhline(y=initial_investment, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
+            plt.fill_between(df_proj['Month'], initial_investment, df_proj['Asset Value'], where=(df_proj['Asset Value'] < initial_investment), color='#FF4D4D', alpha=0.1, label='Loss Zone')
+            plt.title('Projected Investment Value Over 12 Months')
+            plt.xlabel('Months')
+            plt.ylabel('Value ($)')
+            plt.legend()
+            st.pyplot(plt)
+            plt.clf()
 
         # Monte Carlo Results
         st.subheader("Monte Carlo Scenarios - 12 Month Investment Value")
@@ -469,18 +497,19 @@ if calculate:
         st.table(styled_mc_df)
 
         # Histogram
-        plt.figure(figsize=(10, 6))
-        sns.histplot(simulations, bins=50, color='gray')
-        plt.axvline(worst_case, color='red', label='Worst Case', linewidth=2)
-        plt.axvline(expected_case, color='yellow', label='Expected Case', linewidth=2)
-        plt.axvline(best_case, color='green', label='Best Case', linewidth=2)
-        plt.axvline(initial_investment, color='black', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
-        plt.title("Monte Carlo Scenarios - 12 Month Investment Value")
-        plt.xlabel("Value ($)")
-        plt.ylabel("Frequency")
-        plt.legend()
-        st.pyplot(plt)
-        plt.clf()
+        with st.spinner("Generating chart..."):
+            plt.figure(figsize=(10, 6))
+            sns.histplot(simulations, bins=50, color='#A9A9A9')
+            plt.axvline(worst_case, color='#FF4D4D', label='Worst Case', linewidth=2)
+            plt.axvline(expected_case, color='#FFD700', label='Expected Case', linewidth=2)
+            plt.axvline(best_case, color='#32CD32', label='Best Case', linewidth=2)
+            plt.axvline(initial_investment, color='#1E2A44', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
+            plt.title("Monte Carlo Scenarios - 12 Month Investment Value")
+            plt.xlabel("Value ($)")
+            plt.ylabel("Frequency")
+            plt.legend()
+            st.pyplot(plt)
+            plt.clf()
 
         # Suggested Portfolio Structure
         st.subheader("Suggested Portfolio Structure")
