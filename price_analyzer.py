@@ -25,6 +25,14 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 10px;
     }
+    .alert-box {
+        border: 2px solid;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        font-size: 18px;
+        font-weight: bold;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -42,11 +50,32 @@ btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate %", min_value
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=10.0)
 volatility = st.sidebar.number_input("Expected Monthly Volatility %", min_value=0.0, value=3.0) / 100  # Convert to decimal
 time_horizon = st.sidebar.number_input("Time Horizon (Months)", min_value=1, value=12)
+market_cap = st.sidebar.number_input("Market Cap ($B)", min_value=0.0, value=1.0, help="Enter the market cap in billions (e.g., $1B = 1.0)")
+
+# Investor Profile Selector
+investor_profile = st.sidebar.selectbox("Investor Profile", ["Growth Investor", "Conservative Investor", "Aggressive Investor"])
 
 calculate = st.sidebar.button("Calculate")
 
 # Main content
 if calculate:
+    # Market Cap Risk Score
+    def calculate_market_cap_risk_score(mcap):
+        if mcap < 0.1:
+            return 10  # Ultra High Risk
+        elif mcap < 0.5:
+            return 8   # Very High Risk
+        elif mcap < 1.0:
+            return 6   # High Risk
+        elif mcap < 5.0:
+            return 4   # Moderate Risk
+        elif mcap < 10.0:
+            return 2   # Low Risk
+        else:
+            return 1   # Very Low Risk
+
+    market_cap_risk_score = calculate_market_cap_risk_score(market_cap)
+
     # Calculations
     months = time_horizon
     asset_monthly_rate = (1 + growth_rate/100) ** (1/months) - 1
@@ -77,7 +106,6 @@ if calculate:
     expected_case = np.mean(simulations)
     
     # Calculate additional metrics
-    # Volatility (annualized)
     monthly_returns = [(simulations[i] / initial_investment) ** (1/months) - 1 for i in range(len(simulations))]
     annualized_volatility = np.std(monthly_returns) * np.sqrt(12) * 100  # Annualized volatility in %
 
@@ -97,6 +125,33 @@ if calculate:
     inflation_rate = 6.0  # Global average inflation rate
     hurdle_rate_rf = risk_free_rate  # Risk-free rate as hurdle rate
 
+    # Composite Risk Score
+    # Normalize each component to 0-10 scale
+    mcap_risk = market_cap_risk_score  # Already on 1-10 scale
+    vol_risk = min(annualized_volatility / 50 * 10, 10)  # Scale 0-50% to 0-10
+    loss_risk = prob_loss / 10  # Scale 0-100% to 0-10
+
+    # Weighted average (equal weights)
+    composite_risk_score = (mcap_risk + vol_risk + loss_risk) / 3
+
+    # Classify risk level
+    if composite_risk_score > 6:
+        risk_level = "High Risk"
+        risk_color = "red-background"
+        risk_insight = "Consider diversifying your portfolio or reducing exposure to this asset to manage risk."
+    elif composite_risk_score > 3:
+        risk_level = "Medium Risk"
+        risk_color = "yellow-background"
+        risk_insight = "Monitor this asset closely and consider balancing with safer investments like stablecoins."
+    else:
+        risk_level = "Low Risk"
+        risk_color = "green-background"
+        risk_insight = "This asset appears to have manageable risk; you may consider increasing exposure if aligned with your goals."
+
+    # Composite Risk Score Alert (Prominent at the Top)
+    st.markdown(f'<div class="alert-box {risk_color}">⚠ <b>Composite Risk Score: {composite_risk_score:.1f} ({risk_level})</b><br>{risk_insight}</div>', unsafe_allow_html=True)
+    st.markdown("This alert combines market cap risk, volatility, and probability of loss to assess the overall risk of investing in this asset.")
+
     # Investment Value After Price Drops
     price_after_20 = asset_price * (1 - 0.2)
     price_after_50 = asset_price * (1 - 0.5)
@@ -115,6 +170,8 @@ if calculate:
     breakeven_20 = breakeven_requirement(20)
     breakeven_50 = breakeven_requirement(50)
     breakeven_90 = breakeven_requirement(90)
+
+    st.divider()
 
     # Display results in tiles
     st.subheader("Key Metrics")
@@ -214,6 +271,40 @@ if calculate:
 
     st.divider()
 
+    # Suggested Portfolio Allocation
+    st.subheader("Suggested Portfolio Allocation")
+    st.markdown("This section provides a suggested portfolio allocation based on your investor profile, helping you balance risk and return.")
+    
+    portfolio_data = {
+        "Growth Investor": {
+            "Liquidity Pools": 30.00,
+            "BTC": 30.00,
+            "Blue Chips": 30.00,
+            "High Risk": 10.00
+        },
+        "Conservative Investor": {
+            "Liquidity Pools": 50.00,
+            "BTC": 40.00,
+            "Blue Chips": 10.00,
+            "High Risk": 0.00
+        },
+        "Aggressive Investor": {
+            "Liquidity Pools": 20.00,
+            "BTC": 30.00,
+            "Blue Chips": 30.00,
+            "High Risk": 20.00
+        }
+    }
+    
+    selected_portfolio = portfolio_data[investor_profile]
+    portfolio_df = pd.DataFrame({
+        "Asset Class": list(selected_portfolio.keys()),
+        "Allocation (%)": list(selected_portfolio.values())
+    })
+    st.table(portfolio_df)
+
+    st.divider()
+
     # Monte Carlo Results
     st.subheader("Monte Carlo Analysis (200 Scenarios)")
     st.markdown("This section shows the best, worst, and expected outcomes for your investment based on 200 simulations, giving you a range of possibilities.")
@@ -272,7 +363,7 @@ if calculate:
     else:
         st.markdown('<div class="red-background">⚠ <b>Poor Risk-Adjusted Return</b>: Sharpe Ratio < 0. The asset\'s return does not justify its risk.</div>', unsafe_allow_html=True)
 
-    # Insight 2: Portfolio Allocation Suggestion
+    # Insight 2: Portfolio Allocation Suggestion (based on calculated ROIs)
     total_roi = asset_roi + btc_roi + rf_roi
     if total_roi != 0:
         asset_weight = (asset_roi / total_roi) * 100
