@@ -104,7 +104,7 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
         max-width: 90%;
-        padding-top: 20px; /* Reduced from 50px to 20px to reduce white space above */
+        padding-top: 20px;
         padding-bottom: 30px;
     }
     </style>
@@ -135,7 +135,7 @@ st.markdown("""
 
 # Sidebar
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coingecko.com" target="_blank">coingecko.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Input Parameters")
@@ -161,6 +161,8 @@ asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, 
 volatility = st.sidebar.number_input("Asset Volatility % (Annual)", min_value=0.0, max_value=100.0, value=0.0)
 certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=0.0)
 st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
+fear_and_greed = st.sidebar.number_input("Fear and Greed Index (0–100)", min_value=0.0, max_value=100.0, value=50.0)
+st.sidebar.markdown("**Note**: Find the current Fear and Greed Index on <a href='https://coinmarketcap.com' target='_blank'>coinmarketcap.com</a>. Enter 50 if unavailable (neutral sentiment).")
 growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=0.0)
 market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="")
 market_cap = parse_market_value(market_cap_input)
@@ -294,7 +296,7 @@ if calculate:
             hurdle_label = "Below Hurdle"
             hurdle_color = "red-text"
 
-        # Composite Risk Score (needed for Risk-Adjusted Return Score)
+        # Composite Risk Score (including Fear and Greed Index)
         scores = {}
         # Max Drawdown
         if max_drawdown < 30:
@@ -353,6 +355,18 @@ if calculate:
         else:
             scores['Market Cap'] = 0
 
+        # Fear and Greed Index
+        if fear_and_greed <= 24:
+            scores['Fear and Greed'] = 100  # Extreme Fear: potential buying opportunity
+        elif fear_and_greed <= 49:
+            scores['Fear and Greed'] = 75   # Fear
+        elif fear_and_greed == 50:
+            scores['Fear and Greed'] = 50   # Neutral
+        elif fear_and_greed <= 74:
+            scores['Fear and Greed'] = 25   # Greed
+        else:
+            scores['Fear and Greed'] = 0    # Extreme Greed: potential correction
+
         composite_score = sum(scores.values()) / len(scores)
 
         # Risk-Adjusted Return Score
@@ -361,7 +375,17 @@ if calculate:
         risk_adjusted_score = composite_score * return_to_hurdle_ratio
         risk_adjusted_score = min(risk_adjusted_score, 100)  # Cap the final score at 100
 
-        # Composite Risk Score Assessment
+        # Composite Risk Score Assessment with Fear and Greed Insight
+        fear_greed_classification = "Neutral"
+        if fear_and_greed <= 24:
+            fear_greed_classification = "Extreme Fear"
+        elif fear_and_greed <= 49:
+            fear_greed_classification = "Fear"
+        elif fear_and_greed <= 74:
+            fear_greed_classification = "Greed"
+        else:
+            fear_greed_classification = "Extreme Greed"
+
         if composite_score >= 70:
             bg_class = "risk-green"
             insight = (
@@ -369,6 +393,8 @@ if calculate:
                 "The projected returns are strong compared to the risk-free rate, with a good balance of reward and risk (Sharpe and Sortino ratios). "
                 "Dilution risk is minimal, meaning future token releases are unlikely to significantly impact the price. "
                 "The market cap growth is plausible, and the CertiK score indicates solid security. "
+                f"The Fear and Greed Index is currently at {fear_and_greed} ({fear_greed_classification}), "
+                f"which {'suggests a potential buying opportunity due to market overselling' if fear_and_greed <= 49 else 'indicates a neutral market sentiment' if fear_and_greed == 50 else 'warns of a potentially overheated market due for a correction'}. "
                 "Consider allocating a portion of your portfolio to this asset, but always monitor market conditions and diversify to manage any unexpected risks."
             )
         elif composite_score >= 40:
@@ -380,6 +406,8 @@ if calculate:
                 f"{', ambitious market cap growth' if mcap_vs_btc > 5 else ''}"
                 f"{', low risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
                 f"{', and a concerning CertiK score' if certik_adjusted < 40 else ''}. "
+                f"The Fear and Greed Index is currently at {fear_and_greed} ({fear_greed_classification}), "
+                f"which {'suggests a potential buying opportunity due to market overselling' if fear_and_greed <= 49 else 'indicates a neutral market sentiment' if fear_and_greed == 50 else 'warns of a potentially overheated market due for a correction'}. "
                 "You might consider a smaller position in this asset while diversifying across other investments to mitigate these risks. "
                 "Keep an eye on token unlock schedules and security updates to reassess your position."
             )
@@ -392,6 +420,8 @@ if calculate:
                 f"{', unrealistic market cap growth expectations' if mcap_vs_btc > 5 else ''}"
                 f"{', poor risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
                 f"{', and a low CertiK score indicating security concerns' if certik_adjusted < 40 else ''}. "
+                f"The Fear and Greed Index is currently at {fear_and_greed} ({fear_greed_classification}), "
+                f"which {'suggests a potential buying opportunity despite the high risk due to market overselling' if fear_and_greed <= 49 else 'indicates a neutral market sentiment' if fear_and_greed == 50 else 'warns of a potentially overheated market due for a correction, adding to the risk'}. "
                 "Proceed with caution—consider waiting for better entry points, improved security scores, or more favorable market conditions. "
                 "Alternatively, explore safer assets with stronger fundamentals to protect your capital."
             )
@@ -405,7 +435,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Key Metrics (4x2 grid with 8 cards)
+        # Key Metrics (4x2 grid with 8 cards, now 5x2 with Fear and Greed)
         st.subheader("Key Metrics")
         col1, col2 = st.columns(2)
         
@@ -439,6 +469,14 @@ if calculate:
                     <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
                     <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}% ({hurdle_label})</div>
                     <div class="metric-desc">This shows how much your asset’s expected growth ({growth_rate:.2f}%) beats—or falls short of—the minimum return needed to justify its risk compared to holding Bitcoin (hurdle rate: {hurdle_rate:.2f}%). Your asset {'exceeds' if asset_vs_hurdle >= 0 else 'falls short of'} the hurdle by {abs(asset_vs_hurdle):.2f}% ({hurdle_label}), making it a {'potentially better choice than Bitcoin' if asset_vs_hurdle >= 0 else 'less attractive option compared to Bitcoin'}. Bitcoin has an expected growth of {btc_growth:.2f}%. A value above 20% indicates a strong case for choosing this asset over Bitcoin, while 0–20% suggests a moderate case. Below 0% means Bitcoin is likely the safer choice with less risk.</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">😨 Fear and Greed Index</div>
+                    <div class="metric-value {'red-text' if fear_and_greed >= 75 else 'yellow-text' if fear_and_greed >= 51 else 'green-text' if fear_and_greed <= 24 else 'neutral-text'}">{fear_and_greed:.1f} ({fear_greed_classification})</div>
+                    <div class="metric-desc">This measures market sentiment on a scale from 0 (Extreme Fear) to 100 (Extreme Greed). Extreme Fear may indicate a buying opportunity due to overselling, while Extreme Greed may signal an overheated market due for a correction.</div>
                 </div>
             """, unsafe_allow_html=True)
         
