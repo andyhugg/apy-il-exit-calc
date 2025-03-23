@@ -219,14 +219,25 @@ if calculate:
     This gives you a practical snapshot of your investment’s potential over the next year.
     """)
     
-    # Table
+    # Table with corrected styling
     mc_data = {
         "Scenario": ["Worst Case", "Expected Case", "Best Case"],
         "Projected Value ($)": [worst_case, expected_case, best_case],
         "ROI (%)": [((worst_case / initial_investment) - 1) * 100, ((expected_case / initial_investment) - 1) * 100, ((best_case / initial_investment) - 1) * 100]
     }
     mc_df = pd.DataFrame(mc_data)
-    st.table(mc_df.style.apply(lambda x: ['background: #FF4D4D' if x['Scenario'] == 'Worst Case' else 'background: #FFD700' if x['Scenario'] == 'Expected Case' else 'background: #32CD32' for i in range(len(x))], axis=0))
+    
+    # Define a function to apply row-wise styling
+    def highlight_rows(row):
+        if row['Scenario'] == 'Worst Case':
+            return ['background: #FF4D4D'] * len(row)
+        elif row['Scenario'] == 'Expected Case':
+            return ['background: #FFD700'] * len(row)
+        else:
+            return ['background: #32CD32'] * len(row)
+
+    styled_mc_df = mc_df.style.apply(highlight_rows, axis=1)
+    st.table(styled_mc_df)
 
     # Histogram
     plt.figure(figsize=(10, 6))
