@@ -269,6 +269,17 @@ if calculate:
         hurdle_rate = (risk_free_rate + 6) * 2  # (Risk-Free Rate + 6% inflation) * 2
         asset_vs_hurdle = growth_rate - hurdle_rate  # Difference between crypto asset growth and hurdle rate
 
+        # Determine label and color for Hurdle Rate vs. Bitcoin
+        if asset_vs_hurdle >= 20:
+            hurdle_label = "Strong Outperformance"
+            hurdle_color = "green-text"
+        elif asset_vs_hurdle >= 0:
+            hurdle_label = "Moderate Outperformance"
+            hurdle_color = "yellow-text"
+        else:
+            hurdle_label = "Below Hurdle"
+            hurdle_color = "red-text"
+
         # Composite Risk Score (needed for Risk-Adjusted Return Score)
         scores = {}
         # Max Drawdown
@@ -412,8 +423,8 @@ if calculate:
             st.markdown(f"""
                 <div class="metric-tile">
                     <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
-                    <div class="metric-value {'green-text' if asset_vs_hurdle > 0 else 'red-text'}">{asset_vs_hurdle:.2f}%</div>
-                    <div class="metric-desc">This compares your crypto asset’s projected return to the hurdle rate—the minimum return needed to justify its risk compared to holding Bitcoin. The hurdle rate is the stablecoin pool risk-free rate plus 6% inflation, doubled. A negative value means the asset’s expected growth ({growth_rate:.2f}%) is below the hurdle rate ({hurdle_rate:.2f}%), suggesting it’s better to hold Bitcoin with less risk.</div>
+                    <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}% ({hurdle_label})</div>
+                    <div class="metric-desc">This shows how much your asset’s expected growth ({growth_rate:.2f}%) beats—or falls short of—the minimum return needed to justify its risk compared to holding Bitcoin (hurdle rate: {hurdle_rate:.2f}%). Your asset {'exceeds' if asset_vs_hurdle >= 0 else 'falls short of'} the hurdle by {abs(asset_vs_hurdle):.2f}% ({hurdle_label}), making it a {'potentially better choice than Bitcoin' if asset_vs_hurdle >= 0 else 'less attractive option compared to Bitcoin'}. Bitcoin has an expected growth of {btc_growth:.2f}%. A value above 20% indicates a strong case for choosing this asset over Bitcoin, while 0–20% suggests a moderate case. Below 0% means Bitcoin is likely the safer choice with less risk.</div>
                 </div>
             """, unsafe_allow_html=True)
         
