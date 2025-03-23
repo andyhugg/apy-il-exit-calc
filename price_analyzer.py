@@ -135,7 +135,7 @@ st.markdown("""
 
 # Sidebar
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, circulating supply, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Input Parameters")
@@ -169,9 +169,13 @@ st.sidebar.markdown(
 growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=0.0)
 market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="")
 market_cap = parse_market_value(market_cap_input)
-st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional.")
+st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional. Leave blank if providing Circulating Supply.")
 fdv_input = st.sidebar.text_input("Fully Diluted Valuation (FDV) ($)", value="")
 fdv = parse_market_value(fdv_input)
+circulating_supply = st.sidebar.number_input("Circulating Supply (Tokens)", min_value=0.0, value=0.0, step=1.0, format="%.0f")
+st.sidebar.markdown("**Note**: Find the Circulating Supply on CoinMarketCap under the asset’s details. Used to calculate Market Cap if not provided.")
+vol_mkt_cap = st.sidebar.number_input("Vol/Mkt Cap (24h) %", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+st.sidebar.markdown("**Note**: Find the Vol/Mkt Cap (24h) % directly on CoinMarketCap under the asset’s details (e.g., 1.94% for AVAX). This measures the 24h trading volume as a percentage of the market cap.")
 initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=0.0)
 btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=0.0)
 btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate % (12 months)", min_value=-100.0, value=0.0)
@@ -191,7 +195,16 @@ if calculate:
     # Validation check for critical inputs
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
+    elif market_cap == 0 and (circulating_supply == 0 or asset_price == 0):
+        st.error("Please provide either Market Cap or both Circulating Supply and Asset Price to calculate Market Cap.")
     else:
+        # Calculate Market Cap if not provided
+        if market_cap == 0 and circulating_supply > 0 and asset_price > 0:
+            market_cap = circulating_supply * asset_price
+
+        # Calculate the implied 24h trading volume for the Liquidity metric card
+        trading_volume = (vol_mkt_cap / 100) * market_cap if market_cap > 0 else 0
+
         # Calculations
         months = 12
         asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1
@@ -248,9 +261,13 @@ if calculate:
         # Calculate break-even percentage for Max Drawdown
         break_even_percentage = (max_drawdown / (100 - max_drawdown)) * 100
 
-        # Dilution Risk (remaining dilution percentage)
-        if fdv > 0:
-            dilution_ratio = 100 - (market_cap / fdv) * 100
+        # Dilution Risk (using Circulating Supply and Total Supply)
+        if fdv > 0 and asset_price > 0:
+            total_supply = fdv / asset_price
+            if total_supply > 0 and circulating_supply > 0:
+                dilution_ratio = 100 * (1 - (circulating_supply / total_supply))
+            else:
+                dilution_ratio = 0
             if dilution_ratio < 20:
                 dilution_text = "✓ Low dilution risk: Only a small portion of tokens remain to be released."
             elif dilution_ratio < 50:
@@ -259,7 +276,7 @@ if calculate:
                 dilution_text = "⚠ High dilution risk: Significant token releases expected."
         else:
             dilution_ratio = 0
-            dilution_text = "⚠ FDV not provided, cannot assess dilution risk."
+            dilution_text = "⚠ FDV or Asset Price not provided, cannot assess dilution risk."
 
         # MCap Growth Plausibility
         projected_price = asset_projections[-1]
@@ -299,7 +316,7 @@ if calculate:
             hurdle_label = "Below Hurdle"
             hurdle_color = "red-text"
 
-        # Composite Risk Score (including Fear and Greed Index)
+        # Composite Risk Score (including Liquidity)
         scores = {}
         # Max Drawdown
         if max_drawdown < 30:
@@ -370,6 +387,14 @@ if calculate:
         else:
             scores['Fear and Greed'] = 0    # Extreme Greed: potential correction
 
+        # Liquidity (based on Vol/Mkt Cap 24h)
+        if vol_mkt_cap < 1:
+            scores['Liquidity'] = 0
+        elif vol_mkt_cap <= 5:
+            scores['Liquidity'] = 50
+        else:
+            scores['Liquidity'] = 100
+
         composite_score = sum(scores.values()) / len(scores)
 
         # Risk-Adjusted Return Score
@@ -408,11 +433,12 @@ if calculate:
                 f"{', significant dilution risk' if dilution_ratio > 50 else ', moderate dilution risk' if dilution_ratio > 20 else ''}"
                 f"{', ambitious market cap growth' if mcap_vs_btc > 5 else ''}"
                 f"{', low risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
+                f"{', low liquidity' if vol_mkt_cap < 1 else ', moderate liquidity' if vol_mkt_cap <= 5 else ''}"
                 f"{', and a concerning CertiK score' if certik_adjusted < 40 else ''}. "
                 f"The Fear and Greed Index is currently at {fear_and_greed} ({fear_greed_classification}), "
                 f"which {'suggests a potential buying opportunity due to market overselling' if fear_and_greed <= 49 else 'indicates a neutral market sentiment' if fear_and_greed == 50 else 'warns of a potentially overheated market due for a correction'}. "
                 "You might consider a smaller position in this asset while diversifying across other investments to mitigate these risks. "
-                "Keep an eye on token unlock schedules and security updates to reassess your position."
+                "Keep an eye on token unlock schedules, trading volume trends, and security updates to reassess your position."
             )
         else:
             bg_class = "risk-red"
@@ -422,10 +448,11 @@ if calculate:
                 f"{', high dilution risk from future token releases' if dilution_ratio > 50 else ''}"
                 f"{', unrealistic market cap growth expectations' if mcap_vs_btc > 5 else ''}"
                 f"{', poor risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
+                f"{', low liquidity increasing slippage risk' if vol_mkt_cap < 1 else ''}"
                 f"{', and a low CertiK score indicating security concerns' if certik_adjusted < 40 else ''}. "
                 f"The Fear and Greed Index is currently at {fear_and_greed} ({fear_greed_classification}), "
                 f"which {'suggests a potential buying opportunity despite the high risk due to market overselling' if fear_and_greed <= 49 else 'indicates a neutral market sentiment' if fear_and_greed == 50 else 'warns of a potentially overheated market due for a correction, adding to the risk'}. "
-                "Proceed with caution—consider waiting for better entry points, improved security scores, or more favorable market conditions. "
+                "Proceed with caution—consider waiting for better entry points, improved security scores, higher liquidity, or more favorable market conditions. "
                 "Alternatively, explore safer assets with stronger fundamentals to protect your capital."
             )
 
@@ -438,9 +465,9 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Key Metrics (4x2 grid with 8 cards)
+        # Key Metrics (3x3 grid with 9 cards)
         st.subheader("Key Metrics")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown(f"""
@@ -466,14 +493,6 @@ if calculate:
                     <div class="metric-desc">This measures how much extra return you get for the risk you're taking. Above 1 is good—it means you're getting a nice reward for the risk. Below 0 means the risk might not be worth it.</div>
                 </div>
             """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-                <div class="metric-tile">
-                    <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
-                    <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}% ({hurdle_label})</div>
-                    <div class="metric-desc">This shows how much your asset’s expected growth ({growth_rate:.2f}%) beats—or falls short of—the minimum return needed to justify its risk compared to holding Bitcoin (hurdle rate: {hurdle_rate:.2f}%). Your asset {'exceeds' if asset_vs_hurdle >= 0 else 'falls short of'} the hurdle by {abs(asset_vs_hurdle):.2f}% ({hurdle_label}), making it a {'potentially better choice than Bitcoin' if asset_vs_hurdle >= 0 else 'less attractive option compared to Bitcoin'}. Bitcoin has an expected growth of {btc_growth:.2f}%. A value above 20% indicates a strong case for choosing this asset over Bitcoin, while 0–20% suggests a moderate case. Below 0% means Bitcoin is likely the safer choice with less risk.</div>
-                </div>
-            """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
@@ -482,9 +501,9 @@ if calculate:
                     <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
                     <div class="metric-desc">This shows the percentage of tokens yet to be released, which could dilute the value of your investment by flooding the market and lowering the price. A higher percentage indicates greater risk of price drops due to future token releases.<br>
                     <b>Actionable Insight:</b><br>
-                    - <b>Low Risk (&lt;20%)</b>: Minimal dilution expected—proceed with confidence but monitor for unexpected token releases.<br>
+                    - <b>Low Risk (<20%)</b>: Minimal dilution expected—proceed with confidence but monitor for unexpected token releases.<br>
                     - <b>Moderate Risk (20–50%)</b>: Be cautious. Research the token’s unlock schedule on platforms like TokenUnlocks or the project’s whitepaper to understand release timelines. Consider reducing your position size if large unlocks are imminent.<br>
-                    - <b>High Risk (&gt;50%)</b>: Significant dilution risk. Prioritize assets with lower dilution risk or wait for token releases to occur and stabilize before investing. If you hold this asset, monitor market reactions to unlocks closely and be prepared for price volatility.
+                    - <b>High Risk (>50%)</b>: Significant dilution risk. Prioritize assets with lower dilution risk or wait for token releases to occur and stabilize before investing. If you hold this asset, monitor market reactions to unlocks closely and be prepared for price volatility.
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -495,9 +514,9 @@ if calculate:
                     <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
                     <div class="metric-desc">This measures the asset’s projected market cap as a percentage of Bitcoin’s market cap to assess if the expected growth is realistic. A high percentage means the asset would need to capture a large market share, which may be challenging.<br>
                     <b>Actionable Insight:</b><br>
-                    - <b>Plausible (&lt;1%)</b>: The projected growth is realistic, requiring only a small market share. This asset may be a safer bet for achieving your growth expectations.<br>
+                    - <b>Plausible (<1%)</b>: The projected growth is realistic, requiring only a small market share. This asset may be a safer bet for achieving your growth expectations.<br>
                     - <b>Ambitious (1–5%)</b>: The growth is possible but requires significant adoption. Compare this asset to similar projects (e.g., on CoinMarketCap) to see if others in its category have achieved this market share. Consider diversifying to reduce risk.<br>
-                    - <b>Very Ambitious (&gt;5%)</b>: The growth is highly ambitious and may be unrealistic without major catalysts (e.g., partnerships, adoption). Reassess your growth rate assumption—try lowering it in the input to see if the projection becomes more plausible. Alternatively, focus on assets with more achievable growth targets.<br>
+                    - <b>Very Ambitious (>5%)</b>: The growth is highly ambitious and may be unrealistic without major catalysts (e.g., partnerships, adoption). Reassess your growth rate assumption—try lowering it in the input to see if the projection becomes more plausible. Alternatively, focus on assets with more achievable growth targets.<br>
                     <b>Context:</b> For reference, top altcoins like Ethereum typically have a market cap around 20–25% of Bitcoin’s, while projects like BNB are around 5–7% (based on early 2025 data). If this is a layer-1 blockchain, compare it to projects like Solana or Avalanche on CoinMarketCap to gauge if this market share is achievable.
                     </div>
                 </div>
@@ -510,12 +529,36 @@ if calculate:
                     <div class="metric-desc">This focuses on the risk of losing money (downside risk). Above 1 means you're getting good returns compared to the chance of losses. Below 0 suggests the risk of losing money might outweigh the gains.</div>
                 </div>
             """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
+                    <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}% ({hurdle_label})</div>
+                    <div class="metric-desc">This shows how much your asset’s expected growth ({growth_rate:.2f}%) beats—or falls short of—the minimum return needed to justify its risk compared to holding Bitcoin (hurdle rate: {hurdle_rate:.2f}%). Your asset {'exceeds' if asset_vs_hurdle >= 0 else 'falls short of'} the hurdle by {abs(asset_vs_hurdle):.2f}% ({hurdle_label}), making it a {'potentially better choice than Bitcoin' if asset_vs_hurdle >= 0 else 'less attractive option compared to Bitcoin'}. Bitcoin has an expected growth of {btc_growth:.2f}%. A value above 20% indicates a strong case for choosing this asset over Bitcoin, while 0–20% suggests a moderate case. Below 0% means Bitcoin is likely the safer choice with less risk.</div>
+                </div>
+            """, unsafe_allow_html=True)
             
             st.markdown(f"""
                 <div class="metric-tile">
                     <div class="metric-title">🎯 Risk-Adjusted Return Score</div>
                     <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
                     <div class="metric-desc">This score combines the Composite Risk Score with the asset’s expected return relative to the hurdle rate (stablecoin pool risk-free rate plus 6% inflation, doubled). A higher score means a better balance of risk and reward. Below 40 indicates a high-risk asset with insufficient returns to justify the risk—a potential gamble.</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">💧 Liquidity (Vol/Mkt Cap 24h)</div>
+                    <div class="metric-value {'red-text' if vol_mkt_cap < 1 else 'green-text' if vol_mkt_cap > 5 else 'yellow-text'}">{vol_mkt_cap:.2f}%</div>
+                    <div class="metric-desc">This measures the 24-hour trading volume as a percentage of the asset’s market cap, indicating liquidity and market activity. {'With a market cap of ${market_cap:,.2f}, this percentage means ${trading_volume:,.2f} was traded in the last 24 hours.' if market_cap > 0 else 'Market cap not provided, cannot calculate trading volume.'} A higher percentage means better liquidity (easier to buy/sell without impacting the price), but can also signal volatility or speculative trading.<br>
+                    <b>Why It Matters:</b> Liquidity affects how easily you can enter or exit positions. Low liquidity can lead to slippage (price changes when you trade), while high liquidity may indicate speculative activity.<br>
+                    <b>Actionable Insight:</b><br>
+                    - <b>Low (<1%)</b>: Very low liquidity—use limit orders and stick to smaller trades to avoid slippage. Consider waiting for higher volume to reduce manipulation risk.<br>
+                    - <b>Moderate (1–5%)</b>: Reasonable liquidity, but larger trades may cause slippage. {'For a large-cap asset like this (market cap > $1B), this level is on the lower end. Suitable for retail-sized trades (e.g., $10k–$100k); avoid large trades (e.g., $1M+) to minimize price impact. Monitor volume trends on CoinMarketCap for signs of growing interest, especially during market uptrends or after news like network upgrades.' if market_cap >= 1_000_000_000 else 'Suitable for smaller positions; avoid large trades to minimize slippage. Monitor volume trends on CoinMarketCap for signs of growing interest.'}<br>
+                    - <b>High (>5%)</b>: Strong liquidity, good for larger trades. Watch for price swings due to speculative trading—use stop-loss orders and check for news driving the volume.<br>
+                    <b>Risk Alert:</b> {'High risk of price manipulation due to low volume. Watch for sudden price spikes or dumps (e.g., pump-and-dump schemes).' if vol_mkt_cap < 1 else 'Moderate risk of volatility. For a large-cap asset, this liquidity level suggests potential price swings during market stress. Be cautious during bear markets or low-volume periods.' if vol_mkt_cap <= 5 and market_cap >= 1_000_000_000 else 'Moderate risk of volatility. The asset may experience price swings during market stress due to relatively low trading activity.' if vol_mkt_cap <= 5 else 'Potential for speculative trading. High volume may be driven by short-term hype, increasing the risk of volatility or a price correction.'}
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
 
