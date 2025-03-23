@@ -233,6 +233,7 @@ if calculate:
     # Additional Metrics
     st.subheader("Risk and Performance Metrics")
     st.markdown("These metrics help you understand the asset’s risk (volatility), likelihood of loss, and how it compares to Bitcoin’s historical performance.")
+    st.markdown("**Note on Probability of Loss**: The Probability of Loss shows the chance your investment could lose money, based on 200 simulations. It’s important because it helps you understand the risk of not getting your money back.")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Annualized Volatility", f"{annualized_volatility:.2f}%")
@@ -346,7 +347,7 @@ if calculate:
 
     # Actionable Insights and Alerts
     st.subheader("Actionable Insights and Alerts")
-    st.markdown("This section provides recommendations and warnings based on the analysis, helping you make informed decisions.")
+    st.markdown("This section provides recommendations and warnings based on the analysis, helping you make informed decisions. The 16% minimum hurdle rate is calculated as 10% (stablecoin pool return) + 6% (global inflation average), ensuring your investment beats inflation and matches a safe return.")
 
     # Insight 1: Risk-Adjusted Return
     if sharpe_ratio > 1:
@@ -355,16 +356,6 @@ if calculate:
         st.markdown('<div class="yellow-background">⚠ <b>Moderate Risk-Adjusted Return</b>: Sharpe Ratio between 0 and 1. Consider if the risk is worth the reward.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="red-background">⚠ <b>Poor Risk-Adjusted Return</b>: Sharpe Ratio < 0. The asset\'s return does not justify its risk.</div>', unsafe_allow_html=True)
-
-    # Insight 2: Portfolio Allocation Suggestion (based on calculated ROIs)
-    total_roi = asset_roi + btc_growth + risk_free_rate
-    if total_roi != 0:
-        asset_weight = (asset_roi / total_roi) * 100
-        btc_weight = (btc_growth / total_roi) * 100
-        rf_weight = (risk_free_rate / total_roi) * 100
-        st.markdown(f'<div class="green-background"><b>Portfolio Allocation Suggestion</b>: Based on projected returns, consider allocating {asset_weight:.1f}% to the asset, {btc_weight:.1f}% to Bitcoin, and {rf_weight:.1f}% to stablecoins.</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="red-background">⚠ <b>Portfolio Allocation</b>: Unable to suggest allocation due to zero or negative returns.</div>', unsafe_allow_html=True)
 
     # Alert 1: High Volatility
     if worst_case < expected_case * 0.5:
