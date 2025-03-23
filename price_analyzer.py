@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS for shading insights and alerts with improved colors
+# Custom CSS for styling alerts, tables, and headers
 st.markdown("""
     <style>
     .red-background {
@@ -36,23 +36,129 @@ st.markdown("""
         font-size: 18px;
         font-weight: bold;
     }
+    /* Style for headers */
+    h2 {
+        font-size: 24px !important;
+        color: #333 !important;
+        border-bottom: 2px solid #4CAF50 !important;
+        padding-bottom: 10px !important;
+    }
+    /* Style for tables */
+    .stDataFrame {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stDataFrame table {
+        width: 100%;
+    }
+    .stDataFrame th {
+        font-weight: bold;
+        background-color: #f0f0f0;
+        padding: 8px;
+    }
+    .stDataFrame td {
+        padding: 8px;
+    }
+    .stDataFrame tr:nth-child(odd) {
+        background-color: #f9f9f9;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # Title
 st.title("Crypto Price and Risk Calculator")
 
-# Sidebar inputs
+# Sidebar inputs with tooltips
 st.sidebar.header("Input Parameters")
 
-asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=0.02)
-growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=50.0)
-initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=1000.0)
-btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=84000.0)
-btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate %", min_value=-100.0, value=15.0)
-risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=10.0)
-volatility = st.sidebar.number_input("Expected Monthly Volatility %", min_value=0.0, value=25.0) / 100  # Convert to decimal
-time_horizon = st.sidebar.number_input("Time Horizon (Months)", min_value=1, value=12)
+# Default values
+default_values = {
+    "asset_price": 0.02,
+    "growth_rate": 50.0,
+    "initial_investment": 1000.0,
+    "btc_price": 84000.0,
+    "btc_growth": 15.0,
+    "risk_free_rate": 10.0,
+    "volatility": 25.0,
+    "time_horizon": 12,
+    "market_cap_selection": "Less than $100M (Ultra High Risk)",
+    "investor_profile": "Bitcoin Strategy"
+}
+
+# Initialize session state for inputs
+if "inputs" not in st.session_state:
+    st.session_state.inputs = default_values.copy()
+
+# Reset button
+if st.sidebar.button("Reset Inputs"):
+    st.session_state.inputs = default_values.copy()
+    st.rerun()
+
+# Inputs with tooltips
+asset_price = st.sidebar.number_input(
+    "Current Asset Price ($)",
+    min_value=0.0,
+    value=st.session_state.inputs["asset_price"],
+    help="The current price of the asset you’re analyzing."
+)
+st.session_state.inputs["asset_price"] = asset_price
+
+growth_rate = st.sidebar.number_input(
+    "Expected Growth Rate % (Annual)",
+    min_value=-100.0,
+    value=st.session_state.inputs["growth_rate"],
+    help="The annual growth rate you expect for the asset. Higher values increase projected returns but may be less realistic."
+)
+st.session_state.inputs["growth_rate"] = growth_rate
+
+initial_investment = st.sidebar.number_input(
+    "Initial Investment Amount ($)",
+    min_value=0.0,
+    value=st.session_state.inputs["initial_investment"],
+    help="The amount you plan to invest in the asset."
+)
+st.session_state.inputs["initial_investment"] = initial_investment
+
+btc_price = st.sidebar.number_input(
+    "Current Bitcoin Price ($)",
+    min_value=0.0,
+    value=st.session_state.inputs["btc_price"],
+    help="The current price of Bitcoin for comparison."
+)
+st.session_state.inputs["btc_price"] = btc_price
+
+btc_growth = st.sidebar.number_input(
+    "Bitcoin Expected Growth Rate %",
+    min_value=-100.0,
+    value=st.session_state.inputs["btc_growth"],
+    help="The annual growth rate you expect for Bitcoin."
+)
+st.session_state.inputs["btc_growth"] = btc_growth
+
+risk_free_rate = st.sidebar.number_input(
+    "Risk-Free Rate % (Stablecoin Pool)",
+    min_value=0.0,
+    value=st.session_state.inputs["risk_free_rate"],
+    help="The expected return from a stablecoin pool, representing a risk-free rate."
+)
+st.session_state.inputs["risk_free_rate"] = risk_free_rate
+
+volatility = st.sidebar.number_input(
+    "Expected Monthly Volatility %",
+    min_value=0.0,
+    value=st.session_state.inputs["volatility"],
+    help="The expected monthly volatility of the asset’s price, as a percentage."
+) / 100  # Convert to decimal
+st.session_state.inputs["volatility"] = volatility * 100
+
+time_horizon = st.sidebar.number_input(
+    "Time Horizon (Months)",
+    min_value=1,
+    value=int(st.session_state.inputs["time_horizon"]),
+    help="The number of months over which to project the asset’s performance."
+)
+st.session_state.inputs["time_horizon"] = time_horizon
 
 # Market Cap Selector
 market_cap_options = [
@@ -63,7 +169,13 @@ market_cap_options = [
     "$5B to $10B (Low Risk)",
     "$10B or more (Very Low Risk)"
 ]
-market_cap_selection = st.sidebar.selectbox("Market Cap Range", market_cap_options)
+market_cap_selection = st.sidebar.selectbox(
+    "Market Cap Range",
+    market_cap_options,
+    index=market_cap_options.index(st.session_state.inputs["market_cap_selection"]),
+    help="The market cap range of the asset, which affects its risk level."
+)
+st.session_state.inputs["market_cap_selection"] = market_cap_selection
 
 # Map selection to a market cap value (in billions) for risk score calculation
 market_cap_mapping = {
@@ -77,7 +189,13 @@ market_cap_mapping = {
 market_cap = market_cap_mapping[market_cap_selection]
 
 # Investor Profile Selector
-investor_profile = st.sidebar.selectbox("Investor Profile", ["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"])
+investor_profile = st.sidebar.selectbox(
+    "Investor Profile",
+    ["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"],
+    index=["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"].index(st.session_state.inputs["investor_profile"]),
+    help="Your investor profile, which determines the suggested portfolio allocation."
+)
+st.session_state.inputs["investor_profile"] = investor_profile
 
 calculate = st.sidebar.button("Calculate")
 
@@ -103,17 +221,13 @@ if calculate:
     # Calculations
     months = time_horizon
     
-    # Corrected monthly growth rate calculations (annual rate to monthly rate)
-    asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1  # Convert annual rate to monthly
-    btc_monthly_rate = (1 + btc_growth/100) ** (1/12) - 1
-    rf_monthly_rate = (1 + risk_free_rate/100) ** (1/12) - 1
-    
-    # Standard price projections (without volatility) for the chart
-    asset_projections = [asset_price * (1 + asset_monthly_rate) ** i for i in range(months + 1)]
-    btc_projections = [btc_price * (1 + btc_monthly_rate) ** i for i in range(months + 1)]
-    rf_projections = [initial_investment * (1 + rf_monthly_rate) ** i for i in range(months + 1)]
+    # Annual growth rate applied over the time horizon (simplified for bar chart)
+    asset_end_price = asset_price * (1 + growth_rate/100) ** (months/12)
+    btc_end_price = btc_price * (1 + btc_growth/100) ** (months/12)
+    rf_end_value = initial_investment * (1 + risk_free_rate/100) ** (months/12)
     
     # Monte Carlo Simulation (capped at the user-input growth rate)
+    asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1  # Convert annual rate to monthly
     n_simulations = 200
     simulations = []
     max_allowed_value = initial_investment * (1 + growth_rate/100)  # Cap at user-input growth rate
@@ -131,6 +245,10 @@ if calculate:
     worst_case = min(simulations)
     expected_case = np.mean(simulations)
     
+    # Calculate 95% Confidence Interval for Monte Carlo
+    ci_lower = np.percentile(simulations, 2.5)
+    ci_upper = np.percentile(simulations, 97.5)
+    
     # Calculate additional metrics
     monthly_returns = [(simulations[i] / initial_investment) ** (1/months) - 1 for i in range(len(simulations))]
     annualized_volatility = np.std(monthly_returns) * np.sqrt(12) * 100  # Annualized volatility in %
@@ -144,7 +262,7 @@ if calculate:
     prob_loss = sum(1 for sim in simulations if sim < initial_investment) / len(simulations) * 100
 
     # Annualized Asset ROI (for hurdle rate comparison)
-    asset_roi = ((initial_investment * asset_projections[-1] / asset_price) / initial_investment - 1) * 100
+    asset_roi = ((initial_investment * asset_end_price / asset_price) / initial_investment - 1) * 100
     annualized_asset_roi = ((1 + asset_roi/100) ** (12/months) - 1) * 100 if months != 0 else asset_roi
 
     # Composite Risk Score
@@ -171,24 +289,24 @@ if calculate:
     st.markdown(f'<div class="alert-box {risk_color}">⚠ <b>Composite Risk Score: {composite_risk_score:.1f} ({risk_level})</b><br>{risk_insight}</div>', unsafe_allow_html=True)
     st.markdown("This alert combines market cap risk, volatility, and probability of loss to assess the overall risk of investing in this asset.")
 
-    # Investment Value After Price Drops
-    price_after_20 = asset_price * (1 - 0.2)
-    price_after_50 = asset_price * (1 - 0.5)
-    price_after_90 = asset_price * (1 - 0.9)
-    
-    investment_after_20 = initial_investment * (price_after_20 / asset_price)
-    investment_after_50 = initial_investment * (price_after_50 / asset_price)
-    investment_after_90 = initial_investment * (price_after_90 / asset_price)
+    # Risk Score Breakdown
+    with st.expander("Risk Score Breakdown"):
+        st.write(f"- **Market Cap Risk**: {mcap_risk}/10")
+        st.write(f"- **Volatility Risk**: {vol_risk:.1f}/10")
+        st.write(f"- **Loss Risk**: {loss_risk:.1f}/10")
 
-    # Breakeven requirements
-    def breakeven_requirement(drop):
-        if drop == 0:
-            return 0
-        return (drop / (100 - drop)) * 100
-
-    breakeven_20 = breakeven_requirement(20)
-    breakeven_50 = breakeven_requirement(50)
-    breakeven_90 = breakeven_requirement(90)
+    # Summary Dashboard
+    st.subheader("Summary Dashboard")
+    st.markdown("A quick overview of the most important metrics for your investment.")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Projected Investment Value", f"${(initial_investment * asset_end_price / asset_price):,.2f}")
+    with col2:
+        st.metric("Annualized ROI", f"{annualized_asset_roi:.2f}%")
+    with col3:
+        st.metric("Composite Risk Score", f"{composite_risk_score:.1f}")
+    with col4:
+        st.metric("Probability of Loss", f"{prob_loss:.2f}%")
 
     st.divider()
 
@@ -200,13 +318,13 @@ if calculate:
     
     with col1:
         st.metric("Projected Asset Price", 
-                 f"${asset_projections[-1]:,.2f}",
+                 f"${asset_end_price:,.2f}",
                  f"{growth_rate}%")
         
     with col2:
         st.metric("Investment Value",
-                 f"${(initial_investment * asset_projections[-1] / asset_price):,.2f}",
-                 f"${(initial_investment * asset_projections[-1] / asset_price) - initial_investment:,.2f}")
+                 f"${(initial_investment * asset_end_price / asset_price):,.2f}",
+                 f"${(initial_investment * asset_end_price / asset_price) - initial_investment:,.2f}")
     
     with col3:
         st.metric("Sharpe Ratio",
@@ -214,25 +332,37 @@ if calculate:
 
     st.divider()
 
-    # Price Projections Chart
+    # Price Projections Bar Chart
     st.subheader("Asset Price Projections")
-    st.markdown("This chart shows how the asset’s price might grow over time compared to Bitcoin and stablecoins, helping you see potential returns.")
-    df_proj = pd.DataFrame({
-        'Month': range(months + 1),
-        'Asset Price': asset_projections,
-        'Bitcoin Price': btc_projections,
-        'Stablecoin Value': rf_projections
+    st.markdown("These bar charts show the starting and ending values for the asset, Bitcoin, and stablecoin over the time horizon, helping you see potential returns.")
+
+    # First bar chart: Asset and Stablecoin (smaller values)
+    st.markdown("**Asset and Stablecoin Values**")
+    bar_data_small = pd.DataFrame({
+        "Category": ["Asset (Start)", "Asset (End)", "Stablecoin (Start)", "Stablecoin (End)"],
+        "Value": [asset_price, asset_end_price, initial_investment, rf_end_value],
+        "Type": ["Asset", "Asset", "Stablecoin", "Stablecoin"]
     })
-    
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=df_proj, x='Month', y='Asset Price', label='Asset')
-    sns.lineplot(data=df_proj, x='Month', y='Bitcoin Price', label='Bitcoin')
-    sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin')
-    plt.title(f'Price Projections Over {months} Months')
-    # Use a logarithmic scale for the y-axis to better visualize small values
-    plt.yscale('log')
-    plt.ylim(bottom=0.01)  # Set a minimum y-value to avoid log(0) issues
-    plt.legend()
+    plt.figure(figsize=(8, 5))
+    sns.barplot(data=bar_data_small, x="Category", y="Value", hue="Type", palette={"Asset": "blue", "Stablecoin": "green"})
+    plt.title(f"Asset and Stablecoin Values Over {months} Months")
+    plt.ylabel("Value ($)")
+    plt.xticks(rotation=45)
+    st.pyplot(plt)
+    plt.clf()
+
+    # Second bar chart: Bitcoin (larger values)
+    st.markdown("**Bitcoin Values**")
+    bar_data_large = pd.DataFrame({
+        "Category": ["Bitcoin (Start)", "Bitcoin (End)"],
+        "Value": [btc_price, btc_end_price],
+        "Type": ["Bitcoin", "Bitcoin"]
+    })
+    plt.figure(figsize=(5, 5))
+    sns.barplot(data=bar_data_large, x="Category", y="Value", hue="Type", palette={"Bitcoin": "orange"})
+    plt.title(f"Bitcoin Values Over {months} Months")
+    plt.ylabel("Value ($)")
+    plt.xticks(rotation=45)
     st.pyplot(plt)
     plt.clf()
 
@@ -256,6 +386,23 @@ if calculate:
     # Investment Value After Price Drops
     st.subheader("Investment Value After Price Drops")
     st.markdown("This table shows how much your investment would be worth if the asset’s price drops by 20%, 50%, or 90%, and the growth needed to recover.")
+    price_after_20 = asset_price * (1 - 0.2)
+    price_after_50 = asset_price * (1 - 0.5)
+    price_after_90 = asset_price * (1 - 0.9)
+    
+    investment_after_20 = initial_investment * (price_after_20 / asset_price)
+    investment_after_50 = initial_investment * (price_after_50 / asset_price)
+    investment_after_90 = initial_investment * (price_after_90 / asset_price)
+
+    def breakeven_requirement(drop):
+        if drop == 0:
+            return 0
+        return (drop / (100 - drop)) * 100
+
+    breakeven_20 = breakeven_requirement(20)
+    breakeven_50 = breakeven_requirement(50)
+    breakeven_90 = breakeven_requirement(90)
+
     mdd_data = {
         "Price Drop (%)": ["20%", "50%", "90%"],
         "Asset Price After Drop ($)": [f"${price_after_20:,.2f}", f"${price_after_50:,.2f}", f"${price_after_90:,.2f}"],
@@ -263,13 +410,13 @@ if calculate:
         "Breakeven Requirement (%)": [f"{breakeven_20:.2f}%", f"{breakeven_50:.2f}%", f"{breakeven_90:.2f}%"]
     }
     mdd_df = pd.DataFrame(mdd_data)
-    st.table(mdd_df)
+    st.dataframe(mdd_df, use_container_width=True)
 
     st.divider()
 
-    # Suggested Portfolio Allocation
+    # Suggested Portfolio Allocation (Pie Chart)
     st.subheader("Suggested Portfolio Allocation")
-    st.markdown("This section provides a suggested portfolio allocation based on your investor profile, helping you balance risk and return.")
+    st.markdown("This chart provides a suggested portfolio allocation based on your investor profile, helping you balance risk and return.")
     
     portfolio_data = {
         "Growth Investor": {
@@ -299,11 +446,14 @@ if calculate:
     }
     
     selected_portfolio = portfolio_data[investor_profile]
-    portfolio_df = pd.DataFrame({
-        "Asset Class": list(selected_portfolio.keys()),
-        "Allocation (%)": list(selected_portfolio.values())
-    })
-    st.table(portfolio_df)
+    labels = list(selected_portfolio.keys())
+    sizes = list(selected_portfolio.values())
+    
+    plt.figure(figsize=(6, 6))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140, colors=sns.color_palette("Set2"))
+    plt.title("Suggested Portfolio Allocation")
+    st.pyplot(plt)
+    plt.clf()
 
     st.divider()
 
@@ -317,6 +467,9 @@ if calculate:
         st.metric("Worst Case", f"${worst_case:,.2f}")
     with col3:
         st.metric("Expected Case", f"${expected_case:,.2f}")
+
+    # 95% Confidence Interval
+    st.markdown(f"**95% Confidence Interval**: There’s a 95% chance your investment will be between ${ci_lower:,.2f} and ${ci_upper:,.2f}.")
 
     st.divider()
 
