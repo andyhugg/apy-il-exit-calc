@@ -50,10 +50,31 @@ btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate %", min_value
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=10.0)
 volatility = st.sidebar.number_input("Expected Monthly Volatility %", min_value=0.0, value=3.0) / 100  # Convert to decimal
 time_horizon = st.sidebar.number_input("Time Horizon (Months)", min_value=1, value=12)
-market_cap = st.sidebar.number_input("Market Cap ($B)", min_value=0.0, value=1.0, help="Enter the market cap in billions (e.g., $1B = 1.0)")
+
+# Market Cap Selector
+market_cap_options = [
+    "Less than $100M (Ultra High Risk)",
+    "$100M to $500M (Very High Risk)",
+    "$500M to $1B (High Risk)",
+    "$1B to $5B (Moderate Risk)",
+    "$5B to $10B (Low Risk)",
+    "$10B or more (Very Low Risk)"
+]
+market_cap_selection = st.sidebar.selectbox("Market Cap Range", market_cap_options)
+
+# Map selection to a market cap value (in billions) for risk score calculation
+market_cap_mapping = {
+    "Less than $100M (Ultra High Risk)": 0.05,  # Midpoint of range
+    "$100M to $500M (Very High Risk)": 0.3,
+    "$500M to $1B (High Risk)": 0.75,
+    "$1B to $5B (Moderate Risk)": 3.0,
+    "$5B to $10B (Low Risk)": 7.5,
+    "$10B or more (Very Low Risk)": 15.0
+}
+market_cap = market_cap_mapping[market_cap_selection]
 
 # Investor Profile Selector
-investor_profile = st.sidebar.selectbox("Investor Profile", ["Growth Investor", "Conservative Investor", "Aggressive Investor"])
+investor_profile = st.sidebar.selectbox("Investor Profile", ["Growth Investor", "Conservative Investor", "Aggressive Investor", "Bitcoin Strategy"])
 
 calculate = st.sidebar.button("Calculate")
 
@@ -121,17 +142,10 @@ if calculate:
     asset_roi = ((initial_investment * asset_projections[-1] / asset_price) / initial_investment - 1) * 100
     annualized_asset_roi = ((1 + asset_roi/100) ** (12/months) - 1) * 100 if months != 0 else asset_roi
 
-    # Hurdle Rates
-    inflation_rate = 6.0  # Global average inflation rate
-    hurdle_rate_rf = risk_free_rate  # Risk-free rate as hurdle rate
-
     # Composite Risk Score
-    # Normalize each component to 0-10 scale
     mcap_risk = market_cap_risk_score  # Already on 1-10 scale
     vol_risk = min(annualized_volatility / 50 * 10, 10)  # Scale 0-50% to 0-10
     loss_risk = prob_loss / 10  # Scale 0-100% to 0-10
-
-    # Weighted average (equal weights)
     composite_risk_score = (mcap_risk + vol_risk + loss_risk) / 3
 
     # Classify risk level
@@ -176,6 +190,7 @@ if calculate:
     # Display results in tiles
     st.subheader("Key Metrics")
     st.markdown("These metrics show the projected price, investment value, and risk-adjusted return of the asset.")
+    st.markdown("**Note on Sharpe Ratio**: The Sharpe Ratio shows how much return you’re getting for the risk you’re taking. A higher number (e.g., above 1) means better returns for the risk, while a low or negative number means the risk might not be worth it.")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -229,19 +244,6 @@ if calculate:
 
     st.divider()
 
-    # Hurdle Rate Comparison
-    st.subheader("Performance vs. Hurdle Rates")
-    st.markdown("This section compares the asset’s return to the risk-free rate and inflation, ensuring it meets minimum performance goals.")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Annualized Asset ROI", f"{annualized_asset_roi:.2f}%")
-    with col2:
-        st.metric("Hurdle Rate (Risk-Free)", f"{hurdle_rate_rf:.2f}%")
-    with col3:
-        st.metric("Hurdle Rate (Inflation)", f"{inflation_rate:.2f}%")
-
-    st.divider()
-
     # Investment Value After Price Drops
     st.subheader("Investment Value After Price Drops")
     st.markdown("This table shows how much your investment would be worth if the asset’s price drops by 20%, 50%, or 90%, and the growth needed to recover.")
@@ -253,21 +255,6 @@ if calculate:
     }
     mdd_df = pd.DataFrame(mdd_data)
     st.table(mdd_df)
-
-    st.divider()
-
-    # Comparison Section
-    st.subheader("Comparison vs BTC and Stablecoin")
-    st.markdown("This section compares the asset’s return to Bitcoin and stablecoin returns, helping you decide where to invest.")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Asset ROI", f"{asset_roi:.2f}%")
-    with col2:
-        btc_roi = ((btc_projections[-1] / btc_price) - 1) * 100
-        st.metric("BTC ROI", f"{btc_roi:.2f}%")
-    with col3:
-        rf_roi = ((rf_projections[-1] / initial_investment) - 1) * 100
-        st.metric("Stablecoin ROI", f"{rf_roi:.2f}%")
 
     st.divider()
 
@@ -293,6 +280,12 @@ if calculate:
             "BTC": 30.00,
             "Blue Chips": 30.00,
             "High Risk": 20.00
+        },
+        "Bitcoin Strategy": {
+            "BTC": 70.00,
+            "Blue Chips": 10.00,
+            "Liquidity Pools": 15.00,
+            "High Risk": 5.00
         }
     }
     
@@ -364,11 +357,11 @@ if calculate:
         st.markdown('<div class="red-background">⚠ <b>Poor Risk-Adjusted Return</b>: Sharpe Ratio < 0. The asset\'s return does not justify its risk.</div>', unsafe_allow_html=True)
 
     # Insight 2: Portfolio Allocation Suggestion (based on calculated ROIs)
-    total_roi = asset_roi + btc_roi + rf_roi
+    total_roi = asset_roi + btc_growth + risk_free_rate
     if total_roi != 0:
         asset_weight = (asset_roi / total_roi) * 100
-        btc_weight = (btc_roi / total_roi) * 100
-        rf_weight = (rf_roi / total_roi) * 100
+        btc_weight = (btc_growth / total_roi) * 100
+        rf_weight = (risk_free_rate / total_roi) * 100
         st.markdown(f'<div class="green-background"><b>Portfolio Allocation Suggestion</b>: Based on projected returns, consider allocating {asset_weight:.1f}% to the asset, {btc_weight:.1f}% to Bitcoin, and {rf_weight:.1f}% to stablecoins.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="red-background">⚠ <b>Portfolio Allocation</b>: Unable to suggest allocation due to zero or negative returns.</div>', unsafe_allow_html=True)
@@ -379,27 +372,19 @@ if calculate:
     else:
         st.markdown('<div class="green-background">✓ <b>Volatility Check</b>: The worst-case scenario is within acceptable bounds relative to the expected case.</div>', unsafe_allow_html=True)
 
-    # Alert 2: Underperformance
-    if asset_roi < btc_roi and asset_roi < rf_roi:
-        st.markdown('<div class="red-background">⚠ <b>Underperformance Alert</b>: The asset\'s projected ROI is lower than both Bitcoin and stablecoin returns. Consider alternative investments.</div>', unsafe_allow_html=True)
-    elif asset_roi < btc_roi:
-        st.markdown('<div class="yellow-background">⚠ <b>Underperformance Alert</b>: The asset may underperform Bitcoin. Consider allocating more to BTC.</div>', unsafe_allow_html=True)
-    elif asset_roi < rf_roi:
-        st.markdown('<div class="yellow-background">⚠ <b>Underperformance Alert</b>: The asset may underperform stablecoin returns. Consider a safer investment.</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="green-background">✓ <b>Performance Check</b>: The asset\'s projected ROI exceeds both Bitcoin and stablecoin returns.</div>', unsafe_allow_html=True)
-
-    # Alert 3: Comparison to Historical Returns
+    # Alert 2: Comparison to Historical Returns
     historical_btc_return = 50  # Simplified historical average
     if growth_rate > historical_btc_return * 1.5:
         st.markdown('<div class="yellow-background">⚠ <b>Optimistic Growth Alert</b>: Your expected growth rate is significantly higher than Bitcoin\'s historical average (50%). Ensure this is realistic.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="green-background">✓ <b>Growth Expectation Check</b>: Your expected growth rate is within a realistic range compared to Bitcoin\'s historical average (50%).</div>', unsafe_allow_html=True)
 
-    # Alert 4: Hurdle Rate Comparison
-    if annualized_asset_roi < inflation_rate:
-        st.markdown(f'<div class="red-background">⚠ <b>Hurdle Rate Alert</b>: The asset\'s annualized ROI ({annualized_asset_roi:.2f}%) is below the global inflation rate ({inflation_rate:.2f}%). Your investment may lose purchasing power.</div>', unsafe_allow_html=True)
-    elif annualized_asset_roi < hurdle_rate_rf:
-        st.markdown(f'<div class="yellow-background">⚠ <b>Hurdle Rate Alert</b>: The asset\'s annualized ROI ({annualized_asset_roi:.2f}%) beats inflation ({inflation_rate:.2f}%) but is below the risk-free rate ({hurdle_rate_rf:.2f}%). Consider if the risk is worth it.</div>', unsafe_allow_html=True)
+    # Alert 3: Hurdle Rate Comparison (16% and 25%)
+    hurdle_rate_minimum = 16.0  # 10% risk-free + 6% inflation
+    hurdle_rate_btc = 25.0  # Bitcoin average annual return
+    if annualized_asset_roi < hurdle_rate_minimum:
+        st.markdown(f'<div class="red-background">⚠ <b>Hurdle Rate Alert</b>: The asset\'s annualized ROI ({annualized_asset_roi:.2f}%) is below the minimum hurdle rate of {hurdle_rate_minimum:.1f}% (10% stablecoin return + 6% inflation). Consider safer investments.</div>', unsafe_allow_html=True)
+    elif annualized_asset_roi < hurdle_rate_btc:
+        st.markdown(f'<div class="yellow-background">⚠ <b>Hurdle Rate Alert</b>: The asset\'s annualized ROI ({annualized_asset_roi:.2f}%) meets the minimum hurdle rate of {hurdle_rate_minimum:.1f}% but is below Bitcoin\'s average return of {hurdle_rate_btc:.1f}%. Consider allocating more to Bitcoin.</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="green-background">✓ <b>Hurdle Rate Check</b>: The asset\'s annualized ROI ({annualized_asset_roi:.2f}%) exceeds both the risk-free rate ({hurdle_rate_rf:.2f}%) and inflation ({inflation_rate:.2f}%).</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="green-background">✓ <b>Hurdle Rate Check</b>: The asset\'s annualized ROI ({annualized_asset_roi:.2f}%) exceeds both the minimum hurdle rate of {hurdle_rate_minimum:.1f}% and Bitcoin\'s average return of {hurdle_rate_btc:.1f}%. This is a strong performer.</div>', unsafe_allow_html=True)
