@@ -14,20 +14,20 @@ st.markdown("""
         color: white;
         margin-bottom: 10px;
         max-width: 300px;
-        min-height: 180px;
+        min-height: 200px;
     }
     .metric-title {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: bold;
         margin-bottom: 5px;
     }
     .metric-value {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: bold;
         margin-bottom: 5px;
     }
     .metric-desc {
-        font-size: 12px;
+        font-size: 14px;
         color: #A9A9A9;
     }
     .red-text {
@@ -44,7 +44,6 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 20px;
         max-width: 620px;
-        margin: 0 auto;
     }
     .risk-red {
         background-color: #FF4D4D;
@@ -93,7 +92,10 @@ st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
 
 # Introduction and Disclaimer
 st.markdown("""
-Arta means "wealth" in Indonesian — and that's exactly what this tool is built to help you understand and protect. Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. - Arta: Know the Price. Master the Risk.
+Arta means "wealth" in Indonesian — and that's exactly what this tool is built to help you understand and protect.  
+Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk.  
+Run scenarios, test your assumptions, and sharpen your edge — all in real time.  
+**Arta: Know the Price. Master the Risk.**
 """)
 
 st.markdown("""
@@ -140,6 +142,13 @@ initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", mi
 btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=0.0)
 btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate % (12 months)", min_value=-100.0, value=0.0)
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=0.0)
+
+# Investor Profile Selector
+investor_profile = st.sidebar.selectbox(
+    "Investor Profile",
+    ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
+    index=0
+)
 
 calculate = st.sidebar.button("Calculate")
 
@@ -334,8 +343,8 @@ if calculate:
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
-                <div style="font-size: 20px; font-weight: bold; color: white;">Composite Risk Score: <span style="color: #333;">{composite_score:.1f}</span></div>
-                <div style="font-size: 14px; margin-top: 5px; color: white;">{insight}</div>
+                <div style="font-size: 20px; font-weight: bold; color: #333;">Composite Risk Score: <span style="color: #333;">{composite_score:.1f}</span></div>
+                <div style="font-size: 14px; margin-top: 5px; color: #333;">{insight}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -472,3 +481,66 @@ if calculate:
         plt.legend()
         st.pyplot(plt)
         plt.clf()
+
+        # Suggested Portfolio Structure
+        st.subheader("Suggested Portfolio Structure")
+        st.markdown(f"Based on your selected investor profile: **{investor_profile}**")
+
+        # Portfolio allocations
+        portfolios = {
+            "Conservative Investor": {
+                "Stablecoin Liquidity Pools": 50.0,
+                "BTC": 40.0,
+                "Blue Chips": 8.0,
+                "High Risk Assets": 2.0
+            },
+            "Growth Crypto Investor": {
+                "Mixed Liquidity Pools": 30.0,
+                "BTC": 30.0,
+                "Blue Chips": 30.0,
+                "High Risk Assets": 10.0
+            },
+            "Aggressive Crypto Investor": {
+                "Mixed Liquidity Pools": 20.0,
+                "BTC": 30.0,
+                "Blue Chips": 30.0,
+                "High Risk Assets": 20.0
+            },
+            "Bitcoin Strategist": {
+                "Mixed Liquidity Pools": 10.0,
+                "BTC": 80.0,
+                "Blue Chips": 8.0,
+                "High Risk Assets": 2.0
+            }
+        }
+
+        # Pie chart for the selected portfolio
+        labels = list(portfolios[investor_profile].keys())
+        sizes = list(portfolios[investor_profile].values())
+        colors = ['#4B5EAA', '#FFD700', '#32CD32', '#FF4D4D']
+        explode = (0.05, 0, 0, 0)  # Slightly explode the first slice
+
+        plt.figure(figsize=(8, 8))
+        plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', shadow=True, startangle=140)
+        plt.title(f"Portfolio Allocation for {investor_profile}")
+        st.pyplot(plt)
+        plt.clf()
+
+        # Explanations and Insights
+        st.markdown("""
+        ### Understanding the Asset Classes
+        - **Stablecoin Liquidity Pools**: These are pools like USDT/USDC that provide steady returns (average 5–10% annually) with low volatility. They’re great for preserving capital during market downturns.
+        - **Mixed Liquidity Pools**: These combine stablecoins with volatile assets (e.g., ETH/USDT), offering higher returns (10–20% annually) but with moderate risk due to price swings.
+        - **BTC**: Bitcoin acts as an anchor in your portfolio, offering stability compared to altcoins and long-term growth potential. However, it can still face significant drawdowns (30–50%) in bear markets.
+        - **Blue Chips**: Large market cap assets like ETH or BNB with established ecosystems. They have lower volatility than small caps (20–40% drawdowns) but still carry market risk.
+        - **High Risk Assets**: Low market cap assets with high growth potential (100%+ returns) but also high risk of failure or extreme volatility (50–80% drawdowns).
+
+        ### Why Balance Matters
+        Diversifying across these asset classes helps reduce major drawdowns. For example, stablecoin LPs and BTC can offset losses from high-risk assets during market crashes. Higher allocations to high-risk assets increase potential returns but also the likelihood of significant losses. Balancing your portfolio ensures you can weather market volatility while still capturing upside potential.
+
+        ### Actionable Risk Management Insights
+        - **Rebalance Regularly**: Adjust your portfolio periodically to maintain your target allocation, especially after large price movements.
+        - **Monitor Market Conditions**: Reduce exposure to high-risk assets during bear markets and increase stablecoin allocations for safety.
+        - **Use Protective Strategies**: Consider stop-loss orders or hedging to limit losses during sudden market drops.
+        - **Maintain Liquidity**: Keep a portion in stable assets to ensure you have funds available during market crashes, allowing you to buy opportunities at lower prices.
+        """)
