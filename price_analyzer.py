@@ -32,10 +32,12 @@ st.markdown("""
         min-width: 150px;
     }
     .metric-value {
-        font-size: 28px;
+        font-size: 24px; /* Reduced from 28px to prevent overlap */
         font-weight: bold;
         width: 20%;
-        min-width: 100px;
+        min-width: 150px; /* Increased from 100px to accommodate longer text */
+        white-space: normal; /* Allow text wrapping */
+        word-wrap: break-word;
     }
     .metric-desc {
         font-size: 14px;
@@ -72,10 +74,14 @@ st.markdown("""
     .risk-green {
         background-color: #32CD32;
     }
+    .proj-table-container {
+        overflow-x: auto; /* Allow horizontal scrolling on small screens */
+        max-width: 100%;
+    }
     .proj-table {
         border-collapse: collapse;
         width: 100%;
-        max-width: 620px;
+        max-width: 100%;
         margin: 0 auto;
         border-radius: 10px;
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
@@ -86,6 +92,7 @@ st.markdown("""
         text-align: center;
         color: white;
         border: 1px solid #2A3555;
+        font-size: 14px; /* Reduced font size for better fit */
     }
     .proj-table th {
         background-color: #1E2A44;
@@ -126,8 +133,15 @@ st.markdown("""
             width: 100%;
             min-width: 0;
         }
+        .metric-value {
+            font-size: 20px; /* Further reduce font size on mobile */
+        }
         .metric-desc {
             max-height: 150px;
+        }
+        .proj-table th, .proj-table td {
+            font-size: 12px; /* Smaller font on mobile */
+            padding: 8px;
         }
     }
     </style>
@@ -158,12 +172,12 @@ st.markdown("""
 
 # Sidebar
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, circulating supply, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, circulating supply, max supply, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Input Parameters")
 
-# Function to parse MCap, FDV, and Circulating Supply inputs
+# Function to parse MCap, FDV, Circulating Supply, and Max Supply inputs
 def parse_market_value(value_str):
     try:
         value_str = value_str.replace(",", "").lower()
@@ -207,6 +221,9 @@ fdv = parse_market_value(fdv_input)
 circulating_supply_input = st.sidebar.text_input("Circulating Supply (Tokens)", value="")
 circulating_supply = parse_market_value(circulating_supply_input)
 st.sidebar.markdown("**Note**: Find the Circulating Supply on CoinMarketCap under the asset’s details (e.g., 414.73M for AVAX). Enter as shorthand (e.g., 414.73m for 414.73 million) or full numbers (e.g., 414,730,000). Used to calculate Market Cap if not provided.")
+max_supply_input = st.sidebar.text_input("Max Supply (Tokens) [Optional]", value="")
+max_supply = parse_market_value(max_supply_input)
+st.sidebar.markdown("**Note**: Find the Max Supply on CoinMarketCap under the asset’s details (e.g., 720M for AVAX). Enter as shorthand (e.g., 720m for 720 million) or full numbers (e.g., 720,000,000). Leave blank if providing FDV; Max Supply will be derived from FDV if not provided.")
 vol_mkt_cap = st.sidebar.number_input("Vol/Mkt Cap (24h) %", min_value=0.0, value=0.0, step=0.01, format="%.2f")
 st.sidebar.markdown("**Note**: Find the Vol/Mkt Cap (24h) % directly on CoinMarketCap under the asset’s details (e.g., 1.94% for AVAX). This measures the 24h trading volume as a percentage of the market cap.")
 initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=0.0)
@@ -234,6 +251,12 @@ if calculate:
         # Calculate Market Cap if not provided
         if market_cap == 0 and circulating_supply > 0 and asset_price > 0:
             market_cap = circulating_supply * asset_price
+
+        # Calculate Total Supply (Max Supply) if not provided
+        if max_supply == 0 and fdv > 0 and asset_price > 0:
+            total_supply = fdv / asset_price
+        else:
+            total_supply = max_supply
 
         # Calculate the implied 24h trading volume for the Liquidity metric card
         trading_volume = (vol_mkt_cap / 100) * market_cap if market_cap > 0 else 0
@@ -333,12 +356,8 @@ if calculate:
         break_even_percentage = (max_drawdown / (100 - max_drawdown)) * 100
 
         # Dilution Risk (using Circulating Supply and Total Supply)
-        if fdv > 0 and asset_price > 0:
-            total_supply = fdv / asset_price
-            if total_supply > 0 and circulating_supply > 0:
-                dilution_ratio = 100 * (1 - (circulating_supply / total_supply))
-            else:
-                dilution_ratio = 0
+        if total_supply > 0 and circulating_supply > 0:
+            dilution_ratio = 100 * (1 - (circulating_supply / total_supply))
             if dilution_ratio < 20:
                 dilution_text = "✓ Low dilution risk: Only a small portion of tokens remain to be released."
             elif dilution_ratio < 50:
@@ -347,7 +366,34 @@ if calculate:
                 dilution_text = "⚠ High dilution risk: Significant token releases expected."
         else:
             dilution_ratio = 0
-            dilution_text = "⚠ FDV or Asset Price not provided, cannot assess dilution risk."
+            dilution_text = "⚠ Circulating Supply or Max Supply/FDV not provided, cannot assess dilution risk."
+
+        # Format supply values for display
+        def format_supply(value):
+            if value >= 1_000_000_000:
+                return f"{value / 1_000_000_000:.2f}B"
+            elif value >= 1_000_000:
+                return f"{value / 1_000_000:.2f}M"
+            elif value >= 1_000:
+                return f"{value / 1_000:.2f}K"
+            else:
+                return f"{value:,.0f}"
+
+        circulating_supply_display = format_supply(circulating_supply) if circulating_supply > 0 else "N/A"
+        max_supply_display = format_supply(total_supply) if total_supply > 0 else "N/A"
+
+        # Supply Concentration Risk
+        if total_supply > 0 and circulating_supply > 0:
+            supply_ratio = (circulating_supply / total_supply) * 100
+            if supply_ratio < 20:
+                supply_concentration_text = "⚠ High risk: Very low circulating supply relative to max supply increases the risk of price manipulation by large holders."
+            elif supply_ratio < 50:
+                supply_concentration_text = "⚠ Moderate risk: A significant portion of tokens is not yet circulating, which may allow large holders to influence price."
+            else:
+                supply_concentration_text = "✓ Low risk: A large portion of tokens is circulating, reducing the risk of price manipulation by large holders."
+        else:
+            supply_ratio = 0
+            supply_concentration_text = "⚠ Circulating Supply or Max Supply/FDV not provided, cannot assess supply concentration risk."
 
         # MCap Growth Plausibility
         projected_price = asset_projections[-1]
@@ -360,6 +406,14 @@ if calculate:
             mcap_text = "⚠ Ambitious growth: Significant market share needed."
         else:
             mcap_text = "⚠ Very ambitious: Large market share required."
+
+        # Calculate projected market cap using Max Supply
+        if total_supply > 0:
+            projected_mcap_max = projected_price * total_supply
+            mcap_vs_btc_max = (projected_mcap_max / btc_mcap) * 100 if btc_mcap > 0 else 0
+        else:
+            projected_mcap_max = 0
+            mcap_vs_btc_max = 0
 
         # Sharpe and Sortino Ratios
         annual_return = (asset_values[-1] / initial_investment - 1)  # 12-month return
@@ -404,6 +458,14 @@ if calculate:
             scores['Dilution Risk'] = 50
         else:
             scores['Dilution Risk'] = 0
+        
+        # Supply Concentration Risk
+        if supply_ratio < 20:
+            scores['Supply Concentration'] = 0
+        elif supply_ratio < 50:
+            scores['Supply Concentration'] = 50
+        else:
+            scores['Supply Concentration'] = 100
         
         # MCap Growth Plausibility
         if mcap_vs_btc < 1:
@@ -502,6 +564,7 @@ if calculate:
                 "This asset has a moderate overall risk profile, suggesting a balanced but cautious approach. "
                 f"Key concerns include {'high drawdown risk' if max_drawdown > 50 else 'moderate drawdown risk' if max_drawdown > 30 else ''}"
                 f"{', significant dilution risk' if dilution_ratio > 50 else ', moderate dilution risk' if dilution_ratio > 20 else ''}"
+                f"{', high supply concentration risk' if supply_ratio < 20 else ', moderate supply concentration risk' if supply_ratio < 50 else ''}"
                 f"{', ambitious market cap growth' if mcap_vs_btc > 5 else ''}"
                 f"{', low risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
                 f"{', low liquidity' if vol_mkt_cap < 1 else ', moderate liquidity' if vol_mkt_cap <= 5 else ''}"
@@ -517,6 +580,7 @@ if calculate:
                 "This asset carries a high overall risk profile, indicating significant challenges for potential investors. "
                 f"Key issues include {'extreme drawdown risk' if max_drawdown > 50 else 'high drawdown risk' if max_drawdown > 30 else ''}"
                 f"{', high dilution risk from future token releases' if dilution_ratio > 50 else ''}"
+                f"{', high supply concentration risk increasing manipulation potential' if supply_ratio < 20 else ''}"
                 f"{', unrealistic market cap growth expectations' if mcap_vs_btc > 5 else ''}"
                 f"{', poor risk-adjusted returns' if sharpe_ratio < 0 or sortino_ratio < 0 else ''}"
                 f"{', low liquidity increasing slippage risk' if vol_mkt_cap < 1 else ''}"
@@ -600,7 +664,7 @@ if calculate:
             <div class="metric-tile">
                 <div class="metric-title">⚖️ Dilution Risk</div>
                 <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
-                <div class="metric-desc">This shows the percentage of tokens yet to be released, which could lower the price. A higher percentage means greater risk of dilution.<br>
+                <div class="metric-desc">This shows the percentage of tokens yet to be released, which could lower the price (Circulating: {circulating_supply_display}, Max: {max_supply_display}). A higher percentage means greater risk of dilution.<br>
                 <b>Actionable Insight:</b> {insight_dilution}
                 </div>
             </div>
@@ -612,11 +676,12 @@ if calculate:
             else "Adjust your growth rate assumption to make it more achievable." if mcap_vs_btc <= 5
             else "Focus on assets with more realistic growth targets to reduce risk."
         )
+        mcap_max_note = f"Using Max Supply ({max_supply_display}), the projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s, making growth {'less plausible' if mcap_vs_btc_max > mcap_vs_btc else 'more plausible'}." if total_supply > 0 else "Max Supply not provided, cannot assess impact on growth plausibility."
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">📈 MCap Growth Plausibility</div>
                 <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
-                <div class="metric-desc">This compares the asset’s projected market cap to Bitcoin’s to assess growth realism. A high percentage means the growth may be unrealistic.<br>
+                <div class="metric-desc">This compares the asset’s projected market cap to Bitcoin’s to assess growth realism. {mcap_max_note}<br>
                 <b>Actionable Insight:</b> {insight_mcap}
                 </div>
             </div>
@@ -647,7 +712,7 @@ if calculate:
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
-                <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}% ({hurdle_label})</div>
+                <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}%<br>({hurdle_label})</div>
                 <div class="metric-desc">This shows how the asset’s growth compares to the minimum return needed to beat Bitcoin. A negative value means Bitcoin may be a better choice.<br>
                 <b>Actionable Insight:</b> {insight_hurdle}
                 </div>
@@ -676,29 +741,50 @@ if calculate:
             else "Use limit orders for smaller trades to minimize slippage risks." if vol_mkt_cap <= 5
             else "Trade with confidence but use stop-loss orders to manage volatility."
         )
+        supply_volatility_note = f"Low Circulating Supply ({circulating_supply_display}) relative to Max Supply ({max_supply_display}) may increase price volatility." if total_supply > 0 and circulating_supply > 0 else "Circulating Supply or Max Supply not provided, cannot assess impact on volatility."
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">💧 Liquidity (Vol/Mkt Cap 24h)</div>
                 <div class="metric-value {'red-text' if vol_mkt_cap < 1 else 'green-text' if vol_mkt_cap > 5 else 'yellow-text'}">{vol_mkt_cap:.2f}%</div>
-                <div class="metric-desc">This measures the 24-hour trading volume as a percentage of the asset’s market cap, indicating how easily you can buy or sell. At {vol_mkt_cap:.2f}%, liquidity is {'low' if vol_mkt_cap < 1 else 'moderate' if vol_mkt_cap <= 5 else 'high'}, meaning trades {'may significantly impact the price' if vol_mkt_cap < 1 else 'may cause some slippage' if vol_mkt_cap <= 5 else 'are less likely to impact the price'}.<br>
+                <div class="metric-desc">This measures the 24-hour trading volume as a percentage of the asset’s market cap, indicating how easily you can buy or sell. {supply_volatility_note}<br>
                 <b>Actionable Insight:</b> {insight_liquidity}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Card 10: Supply Concentration Risk
+        insight_supply_concentration = (
+            "Monitor for whale activity—large holders may influence price." if supply_ratio < 20
+            else "Be cautious of potential price influence by large holders." if supply_ratio < 50
+            else "Proceed with confidence—supply distribution reduces manipulation risk."
+        )
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">🛡️ Supply Concentration Risk</div>
+                <div class="metric-value {'red-text' if supply_ratio < 20 else 'yellow-text' if supply_ratio < 50 else 'green-text'}">{supply_ratio:.2f}%</div>
+                <div class="metric-desc">This shows the percentage of circulating supply relative to max supply (Circulating: {circulating_supply_display}, Max: {max_supply_display}). A lower percentage increases the risk of price manipulation by large holders.<br>
+                <b>Actionable Insight:</b> {insight_supply_concentration}
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
         # Price Projections
         st.subheader("Projected Investment Value Over Time")
-        st.markdown("**Note**: The projected value reflects the growth of your initial investment, adjusted for expected price changes.")
+        st.markdown("**Note**: The projected values reflect the growth of your initial investment in the asset, Bitcoin, and a stablecoin pool, adjusted for their respective expected growth rates.")
         
-        # Table for months 0, 3, 6, 12 with enhanced styling
+        # Table for months 0, 3, 6, 12 with BTC and Stablecoin results
         proj_data = {
             "Time Period (Months)": [0, 3, 6, 12],
-            "Projected Value ($)": [asset_values[i] for i in [0, 3, 6, 12]],
-            "ROI (%)": [((asset_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]]
+            "Asset Value ($)": [asset_values[i] for i in [0, 3, 6, 12]],
+            "Asset ROI (%)": [((asset_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]],
+            "BTC Value ($)": [btc_values[i] for i in [0, 3, 6, 12]],
+            "BTC ROI (%)": [((btc_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]],
+            "Stablecoin Value ($)": [rf_projections[i] for i in [0, 3, 6, 12]],
+            "Stablecoin ROI (%)": [((rf_projections[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]]
         }
         proj_df = pd.DataFrame(proj_data)
 
-        # Apply conditional formatting to ROI column
+        # Apply conditional formatting to ROI columns
         def color_roi(val):
             if val > 0:
                 return 'color: #32CD32'
@@ -708,10 +794,18 @@ if calculate:
                 return 'color: #A9A9A9'
 
         styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
-            "Projected Value ($)": "${:,.2f}",
-            "ROI (%)": "{:.2f}%"
-        }).applymap(color_roi, subset=["ROI (%)"])
+            "Asset Value ($)": "${:,.2f}",
+            "Asset ROI (%)": "{:.2f}%",
+            "BTC Value ($)": "${:,.2f}",
+            "BTC ROI (%)": "{:.2f}%",
+            "Stablecoin Value ($)": "${:,.2f}",
+            "Stablecoin ROI (%)": "{:.2f}%"
+        }).applymap(color_roi, subset=["Asset ROI (%)", "BTC ROI (%)", "Stablecoin ROI (%)"])
+        
+        # Wrap the table in a container with horizontal scrolling
+        st.markdown('<div class="proj-table-container">', unsafe_allow_html=True)
         st.table(styled_proj_df)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # Line Plot
         with st.spinner("Generating chart..."):
