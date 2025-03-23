@@ -13,6 +13,8 @@ st.markdown("""
         border-radius: 10px;
         color: white;
         margin-bottom: 10px;
+        max-width: 300px;
+        min-height: 150px;
     }
     .metric-title {
         font-size: 16px;
@@ -31,6 +33,12 @@ st.markdown("""
     .red-text {
         color: #FF4D4D;
     }
+    .green-text {
+        color: #32CD32;
+    }
+    .yellow-text {
+        color: #FFD700;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -38,7 +46,7 @@ st.markdown("""
 st.title("Crypto Price and Risk Calculator")
 
 # Sidebar
-st.sidebar.markdown("**Instructions**: To get started, visit coingecko.com to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Enter the values below and adjust growth rates as needed.")
+st.sidebar.markdown("**Instructions**: To get started, visit coingecko.com to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Visit certik.com for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.")
 
 st.sidebar.header("Input Parameters")
 
@@ -59,11 +67,12 @@ def parse_market_value(value_str):
     except:
         return 0.0
 
-asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=1.0)
+asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=1.0, step=0.0001, format="%.4f")
 growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=10.0)
 market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="1000000")
 market_cap = parse_market_value(market_cap_input)
 st.sidebar.write(f"Parsed Market Cap: ${market_cap:,.2f}")
+st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional.")
 fdv_input = st.sidebar.text_input("Fully Diluted Valuation (FDV) ($)", value="2000000")
 fdv = parse_market_value(fdv_input)
 st.sidebar.write(f"Parsed FDV: ${fdv:,.2f}")
@@ -71,6 +80,9 @@ initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", mi
 btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=60000.0)
 btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate % (12 months)", min_value=-100.0, value=15.0)
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=5.0)
+volatility = st.sidebar.number_input("Volatility % (Annual)", min_value=0.0, max_value=100.0, value=50.0)
+certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=50.0)
+st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
 
 calculate = st.sidebar.button("Calculate")
 
@@ -91,37 +103,43 @@ if calculate:
     asset_values = [initial_investment * p / asset_price for p in asset_projections]
     btc_values = [initial_investment * p / btc_price for p in btc_projections]
     
-    # Monte Carlo Simulation
+    # Monte Carlo Simulation with Normal Distribution
     n_simulations = 200
+    monthly_volatility = volatility / 100 / np.sqrt(12)  # Annual volatility to monthly
+    monthly_expected_return = asset_monthly_rate
     simulations = []
     sim_paths = []
+    all_monthly_returns = []
+    
     for _ in range(n_simulations):
-        monthly_returns = np.random.uniform(-0.5, 0.5, months)  # ±50% monthly variation
+        monthly_returns = np.random.normal(monthly_expected_return, monthly_volatility, months)
         sim_prices = [initial_investment]
         for i in range(months):
             sim_prices.append(sim_prices[-1] * (1 + monthly_returns[i]))
         simulations.append(sim_prices[-1])
         sim_paths.append(sim_prices)
+        all_monthly_returns.extend(monthly_returns)
     
-    best_case = max(simulations)
-    worst_case = min(simulations)
+    # Use percentiles for worst, expected, and best cases
+    worst_case = np.percentile(simulations, 10)  # 10th percentile
     expected_case = np.mean(simulations)
+    best_case = np.percentile(simulations, 90)  # 90th percentile
     
     # Max Drawdown on worst-case Monte Carlo scenario
-    worst_path = sim_paths[np.argmin(simulations)]
+    worst_path = sim_paths[np.argmin([p[-1] for p in sim_paths])]
     peak = np.maximum.accumulate(worst_path)
     drawdowns = (peak - worst_path) / peak
     max_drawdown = max(drawdowns) * 100
 
-    # Dilution Risk (MCap/FDV ratio)
+    # Dilution Risk (remaining dilution percentage)
     if fdv > 0:
-        dilution_ratio = (market_cap / fdv) * 100
-        if dilution_ratio >= 80:
-            dilution_text = "✓ Low dilution risk: Most tokens already circulating."
-        elif dilution_ratio >= 50:
-            dilution_text = "⚠ Moderate dilution risk: Significant unlocks possible."
+        dilution_ratio = 100 - (market_cap / fdv) * 100
+        if dilution_ratio < 20:
+            dilution_text = "✓ Low dilution risk: Only a small portion of tokens remain to be released."
+        elif dilution_ratio < 50:
+            dilution_text = "⚠ Moderate dilution risk: A notable portion of tokens may be released."
         else:
-            dilution_text = "⚠ High dilution risk: Major dilution ahead."
+            dilution_text = "⚠ High dilution risk: Significant token releases expected."
     else:
         dilution_ratio = 0
         dilution_text = "⚠ FDV not provided, cannot assess dilution risk."
@@ -138,7 +156,97 @@ if calculate:
     else:
         mcap_text = "⚠ Very ambitious: Large market share required."
 
-    # Key Metrics (2x2 grid)
+    # Sharpe and Sortino Ratios
+    annual_return = (asset_values[-1] / initial_investment - 1)  # 12-month return
+    rf_annual = risk_free_rate / 100
+    std_dev = np.std(simulations) / initial_investment  # Standard deviation of final values
+    sharpe_ratio = (annual_return - rf_annual) / std_dev if std_dev > 0 else 0
+
+    # Downside standard deviation for Sortino
+    negative_returns = [r for r in all_monthly_returns if r < 0]
+    downside_std = np.std(negative_returns) if len(negative_returns) > 0 else 0
+    sortino_ratio = (annual_return - rf_annual) / downside_std if downside_std > 0 else 0
+
+    # Composite Risk Score
+    scores = {}
+    # Max Drawdown
+    if max_drawdown < 30:
+        scores['Max Drawdown'] = 100
+    elif max_drawdown < 50:
+        scores['Max Drawdown'] = 50
+    else:
+        scores['Max Drawdown'] = 0
+    
+    # Dilution Risk
+    if dilution_ratio < 20:
+        scores['Dilution Risk'] = 100
+    elif dilution_ratio < 50:
+        scores['Dilution Risk'] = 50
+    else:
+        scores['Dilution Risk'] = 0
+    
+    # MCap Growth Plausibility
+    if mcap_vs_btc < 1:
+        scores['MCap Growth'] = 100
+    elif mcap_vs_btc < 5:
+        scores['MCap Growth'] = 50
+    else:
+        scores['MCap Growth'] = 0
+    
+    # Sharpe Ratio
+    if sharpe_ratio > 1:
+        scores['Sharpe Ratio'] = 100
+    elif sharpe_ratio > 0:
+        scores['Sharpe Ratio'] = 50
+    else:
+        scores['Sharpe Ratio'] = 0
+    
+    # Sortino Ratio
+    if sortino_ratio > 1:
+        scores['Sortino Ratio'] = 100
+    elif sortino_ratio > 0:
+        scores['Sortino Ratio'] = 50
+    else:
+        scores['Sortino Ratio'] = 0
+    
+    # CertiK Score
+    certik_adjusted = 50 if certik_score == 0 else certik_score
+    if certik_adjusted >= 70:
+        scores['CertiK Score'] = 100
+    elif certik_adjusted >= 40:
+        scores['CertiK Score'] = 50
+    else:
+        scores['CertiK Score'] = 0
+    
+    # Market Cap
+    if market_cap >= 1_000_000_000:
+        scores['Market Cap'] = 100
+    elif market_cap >= 10_000_000:
+        scores['Market Cap'] = 50
+    else:
+        scores['Market Cap'] = 0
+
+    composite_score = sum(scores.values()) / len(scores)
+    if composite_score >= 70:
+        color_class = "green-text"
+        insight = "Low overall risk: This asset appears to be a relatively safe investment with strong risk-adjusted returns and low dilution risk."
+    elif composite_score >= 40:
+        color_class = "yellow-text"
+        insight = "Moderate overall risk: Consider the specific risks (e.g., drawdown, dilution) before investing. Diversification may help."
+    else:
+        color_class = "red-text"
+        insight = "High overall risk: This asset carries significant risks. Proceed with caution or explore safer alternatives."
+
+    # Composite Risk Score
+    st.subheader("Composite Risk Assessment")
+    st.markdown(f"""
+        <div>
+            <div style="font-size: 20px; font-weight: bold;">Composite Risk Score: <span class="{color_class}">{composite_score:.1f}</span></div>
+            <div style="font-size: 14px; margin-top: 5px;">{insight}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Key Metrics (3x2 grid)
     st.subheader("Key Metrics")
     col1, col2 = st.columns(2)
     
@@ -158,12 +266,20 @@ if calculate:
                 <div class="metric-desc">Maximum peak-to-trough decline in the worst-case scenario over 12 months.</div>
             </div>
         """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📊 Sharpe Ratio</div>
+                <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
+                <div class="metric-desc">Risk-adjusted return. >1 indicates good performance relative to risk.</div>
+            </div>
+        """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">⚖️ Dilution Risk</div>
-                <div class="metric-value {'red-text' if dilution_ratio < 50 else ''}">{dilution_ratio:.2f}%</div>
+                <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
                 <div class="metric-desc">{dilution_text}</div>
             </div>
         """, unsafe_allow_html=True)
@@ -173,6 +289,14 @@ if calculate:
                 <div class="metric-title">📈 MCap Growth Plausibility</div>
                 <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
                 <div class="metric-desc">{mcap_text}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📉 Sortino Ratio</div>
+                <div class="metric-value {'red-text' if sortino_ratio < 0 else ''}">{sortino_ratio:.2f}</div>
+                <div class="metric-desc">Downside risk-adjusted return. >1 indicates good performance relative to downside risk.</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -219,7 +343,7 @@ if calculate:
     This gives you a practical snapshot of your investment’s potential over the next year.
     """)
     
-    # Table with corrected styling
+    # Table
     mc_data = {
         "Scenario": ["Worst Case", "Expected Case", "Best Case"],
         "Projected Value ($)": [worst_case, expected_case, best_case],
@@ -227,7 +351,6 @@ if calculate:
     }
     mc_df = pd.DataFrame(mc_data)
     
-    # Define a function to apply row-wise styling
     def highlight_rows(row):
         if row['Scenario'] == 'Worst Case':
             return ['background: #FF4D4D'] * len(row)
