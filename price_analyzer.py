@@ -106,14 +106,13 @@ st.markdown("""
         max-width: 90%;
         padding-top: 50px;
         padding-bottom: 30px;
-        background-color: #1E2A44; /* Match app's background to blend with logo's dark background */
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Display the logo
+# Display the logo using the raw URL
 st.markdown(
-    f'<div><img src="arta_logo.png" class="large-logo" width="600"></div>',
+    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
     unsafe_allow_html=True
 )
 
