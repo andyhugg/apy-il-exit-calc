@@ -135,7 +135,7 @@ st.markdown("""
 
 # Sidebar
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Input Parameters")
@@ -438,7 +438,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Key Metrics (4x2 grid with 8 cards, Fear and Greed removed)
+        # Key Metrics (4x2 grid with 8 cards)
         st.subheader("Key Metrics")
         col1, col2 = st.columns(2)
         
@@ -480,7 +480,12 @@ if calculate:
                 <div class="metric-tile">
                     <div class="metric-title">⚖️ Dilution Risk</div>
                     <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
-                    <div class="metric-desc">This shows how much the token's value might drop if more tokens are released. A higher percentage means more new tokens could flood the market, lowering the price.</div>
+                    <div class="metric-desc">This shows the percentage of tokens yet to be released, which could dilute the value of your investment by flooding the market and lowering the price. A higher percentage indicates greater risk of price drops due to future token releases.<br>
+                    <b>Actionable Insight:</b><br>
+                    - <b>Low Risk (&lt;20%)</b>: Minimal dilution expected—proceed with confidence but monitor for unexpected token releases.<br>
+                    - <b>Moderate Risk (20–50%)</b>: Be cautious. Research the token’s unlock schedule on platforms like TokenUnlocks or the project’s whitepaper to understand release timelines. Consider reducing your position size if large unlocks are imminent.<br>
+                    - <b>High Risk (&gt;50%)</b>: Significant dilution risk. Prioritize assets with lower dilution risk or wait for token releases to occur and stabilize before investing. If you hold this asset, monitor market reactions to unlocks closely and be prepared for price volatility.
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -488,7 +493,13 @@ if calculate:
                 <div class="metric-tile">
                     <div class="metric-title">📈 MCap Growth Plausibility</div>
                     <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
-                    <div class="metric-desc">This checks if the asset's projected growth is realistic compared to Bitcoin's market size. A high percentage means the asset would need a huge market share, which might be hard to achieve.</div>
+                    <div class="metric-desc">This measures the asset’s projected market cap as a percentage of Bitcoin’s market cap to assess if the expected growth is realistic. A high percentage means the asset would need to capture a large market share, which may be challenging.<br>
+                    <b>Actionable Insight:</b><br>
+                    - <b>Plausible (&lt;1%)</b>: The projected growth is realistic, requiring only a small market share. This asset may be a safer bet for achieving your growth expectations.<br>
+                    - <b>Ambitious (1–5%)</b>: The growth is possible but requires significant adoption. Compare this asset to similar projects (e.g., on CoinMarketCap) to see if others in its category have achieved this market share. Consider diversifying to reduce risk.<br>
+                    - <b>Very Ambitious (&gt;5%)</b>: The growth is highly ambitious and may be unrealistic without major catalysts (e.g., partnerships, adoption). Reassess your growth rate assumption—try lowering it in the input to see if the projection becomes more plausible. Alternatively, focus on assets with more achievable growth targets.<br>
+                    <b>Context:</b> For reference, top altcoins like Ethereum typically have a market cap around 20–25% of Bitcoin’s, while projects like BNB are around 5–7% (based on early 2025 data). If this is a layer-1 blockchain, compare it to projects like Solana or Avalanche on CoinMarketCap to gauge if this market share is achievable.
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
             
