@@ -4,23 +4,26 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS for shading insights and alerts
+# Custom CSS for shading insights and alerts with improved colors
 st.markdown("""
     <style>
     .red-background {
-        background-color: #ffcccc;
+        background-color: #ff6666;  /* Darker red for better contrast */
+        color: white;  /* White text for readability */
         padding: 10px;
         border-radius: 5px;
         margin-bottom: 10px;
     }
     .yellow-background {
-        background-color: #fff4cc;
+        background-color: #ffcc66;  /* Deeper yellow for better readability */
+        color: black;  /* Black text for contrast */
         padding: 10px;
         border-radius: 5px;
         margin-bottom: 10px;
     }
     .green-background {
-        background-color: #ccffcc;
+        background-color: #66cc66;  /* Brighter green for clarity */
+        color: white;  /* White text for readability */
         padding: 10px;
         border-radius: 5px;
         margin-bottom: 10px;
@@ -42,13 +45,13 @@ st.title("Crypto Price and Risk Calculator")
 # Sidebar inputs
 st.sidebar.header("Input Parameters")
 
-asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=84000.0)
-growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=35.0)
+asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=0.02)
+growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=50.0)
 initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=1000.0)
-btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=60000.0)
+btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=84000.0)
 btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate %", min_value=-100.0, value=15.0)
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=10.0)
-volatility = st.sidebar.number_input("Expected Monthly Volatility %", min_value=0.0, value=3.0) / 100  # Convert to decimal
+volatility = st.sidebar.number_input("Expected Monthly Volatility %", min_value=0.0, value=25.0) / 100  # Convert to decimal
 time_horizon = st.sidebar.number_input("Time Horizon (Months)", min_value=1, value=12)
 
 # Market Cap Selector
@@ -99,9 +102,11 @@ if calculate:
 
     # Calculations
     months = time_horizon
-    asset_monthly_rate = (1 + growth_rate/100) ** (1/months) - 1
-    btc_monthly_rate = (1 + btc_growth/100) ** (1/months) - 1
-    rf_monthly_rate = (1 + risk_free_rate/100) ** (1/months) - 1
+    
+    # Corrected monthly growth rate calculations (annual rate to monthly rate)
+    asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1  # Convert annual rate to monthly
+    btc_monthly_rate = (1 + btc_growth/100) ** (1/12) - 1
+    rf_monthly_rate = (1 + risk_free_rate/100) ** (1/12) - 1
     
     # Standard price projections (without volatility) for the chart
     asset_projections = [asset_price * (1 + asset_monthly_rate) ** i for i in range(months + 1)]
@@ -224,6 +229,9 @@ if calculate:
     sns.lineplot(data=df_proj, x='Month', y='Bitcoin Price', label='Bitcoin')
     sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin')
     plt.title(f'Price Projections Over {months} Months')
+    # Use a logarithmic scale for the y-axis to better visualize small values
+    plt.yscale('log')
+    plt.ylim(bottom=0.01)  # Set a minimum y-value to avoid log(0) issues
     plt.legend()
     st.pyplot(plt)
     plt.clf()
