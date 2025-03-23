@@ -104,7 +104,7 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
         max-width: 90%;
-        padding-top: 50px;
+        padding-top: 20px; /* Reduced from 50px to 20px to reduce white space above */
         padding-bottom: 30px;
     }
     </style>
