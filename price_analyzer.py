@@ -116,7 +116,6 @@ st.markdown("""
         padding-top: 20px;
         padding-bottom: 30px;
     }
-    /* Responsive design for smaller screens */
     @media (max-width: 768px) {
         .metric-tile {
             flex-direction: column;
@@ -166,9 +165,7 @@ st.sidebar.header("Input Parameters")
 # Function to parse MCap, FDV, and Circulating Supply inputs
 def parse_market_value(value_str):
     try:
-        # Remove commas and convert to lowercase
         value_str = value_str.replace(",", "").lower()
-        # Handle suffixes (b, m, k)
         if value_str.endswith("b"):
             return float(value_str[:-1]) * 1_000_000_000
         elif value_str.endswith("m"):
@@ -181,7 +178,18 @@ def parse_market_value(value_str):
         return 0.0
 
 asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=0.0, step=0.0001, format="%.4f")
-volatility = st.sidebar.number_input("Asset Volatility % (Annual)", min_value=0.0, max_value=100.0, value=0.0)
+volatility = st.sidebar.number_input(
+    "Asset Volatility % (Annual) [Optional]",
+    min_value=0.0,
+    max_value=100.0,
+    value=0.0,
+    help="Enter the asset's annual volatility (e.g., 50% for AVAX). Leave as 0 to derive volatility from the Fear and Greed Index."
+)
+st.sidebar.markdown(
+    "**Note**: If Asset Volatility is not provided (left as 0), it will default based on the Fear and Greed Index: "
+    "Extreme Fear (≤ 24): 75%, Fear (25–49): 60%, Neutral (50): 40%, Greed (51–74): 50%, Extreme Greed (≥ 75): 70%. "
+    "These defaults reflect typical crypto market volatility under different sentiment conditions."
+)
 certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=0.0)
 st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
 fear_and_greed = st.sidebar.number_input("Fear and Greed Index (0–100)", min_value=0.0, max_value=100.0, value=50.0)
@@ -246,22 +254,60 @@ if calculate:
         
         # Monte Carlo Simulation with caching
         @st.cache_data
-        def run_monte_carlo(initial_investment, growth_rate, volatility, months, n_simulations=200):
-            max_annual_return = growth_rate / 100
-            monthly_volatility = volatility / 100 / np.sqrt(12) if volatility > 0 else 0.1
-            monthly_expected_return = (1 + growth_rate/100) ** (1/12) - 1
+        def run_monte_carlo(initial_investment, growth_rate, volatility, months, fear_and_greed, n_simulations=200):
+            expected_annual_return = growth_rate / 100
+            
+            # If volatility is not provided (0), derive from Fear and Greed
+            if volatility == 0:
+                if fear_and_greed <= 24:
+                    volatility_value = 0.75  # Extreme Fear: 75%
+                elif fear_and_greed <= 49:
+                    volatility_value = 0.60  # Fear: 60%
+                elif fear_and_greed == 50:
+                    volatility_value = 0.40  # Neutral: 40%
+                elif fear_and_greed <= 74:
+                    volatility_value = 0.50  # Greed: 50%
+                else:
+                    volatility_value = 0.70  # Extreme Greed: 70%
+            else:
+                volatility_value = volatility / 100
+            
+            # Adjust volatility based on Fear and Greed
+            if fear_and_greed <= 49:
+                volatility_adjustment = 1.2
+            elif fear_and_greed > 50:
+                volatility_adjustment = 1.1
+            else:
+                volatility_adjustment = 1.0
+            adjusted_volatility = volatility_value * volatility_adjustment
+            monthly_volatility = adjusted_volatility / np.sqrt(12) if adjusted_volatility > 0 else 0.1
+            
+            # Center the return distribution around the expected growth rate
+            lower_bound = expected_annual_return - adjusted_volatility
+            upper_bound = expected_annual_return + adjusted_volatility
+            
+            monthly_expected_return = (1 + expected_annual_return) ** (1/12) - 1
             simulations = []
             sim_paths = []
             all_monthly_returns = []
             
             for _ in range(n_simulations):
-                annual_return = np.random.uniform(-volatility/100, max_annual_return)
+                if fear_and_greed <= 49:
+                    alpha, beta = 2, 5
+                elif fear_and_greed > 50:
+                    alpha, beta = 5, 2
+                else:
+                    alpha, beta = 2, 2
+                
+                raw_return = np.random.beta(alpha, beta)
+                annual_return = lower_bound + (upper_bound - lower_bound) * raw_return
+                
                 monthly_base_return = (1 + annual_return) ** (1/12) - 1
                 monthly_returns = np.random.normal(monthly_base_return, monthly_volatility/2, months)
                 sim_prices = [initial_investment]
                 for i in range(months):
                     sim_prices.append(sim_prices[-1] * (1 + monthly_returns[i]))
-                max_allowed_value = initial_investment * (1 + max_annual_return)
+                max_allowed_value = initial_investment * (1 + expected_annual_return + adjusted_volatility)
                 sim_prices[-1] = min(sim_prices[-1], max_allowed_value)
                 simulations.append(sim_prices[-1])
                 sim_paths.append(sim_prices)
@@ -269,7 +315,7 @@ if calculate:
             
             return simulations, sim_paths, all_monthly_returns
 
-        simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, volatility, months)
+        simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, volatility, months, fear_and_greed, n_simulations=200)
         
         # Use percentiles for worst, expected, and best cases
         worst_case = np.percentile(simulations, 10)  # 10th percentile
@@ -644,11 +690,12 @@ if calculate:
         # Simplified Monte Carlo Analysis
         st.subheader("Simplified Monte Carlo Analysis")
         st.markdown("""
-        The **Simplified Monte Carlo Analysis** helps you understand the range of potential outcomes for your investment over the next 12 months by simulating 200 different scenarios. We generate random price paths based on your inputted volatility and expected growth rate, with monthly variations to reflect market uncertainty. To keep results realistic, we cap the maximum return at your inputted price projection (e.g., if you expect 50% growth, the best-case scenario won’t exceed that). This analysis is crucial in crypto investing as it highlights the best-case, expected-case, and worst-case scenarios, helping you assess risk and make informed decisions in a highly volatile market.
+        The **Simplified Monte Carlo Analysis** helps you understand the range of potential outcomes for your investment over the next 12 months by simulating 200 different scenarios. We generate random price paths based on your inputted volatility (or a default derived from the Fear and Greed Index) and expected growth rate, with monthly variations to reflect market uncertainty. The Fear and Greed Index adjusts the distribution of returns: a fearful market (≤ 49) skews returns towards the lower end (reflecting higher downside risk but potential for recovery), while a greedy market (> 50) skews returns higher (reflecting speculative growth but risk of corrections). To keep results realistic, we cap the maximum return at your inputted price projection plus volatility. This analysis is crucial in crypto investing as it highlights the best-case, expected-case, and worst-case scenarios, helping you assess risk and make informed decisions in a highly volatile market.
         """)
         st.markdown("""
-        - **Expected Case**: The result using your inputs (growth rate), with randomization.  
+        - **Expected Case**: The average result across all simulations, adjusted for market sentiment via the Fear and Greed Index.  
         - **Best Case**: The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
+        - **Worst Case**: The 10th percentile (20th lowest of 200 runs)—a pessimistic but realistic scenario.  
         This gives you a practical snapshot of your investment’s potential over the next year.
         """)
         
