@@ -93,8 +93,7 @@ st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
 
 # Introduction and Disclaimer
 st.markdown("""
-Arta means "wealth" in Indonesian — and that's exactly what this tool is built to help you understand and protect.  
-Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time.  
+Arta means "wealth" in Indonesian — and that's exactly what this tool is built to help you understand and protect. Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time.  
 Built for precision. Backed by clarity. Powered by discipline.
 """)
 
