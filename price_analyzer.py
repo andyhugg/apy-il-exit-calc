@@ -32,11 +32,11 @@ st.markdown("""
         min-width: 150px;
     }
     .metric-value {
-        font-size: 24px; /* Reduced from 28px to prevent overlap */
+        font-size: 24px;
         font-weight: bold;
         width: 20%;
-        min-width: 150px; /* Increased from 100px to accommodate longer text */
-        white-space: normal; /* Allow text wrapping */
+        min-width: 150px;
+        white-space: normal;
         word-wrap: break-word;
     }
     .metric-desc {
@@ -75,7 +75,7 @@ st.markdown("""
         background-color: #32CD32;
     }
     .proj-table-container {
-        overflow-x: auto; /* Allow horizontal scrolling on small screens */
+        overflow-x: auto;
         max-width: 100%;
     }
     .proj-table {
@@ -92,7 +92,7 @@ st.markdown("""
         text-align: center;
         color: white;
         border: 1px solid #2A3555;
-        font-size: 14px; /* Reduced font size for better fit */
+        font-size: 14px;
     }
     .proj-table th {
         background-color: #1E2A44;
@@ -134,13 +134,13 @@ st.markdown("""
             min-width: 0;
         }
         .metric-value {
-            font-size: 20px; /* Further reduce font size on mobile */
+            font-size: 20px;
         }
         .metric-desc {
             max-height: 150px;
         }
         .proj-table th, .proj-table td {
-            font-size: 12px; /* Smaller font on mobile */
+            font-size: 12px;
             padding: 8px;
         }
     }
@@ -202,7 +202,7 @@ volatility = st.sidebar.number_input(
 )
 st.sidebar.markdown(
     "**Note**: If Asset Volatility is not provided (left as 0), it will default based on the Fear and Greed Index: "
-    "Extreme Fear (≤ 24): 75%, Fear (25–49): 60%, Neutral (50): 40%, Greed (51–74): 50%, Extreme Greed (≥ 75): 70%. "
+    "Extreme Fear (≤ 24): 75%, Fear (25–49): 60%, Neutral (50): 40%, Greed (51–74): 50%, Extreme Greed (≥ 75): 70-wingspan%. "
     "These defaults reflect typical crypto market volatility under different sentiment conditions."
 )
 certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=0.0)
@@ -248,6 +248,12 @@ if calculate:
     elif market_cap == 0 and (circulating_supply == 0 or asset_price == 0):
         st.error("Please provide either Market Cap or both Circulating Supply and Asset Price to calculate Market Cap.")
     else:
+        # Validate Circulating Supply vs. Max Supply
+        if max_supply > 0 and circulating_supply > 0:
+            supply_ratio_check = circulating_supply / max_supply
+            if supply_ratio_check < 0.01:  # If Circulating Supply is less than 1% of Max Supply, likely an input error
+                st.warning("The Circulating Supply appears to be much smaller than the Max Supply (less than 1%). Did you mean to enter the Circulating Supply in millions (e.g., '555.54m' for 555.54 million)? Please double-check your inputs.")
+
         # Calculate Market Cap if not provided
         if market_cap == 0 and circulating_supply > 0 and asset_price > 0:
             market_cap = circulating_supply * asset_price
@@ -772,35 +778,50 @@ if calculate:
         st.subheader("Projected Investment Value Over Time")
         st.markdown("**Note**: The projected values reflect the growth of your initial investment in the asset, Bitcoin, and a stablecoin pool, adjusted for their respective expected growth rates.")
         
-        # Table for months 0, 3, 6, 12 with BTC and Stablecoin results
+        # Transposed table: Metrics as rows, Time Periods as columns
         proj_data = {
-            "Time Period (Months)": [0, 3, 6, 12],
-            "Asset Value ($)": [asset_values[i] for i in [0, 3, 6, 12]],
-            "Asset ROI (%)": [((asset_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]],
-            "BTC Value ($)": [btc_values[i] for i in [0, 3, 6, 12]],
-            "BTC ROI (%)": [((btc_values[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]],
-            "Stablecoin Value ($)": [rf_projections[i] for i in [0, 3, 6, 12]],
-            "Stablecoin ROI (%)": [((rf_projections[i] / initial_investment) - 1) * 100 for i in [0, 3, 6, 12]]
+            "Metric": ["Asset Value ($)", "Asset ROI (%)", "BTC Value ($)", "BTC ROI (%)", "Stablecoin Value ($)", "Stablecoin ROI (%)"],
+            "Month 0": [
+                asset_values[0], ((asset_values[0] / initial_investment) - 1) * 100,
+                btc_values[0], ((btc_values[0] / initial_investment) - 1) * 100,
+                rf_projections[0], ((rf_projections[0] / initial_investment) - 1) * 100
+            ],
+            "Month 3": [
+                asset_values[3], ((asset_values[3] / initial_investment) - 1) * 100,
+                btc_values[3], ((btc_values[3] / initial_investment) - 1) * 100,
+                rf_projections[3], ((rf_projections[3] / initial_investment) - 1) * 100
+            ],
+            "Month 6": [
+                asset_values[6], ((asset_values[6] / initial_investment) - 1) * 100,
+                btc_values[6], ((btc_values[6] / initial_investment) - 1) * 100,
+                rf_projections[6], ((rf_projections[6] / initial_investment) - 1) * 100
+            ],
+            "Month 12": [
+                asset_values[12], ((asset_values[12] / initial_investment) - 1) * 100,
+                btc_values[12], ((btc_values[12] / initial_investment) - 1) * 100,
+                rf_projections[12], ((rf_projections[12] / initial_investment) - 1) * 100
+            ]
         }
         proj_df = pd.DataFrame(proj_data)
 
-        # Apply conditional formatting to ROI columns
-        def color_roi(val):
-            if val > 0:
-                return 'color: #32CD32'
-            elif val < 0:
-                return 'color: #FF4D4D'
-            else:
-                return 'color: #A9A9A9'
+        # Apply conditional formatting to ROI rows
+        def color_roi(val, row_idx):
+            if "ROI" in proj_df.iloc[row_idx]["Metric"]:
+                if val > 0:
+                    return 'color: #32CD32'
+                elif val < 0:
+                    return 'color: #FF4D4D'
+                else:
+                    return 'color: #A9A9A9'
+            return ''
 
+        # Apply formatting and styling
         styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
-            "Asset Value ($)": "${:,.2f}",
-            "Asset ROI (%)": "{:.2f}%",
-            "BTC Value ($)": "${:,.2f}",
-            "BTC ROI (%)": "{:.2f}%",
-            "Stablecoin Value ($)": "${:,.2f}",
-            "Stablecoin ROI (%)": "{:.2f}%"
-        }).applymap(color_roi, subset=["Asset ROI (%)", "BTC ROI (%)", "Stablecoin ROI (%)"])
+            "Month 0": lambda x: "${:,.2f}".format(x) if "Value" in proj_df.iloc[proj_df.index[proj_df['Month 0'] == x].tolist()[0]]["Metric"] else "{:.2f}%".format(x),
+            "Month 3": lambda x: "${:,.2f}".format(x) if "Value" in proj_df.iloc[proj_df.index[proj_df['Month 3'] == x].tolist()[0]]["Metric"] else "{:.2f}%".format(x),
+            "Month 6": lambda x: "${:,.2f}".format(x) if "Value" in proj_df.iloc[proj_df.index[proj_df['Month 6'] == x].tolist()[0]]["Metric"] else "{:.2f}%".format(x),
+            "Month 12": lambda x: "${:,.2f}".format(x) if "Value" in proj_df.iloc[proj_df.index[proj_df['Month 12'] == x].tolist()[0]]["Metric"] else "{:.2f}%".format(x)
+        }).apply(lambda row: [color_roi(row["Month 0"], row.name), color_roi(row["Month 3"], row.name), color_roi(row["Month 6"], row.name), color_roi(row["Month 12"], row.name), ''], axis=1)
         
         # Wrap the table in a container with horizontal scrolling
         st.markdown('<div class="proj-table-container">', unsafe_allow_html=True)
