@@ -99,8 +99,23 @@ st.markdown("""
         margin-bottom: 20px;
         font-style: italic;
     }
+    .large-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 90%;
+        padding-top: 50px;
+        padding-bottom: 30px;
+        background-color: #1E2A44; /* Match app's background to blend with logo's dark background */
+    }
     </style>
 """, unsafe_allow_html=True)
+
+# Display the logo
+st.markdown(
+    f'<div><img src="arta_logo.png" class="large-logo" width="600"></div>',
+    unsafe_allow_html=True
+)
 
 # Title
 st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
