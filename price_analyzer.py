@@ -107,7 +107,9 @@ st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
 
 # Introduction and Disclaimer
 st.markdown("""
-Arta means "wealth" in Indonesian — and that's exactly what this tool is built to help you understand and protect. Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. 
+Arta means "wealth" in Indonesian — and that's exactly what this tool is built to help you understand and protect.  
+Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk.  
+Run scenarios, test your assumptions, and sharpen your edge — all in real time.  
 **Arta: Know the Price. Master the Risk.**
 """)
 
@@ -224,6 +226,9 @@ if calculate:
         drawdowns = (peak - worst_path) / peak
         max_drawdown = max(drawdowns) * 100
 
+        # Calculate break-even percentage for Max Drawdown
+        break_even_percentage = (max_drawdown / (100 - max_drawdown)) * 100
+
         # Dilution Risk (remaining dilution percentage)
         if fdv > 0:
             dilution_ratio = 100 - (market_cap / fdv) * 100
@@ -259,6 +264,10 @@ if calculate:
         negative_returns = [r for r in all_monthly_returns if r < 0]
         downside_std = np.std(negative_returns) if len(negative_returns) > 0 else 0
         sortino_ratio = (annual_return - rf_annual) / downside_std if downside_std > 0 else 0
+
+        # Hurdle Rate vs. Bitcoin
+        hurdle_rate = (risk_free_rate + 6) * 2  # (Risk-Free Rate + 6% inflation) * 2
+        btc_vs_hurdle = btc_growth - hurdle_rate  # Difference between Bitcoin growth and hurdle rate
 
         # Composite Risk Score
         scores = {}
@@ -363,7 +372,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Key Metrics (3x2 grid)
+        # Key Metrics (4x2 grid to accommodate the new card)
         st.subheader("Key Metrics")
         col1, col2 = st.columns(2)
         
@@ -380,7 +389,7 @@ if calculate:
                 <div class="metric-tile">
                     <div class="metric-title">📉 Max Drawdown</div>
                     <div class="metric-value {'red-text' if max_drawdown > 30 else ''}">{max_drawdown:.2f}%</div>
-                    <div class="metric-desc">This shows the biggest potential loss you might face in a worst-case scenario over 12 months. A higher percentage means more risk of losing value during a market dip.</div>
+                    <div class="metric-desc">Derived from the Simplified Monte Carlo Analysis, this shows the biggest potential loss you might face in a worst-case scenario over 12 months. A higher percentage means more risk of losing value during a market dip. To recover from this drawdown, your investment would need to increase by {break_even_percentage:.2f}% from its lowest point.</div>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -389,6 +398,14 @@ if calculate:
                     <div class="metric-title">📊 Sharpe Ratio</div>
                     <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
                     <div class="metric-desc">This measures how much extra return you get for the risk you're taking. Above 1 is good—it means you're getting a nice reward for the risk. Below 0 means the risk might not be worth it.</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
+                    <div class="metric-value {'green-text' if btc_vs_hurdle < 0 else 'red-text'}">{btc_vs_hurdle:.2f}%</div>
+                    <div class="metric-desc">This is the minimum return your investment needs to achieve to justify its risk compared to holding Bitcoin. It’s calculated as the stablecoin pool risk-free rate plus 6% inflation, doubled. A negative value means Bitcoin’s expected growth ({btc_growth:.2f}%) is below the hurdle rate ({hurdle_rate:.2f}%), making the investment more attractive.</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -467,8 +484,11 @@ if calculate:
             st.pyplot(plt)
             plt.clf()
 
-        # Monte Carlo Results
-        st.subheader("Monte Carlo Scenarios - 12 Month Investment Value")
+        # Simplified Monte Carlo Analysis
+        st.subheader("Simplified Monte Carlo Analysis")
+        st.markdown("""
+        The **Simplified Monte Carlo Analysis** helps you understand the range of potential outcomes for your investment over the next 12 months by simulating 200 different scenarios. We generate random price paths based on your inputted volatility and expected growth rate, with monthly variations to reflect market uncertainty. To keep results realistic, we cap the maximum return at your inputted price projection (e.g., if you expect 50% growth, the best-case scenario won’t exceed that). This analysis is crucial in crypto investing as it highlights the best-case, expected-case, and worst-case scenarios, helping you assess risk and make informed decisions in a highly volatile market.
+        """)
         st.markdown("""
         - **Expected Case**: The result using your inputs (growth rate), with randomization.  
         - **Best Case**: The 90th percentile (20th highest of 200 runs)—a strong outcome, not the absolute best.  
@@ -502,7 +522,7 @@ if calculate:
             plt.axvline(expected_case, color='#FFD700', label='Expected Case', linewidth=2)
             plt.axvline(best_case, color='#32CD32', label='Best Case', linewidth=2)
             plt.axvline(initial_investment, color='#1E2A44', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
-            plt.title("Monte Carlo Scenarios - 12 Month Investment Value")
+            plt.title("Simplified Monte Carlo Analysis - 12 Month Investment Value")
             plt.xlabel("Value ($)")
             plt.ylabel("Frequency")
             plt.legend()
