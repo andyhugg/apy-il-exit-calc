@@ -162,7 +162,10 @@ volatility = st.sidebar.number_input("Asset Volatility % (Annual)", min_value=0.
 certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=0.0)
 st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
 fear_and_greed = st.sidebar.number_input("Fear and Greed Index (0–100)", min_value=0.0, max_value=100.0, value=50.0)
-st.sidebar.markdown("**Note**: Find the current Fear and Greed Index on <a href='https://coinmarketcap.com' target='_blank'>coinmarketcap.com</a>. Enter 50 if unavailable (neutral sentiment).")
+st.sidebar.markdown(
+    "**Note**: Find the current Fear and Greed Index on <a href='https://coinmarketcap.com' target='_blank'>coinmarketcap.com</a>. Enter 50 if unavailable (neutral sentiment).",
+    unsafe_allow_html=True
+)
 growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=0.0)
 market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="")
 market_cap = parse_market_value(market_cap_input)
@@ -435,7 +438,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Key Metrics (4x2 grid with 8 cards, now 5x2 with Fear and Greed)
+        # Key Metrics (4x2 grid with 8 cards, Fear and Greed removed)
         st.subheader("Key Metrics")
         col1, col2 = st.columns(2)
         
@@ -469,14 +472,6 @@ if calculate:
                     <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
                     <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}% ({hurdle_label})</div>
                     <div class="metric-desc">This shows how much your asset’s expected growth ({growth_rate:.2f}%) beats—or falls short of—the minimum return needed to justify its risk compared to holding Bitcoin (hurdle rate: {hurdle_rate:.2f}%). Your asset {'exceeds' if asset_vs_hurdle >= 0 else 'falls short of'} the hurdle by {abs(asset_vs_hurdle):.2f}% ({hurdle_label}), making it a {'potentially better choice than Bitcoin' if asset_vs_hurdle >= 0 else 'less attractive option compared to Bitcoin'}. Bitcoin has an expected growth of {btc_growth:.2f}%. A value above 20% indicates a strong case for choosing this asset over Bitcoin, while 0–20% suggests a moderate case. Below 0% means Bitcoin is likely the safer choice with less risk.</div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-                <div class="metric-tile">
-                    <div class="metric-title">😨 Fear and Greed Index</div>
-                    <div class="metric-value {'red-text' if fear_and_greed >= 75 else 'yellow-text' if fear_and_greed >= 51 else 'green-text' if fear_and_greed <= 24 else 'neutral-text'}">{fear_and_greed:.1f} ({fear_greed_classification})</div>
-                    <div class="metric-desc">This measures market sentiment on a scale from 0 (Extreme Fear) to 100 (Extreme Greed). Extreme Fear may indicate a buying opportunity due to overselling, while Extreme Greed may signal an overheated market due for a correction.</div>
                 </div>
             """, unsafe_allow_html=True)
         
