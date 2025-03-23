@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import re
 
 # Custom CSS for styling alerts, tables, and headers
 st.markdown("""
@@ -82,7 +83,8 @@ default_values = {
     "risk_free_rate": 10.0,
     "volatility": 25.0,
     "time_horizon": 12,
-    "market_cap_selection": "Less than $100M (Ultra High Risk)",
+    "market_cap_input": "0.05B",
+    "fdv_input": "0.1B",
     "investor_profile": "Bitcoin Strategy"
 }
 
@@ -160,33 +162,20 @@ time_horizon = st.sidebar.number_input(
 )
 st.session_state.inputs["time_horizon"] = time_horizon
 
-# Market Cap Selector
-market_cap_options = [
-    "Less than $100M (Ultra High Risk)",
-    "$100M to $500M (Very High Risk)",
-    "$500M to $1B (High Risk)",
-    "$1B to $5B (Moderate Risk)",
-    "$5B to $10B (Low Risk)",
-    "$10B or more (Very Low Risk)"
-]
-market_cap_selection = st.sidebar.selectbox(
-    "Market Cap Range",
-    market_cap_options,
-    index=market_cap_options.index(st.session_state.inputs["market_cap_selection"]),
-    help="The market cap range of the asset, which affects its risk level."
+# Market Cap and FDV Inputs
+market_cap_input = st.sidebar.text_input(
+    "Market Cap (e.g., 138.17B, 1.66T, 1.5M)",
+    value=st.session_state.inputs["market_cap_input"],
+    help="Enter the market cap of the asset (e.g., 138.17B for 138.17 billion, 1.66T for 1.66 trillion, 1.5M for 1.5 million)."
 )
-st.session_state.inputs["market_cap_selection"] = market_cap_selection
+st.session_state.inputs["market_cap_input"] = market_cap_input
 
-# Map selection to a market cap value (in billions) for risk score calculation
-market_cap_mapping = {
-    "Less than $100M (Ultra High Risk)": 0.05,  # Midpoint of range
-    "$100M to $500M (Very High Risk)": 0.3,
-    "$500M to $1B (High Risk)": 0.75,
-    "$1B to $5B (Moderate Risk)": 3.0,
-    "$5B to $10B (Low Risk)": 7.5,
-    "$10B or more (Very Low Risk)": 15.0
-}
-market_cap = market_cap_mapping[market_cap_selection]
+fdv_input = st.sidebar.text_input(
+    "Fully Diluted Value (e.g., 138.17B, 1.66T, 1.5M)",
+    value=st.session_state.inputs["fdv_input"],
+    help="Enter the fully diluted value of the asset (e.g., 138.17B for 138.17 billion, 1.66T for 1.66 trillion, 1.5M for 1.5 million)."
+)
+st.session_state.inputs["fdv_input"] = fdv_input
 
 # Investor Profile Selector
 investor_profile = st.sidebar.selectbox(
@@ -199,24 +188,68 @@ st.session_state.inputs["investor_profile"] = investor_profile
 
 calculate = st.sidebar.button("Calculate")
 
+# Function to parse market cap and FDV inputs
+def parse_market_value(value_str, default_value):
+    # Trim whitespace and convert suffix to uppercase
+    value_str = value_str.strip()
+    if not value_str:
+        st.sidebar.error("Please enter a valid market cap or FDV (e.g., 138.17B, 1.66T, 1.5M)")
+        return default_value
+    
+    # Regular expression to match the format (e.g., 138.17B, 1.5M, 1.66T)
+    pattern = r'^\d*\.?\d+[MBT]$'
+    if not re.match(pattern, value_str):
+        st.sidebar.error("Please enter a valid market cap or FDV (e.g., 138.17B, 1.66T, 1.5M)")
+        return default_value
+    
+    # Split numerical part and suffix
+    suffix = value_str[-1].upper()
+    num_part = value_str[:-1]
+    
+    try:
+        num_value = float(num_part)
+    except ValueError:
+        st.sidebar.error("Please enter a valid numerical value for market cap or FDV")
+        return default_value
+    
+    # Map suffixes to multipliers
+    multipliers = {
+        "M": 1_000_000,      # Millions
+        "B": 1_000_000_000,  # Billions
+        "T": 1_000_000_000_000  # Trillions
+    }
+    
+    # Convert to dollars, then to billions
+    dollars = num_value * multipliers[suffix]
+    value_in_billions = dollars / 1_000_000_000
+    return value_in_billions
+
+# Parse MCAP and FDV
+mcap = parse_market_value(market_cap_input, default_value=0.05)  # Default to 0.05B
+fdv = parse_market_value(fdv_input, default_value=0.1)  # Default to 0.1B
+
 # Main content
 if calculate:
-    # Market Cap Risk Score
-    def calculate_market_cap_risk_score(mcap):
-        if mcap < 0.1:
-            return 10  # Ultra High Risk
-        elif mcap < 0.5:
-            return 8   # Very High Risk
-        elif mcap < 1.0:
-            return 6   # High Risk
-        elif mcap < 5.0:
-            return 4   # Moderate Risk
-        elif mcap < 10.0:
-            return 2   # Low Risk
+    # Calculate MCAP-to-FDV Risk Score
+    def calculate_mcap_to_fdv_risk_score(mcap, fdv):
+        if fdv == 0:
+            return 10, 0  # Avoid division by zero, max risk
+        ratio = mcap / fdv
+        if ratio > 1:  # Cap ratio at 1 if MCAP > FDV
+            ratio = 1
+            return 1, ratio
+        if ratio >= 0.9:
+            return 1, ratio  # Very Low Risk
+        elif ratio >= 0.7:
+            return 3, ratio  # Low Risk
+        elif ratio >= 0.5:
+            return 5, ratio  # Moderate Risk
+        elif ratio >= 0.3:
+            return 7, ratio  # High Risk
         else:
-            return 1   # Very Low Risk
+            return 10, ratio  # Very High Risk
 
-    market_cap_risk_score = calculate_market_cap_risk_score(market_cap)
+    mcap_to_fdv_risk, mcap_to_fdv_ratio = calculate_mcap_to_fdv_risk_score(mcap, fdv)
 
     # Calculations
     months = time_horizon
@@ -265,8 +298,8 @@ if calculate:
     asset_roi = ((initial_investment * asset_end_price / asset_price) / initial_investment - 1) * 100
     annualized_asset_roi = ((1 + asset_roi/100) ** (12/months) - 1) * 100 if months != 0 else asset_roi
 
-    # Composite Risk Score
-    mcap_risk = market_cap_risk_score  # Already on 1-10 scale
+    # Composite Risk Score (using MCAP-to-FDV risk instead of market cap risk)
+    mcap_risk = mcap_to_fdv_risk  # Use MCAP-to-FDV risk score
     vol_risk = min(annualized_volatility / 50 * 10, 10)  # Scale 0-50% to 0-10
     loss_risk = prob_loss / 10  # Scale 0-100% to 0-10
     composite_risk_score = (mcap_risk + vol_risk + loss_risk) / 3
@@ -287,11 +320,11 @@ if calculate:
 
     # Composite Risk Score Alert (Prominent at the Top)
     st.markdown(f'<div class="alert-box {risk_color}">⚠ <b>Composite Risk Score: {composite_risk_score:.1f} ({risk_level})</b><br>{risk_insight}</div>', unsafe_allow_html=True)
-    st.markdown("This alert combines market cap risk, volatility, and probability of loss to assess the overall risk of investing in this asset.")
+    st.markdown("This alert combines MCAP-to-FDV risk, volatility, and probability of loss to assess the overall risk of investing in this asset.")
 
     # Risk Score Breakdown
     with st.expander("Risk Score Breakdown"):
-        st.write(f"- **Market Cap Risk**: {mcap_risk}/10")
+        st.write(f"- **MCAP-to-FDV Risk**: {mcap_risk:.1f}/10")
         st.write(f"- **Volatility Risk**: {vol_risk:.1f}/10")
         st.write(f"- **Loss Risk**: {loss_risk:.1f}/10")
 
@@ -510,7 +543,19 @@ if calculate:
     st.subheader("Actionable Insights and Alerts")
     st.markdown("This section provides recommendations and warnings based on the analysis, helping you make informed decisions. The 16% minimum hurdle rate is calculated as 10% (stablecoin pool return) + 6% (global inflation average), ensuring your investment beats inflation and matches a safe return.")
 
-    # Insight 1: Risk-Adjusted Return
+    # Insight 1: MCAP-to-FDV Ratio
+    if mcap_to_fdv_risk == 1:
+        st.markdown(f'<div class="green-background">✓ <b>MCAP-to-FDV Ratio Check</b>: The MCAP-to-FDV ratio is high ({mcap_to_fdv_ratio:.3f}), indicating low dilution risk. This asset has most of its tokens in circulation, reducing the risk of future price dilution. MCAP: ${mcap:,.2f}B, FDV: ${fdv:,.2f}B, Ratio: {mcap_to_fdv_ratio:.3f}.</div>', unsafe_allow_html=True)
+    elif mcap_to_fdv_risk == 3:
+        st.markdown(f'<div class="green-background">✓ <b>MCAP-to-FDV Ratio Check</b>: The MCAP-to-FDV ratio is moderate ({mcap_to_fdv_ratio:.3f}), suggesting manageable dilution risk. Monitor token unlocks to assess potential price impact. MCAP: ${mcap:,.2f}B, FDV: ${fdv:,.2f}B, Ratio: {mcap_to_fdv_ratio:.3f}.</div>', unsafe_allow_html=True)
+    elif mcap_to_fdv_risk == 5:
+        st.markdown(f'<div class="yellow-background">⚠ <b>MCAP-to-FDV Ratio Alert</b>: The MCAP-to-FDV ratio is moderate ({mcap_to_fdv_ratio:.3f}), indicating potential dilution risk. A significant number of tokens may still be released, which could impact the price. MCAP: ${mcap:,.2f}B, FDV: ${fdv:,.2f}B, Ratio: {mcap_to_fdv_ratio:.3f}.</div>', unsafe_allow_html=True)
+    elif mcap_to_fdv_risk == 7:
+        st.markdown(f'<div class="red-background">⚠ <b>MCAP-to-FDV Ratio Alert</b>: The MCAP-to-FDV ratio is low ({mcap_to_fdv_ratio:.3f}), suggesting high dilution risk. Be cautious, as future token releases could significantly dilute the price. MCAP: ${mcap:,.2f}B, FDV: ${fdv:,.2f}B, Ratio: {mcap_to_fdv_ratio:.3f}.</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="red-background">⚠ <b>MCAP-to-FDV Ratio Alert</b>: The MCAP-to-FDV ratio is very low ({mcap_to_fdv_ratio:.3f}), indicating very high dilution risk. A large number of tokens are yet to be released, which could lead to substantial price dilution. Consider safer investments. MCAP: ${mcap:,.2f}B, FDV: ${fdv:,.2f}B, Ratio: {mcap_to_fdv_ratio:.3f}.</div>', unsafe_allow_html=True)
+
+    # Insight 2: Risk-Adjusted Return
     if sharpe_ratio > 1:
         st.markdown('<div class="green-background">✓ <b>Good Risk-Adjusted Return</b>: Sharpe Ratio > 1, indicating the asset\'s return justifies its risk.</div>', unsafe_allow_html=True)
     elif sharpe_ratio > 0:
@@ -518,20 +563,20 @@ if calculate:
     else:
         st.markdown('<div class="red-background">⚠ <b>Poor Risk-Adjusted Return</b>: Sharpe Ratio < 0. The asset\'s return does not justify its risk.</div>', unsafe_allow_html=True)
 
-    # Alert 1: High Volatility
+    # Alert 3: High Volatility
     if worst_case < expected_case * 0.5:
         st.markdown('<div class="red-background">⚠ <b>High Volatility Alert</b>: The worst-case scenario is less than 50% of the expected case, indicating high risk.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="green-background">✓ <b>Volatility Check</b>: The worst-case scenario is within acceptable bounds relative to the expected case.</div>', unsafe_allow_html=True)
 
-    # Alert 2: Comparison to Historical Returns
+    # Alert 4: Comparison to Historical Returns
     historical_btc_return = 50  # Simplified historical average
     if growth_rate > historical_btc_return * 1.5:
         st.markdown('<div class="yellow-background">⚠ <b>Optimistic Growth Alert</b>: Your expected growth rate is significantly higher than Bitcoin\'s historical average (50%). Ensure this is realistic.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="green-background">✓ <b>Growth Expectation Check</b>: Your expected growth rate is within a realistic range compared to Bitcoin\'s historical average (50%).</div>', unsafe_allow_html=True)
 
-    # Alert 3: Hurdle Rate Comparison (16% and 25%)
+    # Alert 5: Hurdle Rate Comparison (16% and 25%)
     hurdle_rate_minimum = 16.0  # 10% risk-free + 6% inflation
     hurdle_rate_btc = 25.0  # Bitcoin average annual return
     if annualized_asset_roi < hurdle_rate_minimum:
