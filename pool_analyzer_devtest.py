@@ -230,7 +230,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
-    # Risk Summary with TVL Check
+    # Risk Summary with APY vs. Hurdle Rate Check
     st.subheader("Risk Summary")
     risk_messages = []
     if net_return < 1.0:
@@ -239,6 +239,8 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         risk_messages.append("High IL")
     if current_tvl < 250000:
         risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
+    if apy < hurdle_rate:  # Added APY vs. Hurdle Rate check
+        risk_messages.append(f"APY ({apy:.1f}%) below hurdle rate ({hurdle_rate:.1f}%)")
 
     if risk_messages:
         st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
