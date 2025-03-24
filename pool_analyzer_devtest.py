@@ -138,17 +138,61 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     drawdown_initial = initial_investment * 0.1  # 90% loss
     drawdown_12_months = future_value * 0.1      # 90% loss
 
-    # Simplified Output
+    # Custom CSS for Metric Cards
+    st.markdown("""
+    <style>
+    .metric-card {
+        background-color: #f0f0f0;
+        border-radius: 8px;
+        padding: 10px;
+        margin: 5px 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .metric-label {
+        font-size: 14px;
+        color: #333;
+        font-weight: bold;
+    }
+    .metric-value {
+        font-size: 16px;
+        color: #000;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Simplified Output with Markdown
     st.subheader("Key Insights")
     col1, col2 = st.columns(2)
 
     with col1:
-        st.metric("Current Impermanent Loss", f"{il:.2f}%", delta_color="inverse")
-        st.metric("Breakeven Time", f"Against IL: {break_even_months} months\nWith Price Changes: {break_even_months_with_price} months")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Current Impermanent Loss</div>
+            <div class="metric-value">{il:.2f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Breakeven Time</div>
+            <div class="metric-value">Against IL: {break_even_months} months, With Price Changes: {break_even_months_with_price} months</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-        st.metric("12-Month Outlook", f"${future_value:,.0f} ({net_return:.2f}x return)")
-        st.metric("Worst-Case Drawdown (90%)", f"Initial: ${drawdown_initial:,.0f}\nAfter 12 Months: ${drawdown_12_months:,.0f}")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">12-Month Outlook</div>
+            <div class="metric-value">${future_value:,.0f} ({net_return:.2f}x return)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Worst-Case Drawdown (90%)</div>
+            <div class="metric-value">Initial: ${drawdown_initial:,.0f}, After 12 Months: ${drawdown_12_months:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.subheader("Risk Summary")
     if net_return < 1.0 or il > 5.0:
@@ -156,7 +200,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     else:
         st.success("✅ Low Risk: Profitable with manageable IL")
 
-    return net_return, future_value, break_even_months, break_even_months_with_price, drawdown_initial, drawdown_12_months
+    return il, net_return, future_value, break_even_months, break_even_months_with_price, drawdown_initial, drawdown_12_months
 
 # Streamlit App
 st.title("Simple Pool Analyzer")
@@ -196,9 +240,9 @@ if st.sidebar.button("Calculate"):
             investment_amount, apy, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
             current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
         )
-        net_return, future_value, break_even_months, break_even_months_with_price, drawdown_initial, drawdown_12_months = result
+        il, net_return, future_value, break_even_months, break_even_months_with_price, drawdown_initial, drawdown_12_months = result
 
-        # Existing Charts (unchanged)
+        # Projected Pool Value Chart with Hurdle Rate
         st.subheader("Projected Pool Value Over Time")
         time_periods = [0, 3, 6, 12]
         future_values = []
@@ -208,13 +252,18 @@ if st.sidebar.button("Calculate"):
                                              expected_price_change_asset2, is_new_pool)
             future_values.append(value)
         
+        # Hurdle Rate (16% annual growth)
+        hurdle_rate = 0.16  # 16% annual growth
+        hurdle_values = [investment_amount * (1 + hurdle_rate * (months / 12)) for months in time_periods]
+
         sns.set_theme()
         plt.figure(figsize=(10, 6))
         plt.plot(time_periods, future_values, marker='o', markersize=10, linewidth=3, color='#1f77b4', label="Pool Value")
         plt.fill_between(time_periods, future_values, color='#1f77b4', alpha=0.2)
+        plt.plot(time_periods, hurdle_values, linestyle='--', linewidth=2, color='green', label="Hurdle Rate (16%)")
         plt.axhline(y=investment_amount, color='#ff3333', linestyle='--', linewidth=2, label=f"Initial Investment (${investment_amount:,.0f})")
-        y_max = max(max(future_values), investment_amount) * 1.1
-        y_min = min(min(future_values), investment_amount) * 0.9
+        y_max = max(max(future_values), max(hurdle_values), investment_amount) * 1.1
+        y_min = min(min(future_values), min(hurdle_values), investment_amount) * 0.9
         plt.fill_between(time_periods, investment_amount, y_max, color='green', alpha=0.1, label='Profit Zone')
         plt.fill_between(time_periods, y_min, investment_amount, color='red', alpha=0.1, label='Loss Zone')
         for i, value in enumerate(future_values):
