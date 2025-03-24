@@ -138,6 +138,10 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     drawdown_initial = initial_investment * 0.1  # 90% loss
     drawdown_12_months = future_value * 0.1      # 90% loss
 
+    # Calculate Hurdle Rate
+    hurdle_rate = risk_free_rate + 6.0  # Original hurdle rate formula
+    hurdle_value_12_months = initial_investment * (1 + hurdle_rate / 100)
+
     # Custom CSS for Metric Cards (Fixed Height)
     st.markdown("""
     <style>
@@ -171,20 +175,14 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 
     # Simplified Output with Markdown
     st.subheader("Key Insights")
-    col1, col2, col3 = st.columns(3)  # Adjusted to 3 columns to fit 5 cards
-
+    
+    # First Row: 3 cards
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-label">Current Impermanent Loss</div>
             <div class="metric-value">{il:.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Breakeven Time</div>
-            <div class="metric-value">Against IL: {break_even_months} months, With Price Changes: {break_even_months_with_price} months</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -197,6 +195,25 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Current TVL</div>
+            <div class="metric-value">${current_tvl:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Second Row: 3 cards
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Breakeven Time</div>
+            <div class="metric-value">Against IL: {break_even_months} months, With Price Changes: {break_even_months_with_price} months</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col5:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-label">Worst-Case Drawdown (90%)</div>
@@ -205,11 +222,11 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
-    with col3:
+    with col6:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Current TVL</div>
-            <div class="metric-value">${current_tvl:,.0f}</div>
+            <div class="metric-label">Hurdle Rate</div>
+            <div class="metric-value">{hurdle_rate:.1f}% (${hurdle_value_12_months:,.0f} after 12 months)</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -368,4 +385,6 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:.0f}"])
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:.0f}"])
         writer.writerow(["Current TVL ($)", f"{current_tvl:.0f}"])
+        writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
+        writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:.0f}"])
         st.download_button(label="Export Results", data=output.getvalue(), file_name="pool_results.csv", mime="text/csv")
