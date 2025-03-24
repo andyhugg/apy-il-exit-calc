@@ -140,13 +140,13 @@ def generate_pdf_report(data):
     # Create Table
     table = Table(table_data)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.gray),  # Changed 'grey' to 'gray'
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),  # Changed to 'lightgrey'
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 14),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.lightgoldenrodyellow),  # Changed 'beige' to 'lightgoldenrodyellow'
+        ('BACKGROUND', (0, 1), (-1, -1), colors.lightyellow),  # Changed to 'lightyellow'
         ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 12),
@@ -306,7 +306,7 @@ with st.sidebar:
         initial_price_asset2 = current_price_asset2
     else:
         initial_price_asset1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=88000.00, format="%.2f")
-        initial_price_asset2 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
+        initial_price_asset2 = st.number_input("Initial Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
         current_price_asset1 = st.number_input("Current Asset 1 Price ($)", min_value=0.01, value=125000.00, format="%.2f")
         current_price_asset2 = st.number_input("Current Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
     
