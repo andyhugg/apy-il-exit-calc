@@ -279,7 +279,7 @@ with st.sidebar:
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
     current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1000000.00, format="%.2f")
     current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=84000.00, format="%.2f")
-    btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=0.0, value=-25.0, format="%.2f")
+    btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=-25.0, format="%.2f")
     risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=5.0, format="%.2f")
 
 if st.sidebar.button("Calculate"):
@@ -291,7 +291,7 @@ if st.sidebar.button("Calculate"):
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
          drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months) = result
 
-        # Projected Pool Value Over Time
+        # Projected Pool Value Chart with Hurdle Rate
         st.subheader("Projected Pool Value Over Time")
         time_periods = [0, 3, 6, 12]
         future_values = []
@@ -327,9 +327,8 @@ if st.sidebar.button("Calculate"):
         plt.gca().set_facecolor('#f0f0f0')
         plt.tight_layout()
         st.pyplot(plt)
-        st.caption("Values projected over 12 months. Pool value includes compounded APY, price changes, and IL.")
+        st.caption("Projected over 12 months, including compounded APY, price changes, and IL.")
 
-        # Pool vs. BTC vs. Stablecoin Comparison
         st.subheader("Pool vs. BTC vs. Stablecoin Comparison")
         projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
         initial_btc_amount = investment_amount / current_btc_price
@@ -344,7 +343,6 @@ if st.sidebar.button("Calculate"):
         st.dataframe(df_btc_comparison.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
         st.caption("Values projected over 12 months. Pool value includes compounded APY, price changes, and IL.")
 
-        # Monte Carlo Scenarios - 12 Months
         st.subheader("Monte Carlo Scenarios - 12 Months")
         mc_results = simplified_monte_carlo_analysis(
             investment_amount, apy, initial_price_asset1, initial_price_asset2,
@@ -379,7 +377,6 @@ if st.sidebar.button("Calculate"):
         plt.gca().set_facecolor('#f0f0f0')
         plt.tight_layout()
         st.pyplot(plt)
-        st.caption("Values projected over 12 months. Pool value includes compounded APY, price changes, and IL.")
 
         # CSV Export
         output = StringIO()
