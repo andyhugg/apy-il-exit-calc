@@ -3,11 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
+from io import StringIO
+import csv
 
 # Core Calculation Functions (unchanged for brevity)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
@@ -121,43 +118,6 @@ def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initi
         "expected": {"value": expected_value, "il": expected_il},
         "best": {"value": best_value, "il": best_il}
     }
-
-def generate_pdf_report(data):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    elements = []
-
-    # Title
-    styles = getSampleStyleSheet()
-    elements.append(Paragraph("Simple Pool Analyzer Results", styles['Title']))
-    elements.append(Paragraph("<br/><br/>", styles['Normal']))  # Add some space
-
-    # Table Data
-    table_data = [["Metric", "Value"]]  # Header
-    for metric, value in data:
-        table_data.append([metric, str(value)])
-
-    # Create Table with Black-and-White Styling
-    table = Table(table_data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.black),  # Black background for header
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),   # White text for header
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 14),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),  # White background for data rows
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),   # Black text for data rows
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),     # Black grid lines
-    ]))
-    elements.append(table)
-
-    # Build PDF
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
 
 def check_exit_conditions(initial_investment: float, apy: float, initial_price_asset1, initial_price_asset2,
                          current_price_asset1, current_price_asset2, current_tvl: float, risk_free_rate: float,
@@ -416,23 +376,24 @@ if st.sidebar.button("Calculate"):
         plt.tight_layout()
         st.pyplot(plt)
 
-        # PDF Export
-        pdf_data = [
-            ("Current Impermanent Loss (%)", f"{il:.2f}"),
-            ("12-Month Projected Value ($)", f"{future_value:,.0f}"),
-            ("12-Month Net Return (x)", f"{net_return:.2f}"),
-            ("Breakeven Against IL (months)", f"{break_even_months}"),
-            ("Breakeven With Price Changes (months)", f"{break_even_months_with_price}"),
-            ("Drawdown Initial ($)", f"{drawdown_initial:,.0f}"),
-            ("Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"),
-            ("Current TVL ($)", f"{current_tvl:,.0f}"),
-            ("Hurdle Rate (%)", f"{hurdle_rate:.1f}"),
-            ("Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}")
-        ]
-        pdf_buffer = generate_pdf_report(pdf_data)
+        # CSV Export
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Metric", "Value"])
+        writer.writerow(["Current Impermanent Loss (%)", f"{il:.2f}"])
+        writer.writerow(["12-Month Projected Value ($)", f"{future_value:,.0f}"])
+        writer.writerow(["12-Month Net Return (x)", f"{net_return:.2f}"])
+        writer.writerow(["Breakeven Against IL (months)", break_even_months])
+        writer.writerow(["Breakeven With Price Changes (months)", break_even_months_with_price])
+        writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:,.0f}"])
+        writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
+        writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
+        writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
+        writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
+        csv_data = output.getvalue()
         st.download_button(
-            label="Export Results as PDF",
-            data=pdf_buffer,
-            file_name="pool_results.pdf",
-            mime="application/pdf"
+            label="Export Results as CSV",
+            data=csv_data,
+            file_name="pool_results.csv",
+            mime="text/csv"
         )
