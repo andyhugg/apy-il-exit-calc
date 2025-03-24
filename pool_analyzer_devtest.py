@@ -138,7 +138,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     drawdown_initial = initial_investment * 0.1  # 90% loss
     drawdown_12_months = future_value * 0.1      # 90% loss
 
-    # Custom CSS for Metric Cards
+    # Custom CSS for Metric Cards (Fixed Height)
     st.markdown("""
     <style>
     .metric-card {
@@ -147,6 +147,10 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         padding: 10px;
         margin: 5px 0;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        height: 100px;  /* Fixed height for uniformity */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .metric-label {
         font-size: 14px;
@@ -157,17 +161,22 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         font-size: 16px;
         color: #000;
     }
+    .metric-note {
+        font-size: 12px;
+        color: #666;
+        font-style: italic;
+    }
     </style>
     """, unsafe_allow_html=True)
 
     # Simplified Output with Markdown
     st.subheader("Key Insights")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)  # Adjusted to 3 columns to fit 5 cards
 
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Current Impermanent Loss</div>
+            <div class="metric-label">Current Impermanent Loss (At current time)</div>
             <div class="metric-value">{il:.2f}%</div>
         </div>
         """, unsafe_allow_html=True)
@@ -191,6 +200,15 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         <div class="metric-card">
             <div class="metric-label">Worst-Case Drawdown (90%)</div>
             <div class="metric-value">Initial: ${drawdown_initial:,.0f}, After 12 Months: ${drawdown_12_months:,.0f}</div>
+            <div class="metric-note">After 12 months includes compounded APY, price changes, and IL</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Current TVL</div>
+            <div class="metric-value">${current_tvl:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -206,7 +224,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 st.title("Simple Pool Analyzer")
 st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
 
-# Simplified Sidebar
+# Simplified Sidebar (No Expander)
 with st.sidebar:
     st.header("Your Pool")
     pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool"])
@@ -226,13 +244,12 @@ with st.sidebar:
     investment_amount = st.number_input("Investment ($)", min_value=0.01, value=2000.00, format="%.2f")
     apy = st.number_input("APY (%)", min_value=0.01, value=10.00, format="%.2f")
 
-    with st.expander("Advanced"):
-        expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=0.0, format="%.2f")
-        expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
-        current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1000000.00, format="%.2f")
-        current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=84000.00, format="%.2f")
-        btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=-25.0, format="%.2f")
-        risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=5.0, format="%.2f")
+    expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=0.0, format="%.2f")
+    expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
+    current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1000000.00, format="%.2f")
+    current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=84000.00, format="%.2f")
+    btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=-25.0, format="%.2f")
+    risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=5.0, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
@@ -278,6 +295,7 @@ if st.sidebar.button("Calculate"):
         plt.gca().set_facecolor('#f0f0f0')
         plt.tight_layout()
         st.pyplot(plt)
+        st.caption("Projected over 12 months, including compounded APY, price changes, and IL.")
 
         st.subheader("Pool vs. BTC vs. Stablecoin Comparison")
         projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
@@ -291,6 +309,7 @@ if st.sidebar.button("Calculate"):
             "Value ($)": [f"${int(pool_value_12_months):,}", f"${int(btc_value_12_months):,}", f"${int(stablecoin_value_12_months):,}"]
         })
         st.dataframe(df_btc_comparison.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
+        st.caption("Values projected over 12 months. Pool value includes compounded APY, price changes, and IL.")
 
         st.subheader("Monte Carlo Scenarios - 12 Months")
         mc_results = simplified_monte_carlo_analysis(
@@ -338,4 +357,5 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Breakeven With Price Changes (months)", f"{break_even_months_with_price}"])
         writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:.0f}"])
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:.0f}"])
+        writer.writerow(["Current TVL ($)", f"{current_tvl:.0f}"])
         st.download_button(label="Export Results", data=output.getvalue(), file_name="pool_results.csv", mime="text/csv")
