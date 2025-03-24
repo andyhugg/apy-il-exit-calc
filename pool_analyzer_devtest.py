@@ -6,7 +6,7 @@ import seaborn as sns
 from io import StringIO
 import csv
 
-# Core Calculation Functions (unchanged for brevity)
+# Core Calculation Functions (unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
@@ -119,9 +119,27 @@ def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initi
         "best": {"value": best_value, "il": best_il}
     }
 
+# New Composite Risk Score Function
+def calculate_composite_risk_score(tvl: float, certik_score: float, apy: float) -> float:
+    # Normalize TVL (capped at 1)
+    normalized_tvl = min(tvl / 1000000, 1.0)
+    
+    # Normalize Certik score
+    normalized_certik = certik_score / 100.0
+    
+    # Normalize APY (capped at 1, with penalty if > 300%)
+    normalized_apy = min(apy / 50.0, 1.0)
+    if apy > 300:
+        normalized_apy *= 0.5  # Penalty: halve the APY contribution
+    
+    # Calculate composite score (0-100)
+    composite_score = (0.4 * normalized_tvl + 0.3 * normalized_certik + 0.3 * normalized_apy) * 100
+    return round(composite_score, 1)
+
 def check_exit_conditions(initial_investment: float, apy: float, initial_price_asset1, initial_price_asset2,
                          current_price_asset1, current_price_asset2, current_tvl: float, risk_free_rate: float,
-                         expected_price_change_asset1: float, expected_price_change_asset2: float, is_new_pool: bool):
+                         expected_price_change_asset1: float, expected_price_change_asset2: float, is_new_pool: bool,
+                         certik_score: float):
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                         current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
@@ -139,10 +157,10 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     drawdown_12_months = future_value * 0.1      # 90% loss
 
     # Calculate Hurdle Rate
-    hurdle_rate = risk_free_rate + 6.0  # Original hurdle rate formula
+    hurdle_rate = risk_free_rate + 6.0
     hurdle_value_12_months = initial_investment * (1 + hurdle_rate / 100)
 
-    # Custom CSS for Metric Cards (Fixed Height)
+    # Custom CSS for Metric Cards
     st.markdown("""
     <style>
     .metric-card {
@@ -151,7 +169,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         padding: 10px;
         margin: 5px 0;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        height: 100px;  /* Fixed height for uniformity */
+        height: 100px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -176,7 +194,6 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     # Simplified Output with Markdown
     st.subheader("Key Insights")
     
-    # First Row: 3 cards
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
@@ -203,7 +220,6 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
-    # Second Row: 3 cards
     col4, col5, col6 = st.columns(3)
     with col4:
         st.markdown(f"""
@@ -230,7 +246,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
-    # Risk Summary with APY vs. Hurdle Rate Check
+    # Risk Summary with Certik and Composite Score
     st.subheader("Risk Summary")
     risk_messages = []
     if net_return < 1.0:
@@ -239,23 +255,26 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         risk_messages.append("High IL")
     if current_tvl < 250000:
         risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
-    if apy < hurdle_rate:  # Added APY vs. Hurdle Rate check
+    if apy < hurdle_rate:
         risk_messages.append(f"APY ({apy:.1f}%) below hurdle rate ({hurdle_rate:.1f}%)")
+    if certik_score < 60:
+        risk_messages.append("Low Certik score: Project may be risky")
 
+    composite_score = calculate_composite_risk_score(current_tvl, certik_score, apy)
     if risk_messages:
         st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
+        st.markdown(f"**Composite Risk Score**: {composite_score} (0-100)")
     else:
         st.success("✅ Low Risk: Profitable with manageable IL")
+        st.markdown(f"**Composite Risk Score**: {composite_score} (0-100)")
 
-    # Return all necessary values, including hurdle_rate and hurdle_value_12_months
     return (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months)
+            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score)
 
 # Streamlit App
 st.title("Simple Pool Analyzer")
 st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
 
-# Simplified Sidebar (No Expander)
 with st.sidebar:
     st.header("Your Pool")
     pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool"])
@@ -278,6 +297,7 @@ with st.sidebar:
     expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=0.0, format="%.2f")
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
     current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1000000.00, format="%.2f")
+    certik_score = st.number_input("Certik Score (0-100)", min_value=0.0, max_value=100.0, value=50.0, format="%.1f")
     current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=84000.00, format="%.2f")
     btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=-25.0, format="%.2f")
     risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=5.0, format="%.2f")
@@ -286,10 +306,10 @@ if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         result = check_exit_conditions(
             investment_amount, apy, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool
+            current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, certik_score
         )
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months) = result
+         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score) = result
 
         # Projected Pool Value Chart with Hurdle Rate
         st.subheader("Projected Pool Value Over Time")
@@ -301,8 +321,7 @@ if st.sidebar.button("Calculate"):
                                              expected_price_change_asset2, is_new_pool)
             future_values.append(value)
         
-        # Hurdle Rate (16% annual growth)
-        hurdle_rate_chart = 0.16  # 16% annual growth for the chart (as previously defined)
+        hurdle_rate_chart = 0.16
         hurdle_values = [investment_amount * (1 + hurdle_rate_chart * (months / 12)) for months in time_periods]
 
         sns.set_theme()
@@ -390,6 +409,8 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:,.0f}"])
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
         writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
+        writer.writerow(["Certik Score", f"{certik_score:.1f}"])
+        writer.writerow(["Composite Risk Score", f"{composite_score:.1f}"])
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
