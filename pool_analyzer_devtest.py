@@ -137,20 +137,20 @@ def generate_pdf_report(data):
     for metric, value in data:
         table_data.append([metric, str(value)])
 
-    # Create Table
+    # Create Table with Black-and-White Styling
     table = Table(table_data)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),  # Changed to 'lightgrey'
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.black),  # Black background for header
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),   # White text for header
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 14),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.lightyellow),  # Changed to 'lightyellow'
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),  # White background for data rows
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),   # Black text for data rows
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),     # Black grid lines
     ]))
     elements.append(table)
 
