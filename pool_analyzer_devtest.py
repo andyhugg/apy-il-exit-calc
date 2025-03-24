@@ -262,23 +262,23 @@ with st.sidebar:
     is_new_pool = (pool_status == "New Pool")
     
     if is_new_pool:
-        current_price_asset1 = st.number_input("Asset 1 Price (Today) ($)", min_value=0.01, value=0.0, format="%.2f")
-        current_price_asset2 = st.number_input("Asset 2 Price (Today) ($)", min_value=0.01, value=0.0, format="%.2f")
+        current_price_asset1 = st.number_input("Asset 1 Price (Today) ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset2 = st.number_input("Asset 2 Price (Today) ($)", min_value=0.01, value=1.00, format="%.2f")
         initial_price_asset1 = current_price_asset1
         initial_price_asset2 = current_price_asset2
     else:
-        initial_price_asset1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=0.0, format="%.2f")
-        initial_price_asset2 = st.number_input("Initial Asset 2 Price ($)", min_value=0.01, value=0.0, format="%.2f")
-        current_price_asset1 = st.number_input("Current Asset 1 Price ($)", min_value=0.01, value=0.0, format="%.2f")
-        current_price_asset2 = st.number_input("Current Asset 2 Price ($)", min_value=0.01, value=0.0, format="%.2f")
+        initial_price_asset1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
+        initial_price_asset2 = st.number_input("Initial Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset1 = st.number_input("Current Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset2 = st.number_input("Current Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
     
-    investment_amount = st.number_input("Investment ($)", min_value=0.01, value=0.0, format="%.2f")
+    investment_amount = st.number_input("Investment ($)", min_value=0.01, value=1.00, format="%.2f")
     apy = st.number_input("APY (%)", min_value=0.01, value=0.0, format="%.2f")
 
     expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=0.0, format="%.2f")
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
-    current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=0.0, format="%.2f")
-    current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=0.0, format="%.2f")
+    current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1.00, format="%.2f")
+    current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=1.00, format="%.2f")
     btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=0.0, format="%.2f")
     risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=0.0, format="%.2f")
 
