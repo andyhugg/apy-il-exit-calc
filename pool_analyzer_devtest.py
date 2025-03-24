@@ -176,7 +176,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Current Impermanent Loss (At current time)</div>
+            <div class="metric-label">Current Impermanent Loss</div>
             <div class="metric-value">{il:.2f}%</div>
         </div>
         """, unsafe_allow_html=True)
@@ -193,6 +193,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         <div class="metric-card">
             <div class="metric-label">12-Month Outlook</div>
             <div class="metric-value">${future_value:,.0f} ({net_return:.2f}x return)</div>
+            <div class="metric-note">After 12 months includes compounded APY, price changes, and IL</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -212,9 +213,18 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
+    # Risk Summary with TVL Check
     st.subheader("Risk Summary")
-    if net_return < 1.0 or il > 5.0:
-        st.error(f"⚠️ High Risk: {'Loss projected' if net_return < 1.0 else 'High IL'}")
+    risk_messages = []
+    if net_return < 1.0:
+        risk_messages.append("Loss projected")
+    if il > 5.0:
+        risk_messages.append("High IL")
+    if current_tvl < 250000:
+        risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
+
+    if risk_messages:
+        st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
     else:
         st.success("✅ Low Risk: Profitable with manageable IL")
 
