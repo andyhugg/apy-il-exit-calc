@@ -131,7 +131,6 @@ def calculate_composite_risk_score(tvl: float, certik_score: float, apy: float) 
     composite_score = (0.4 * normalized_tvl + 0.3 * normalized_certik + 0.3 * normalized_apy) * 100
     return round(composite_score, 1)
 
-# New PDF Generation Function
 def generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price, 
                         drawdown_initial, drawdown_12_months, current_tvl, certik_score, composite_score, 
                         hurdle_rate, hurdle_value_12_months, risk_messages):
@@ -140,11 +139,9 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     styles = getSampleStyleSheet()
     story = []
 
-    # Title
     story.append(Paragraph("Liquidity Pool Analysis Report", styles['Title']))
     story.append(Spacer(1, 12))
 
-    # Key Insights
     story.append(Paragraph("Key Insights", styles['Heading2']))
     story.append(Paragraph(f"Current Impermanent Loss: {il:.2f}%", styles['BodyText']))
     story.append(Paragraph(f"12-Month Outlook: ${future_value:,.0f} ({net_return:.2f}x return)", styles['BodyText']))
@@ -154,7 +151,6 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     story.append(Paragraph(f"Hurdle Rate: {hurdle_rate:.1f}% (${hurdle_value_12_months:,.0f} after 12 months)", styles['BodyText']))
     story.append(Spacer(1, 12))
 
-    # Risk Summary
     story.append(Paragraph("Risk Summary", styles['Heading2']))
     if risk_messages:
         story.append(Paragraph(f"High Risk: {', '.join(risk_messages)}", styles['BodyText']))
@@ -307,25 +303,25 @@ with st.sidebar:
     is_new_pool = (pool_status == "New Pool")
     
     if is_new_pool:
-        current_price_asset1 = st.number_input("Asset 1 Price (Today) ($)", min_value=0.01, value=90.00, format="%.2f")
+        current_price_asset1 = st.number_input("Asset 1 Price (Today) ($)", min_value=0.01, value=1.00, format="%.2f")
         current_price_asset2 = st.number_input("Asset 2 Price (Today) ($)", min_value=0.01, value=1.00, format="%.2f")
         initial_price_asset1 = current_price_asset1
         initial_price_asset2 = current_price_asset2
     else:
-        initial_price_asset1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=88000.00, format="%.2f")
+        initial_price_asset1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
         initial_price_asset2 = st.number_input("Initial Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
-        current_price_asset1 = st.number_input("Current Asset 1 Price ($)", min_value=0.01, value=125000.00, format="%.2f")
+        current_price_asset1 = st.number_input("Current Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
         current_price_asset2 = st.number_input("Current Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
     
-    investment_amount = st.number_input("Investment ($)", min_value=0.01, value=2000.00, format="%.2f")
-    apy = st.number_input("APY (%)", min_value=0.01, value=10.00, format="%.2f")
-    expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=0.0, format="%.2f")
-    expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
-    current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1000000.00, format="%.2f")
+    investment_amount = st.number_input("Investment ($)", min_value=0.01, value=1.00, format="%.2f")
+    apy = st.number_input("APY (%)", min_value=0.01, value=25.00, format="%.2f")
+    expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=1.0, format="%.2f")
+    expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=1.0, format="%.2f")
+    current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1.00, format="%.2f")
     certik_score = st.number_input("Certik Score (0-100)", min_value=0.0, max_value=100.0, value=50.0, format="%.1f")
-    current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=84000.00, format="%.2f")
-    btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=-25.0, format="%.2f")
-    risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=5.0, format="%.2f")
+    current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=1.00, format="%.2f")
+    btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=1.0, format="%.2f")
+    risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, format="%.2f")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
@@ -336,7 +332,6 @@ if st.sidebar.button("Calculate"):
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
          drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages) = result
 
-        # Projected Pool Value Chart
         st.subheader("Projected Pool Value Over Time")
         time_periods = [0, 3, 6, 12]
         future_values = []
@@ -422,7 +417,6 @@ if st.sidebar.button("Calculate"):
         plt.tight_layout()
         st.pyplot(plt)
 
-        # CSV Export
         output = StringIO()
         writer = csv.writer(output)
         writer.writerow(["Metric", "Value"])
@@ -440,12 +434,10 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
 
-        # PDF Export
         pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
                                        drawdown_initial, drawdown_12_months, current_tvl, certik_score, composite_score,
                                        hurdle_rate, hurdle_value_12_months, risk_messages)
 
-        # Download Buttons
         col_csv, col_pdf = st.columns(2)
         with col_csv:
             st.download_button(
