@@ -3,8 +3,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from io import StringIO
+from io import StringIO, BytesIO
 import csv
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 # Core Calculation Functions (unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
@@ -119,22 +122,51 @@ def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initi
         "best": {"value": best_value, "il": best_il}
     }
 
-# New Composite Risk Score Function
 def calculate_composite_risk_score(tvl: float, certik_score: float, apy: float) -> float:
-    # Normalize TVL (capped at 1)
     normalized_tvl = min(tvl / 1000000, 1.0)
-    
-    # Normalize Certik score
     normalized_certik = certik_score / 100.0
-    
-    # Normalize APY (capped at 1, with penalty if > 300%)
     normalized_apy = min(apy / 50.0, 1.0)
     if apy > 300:
-        normalized_apy *= 0.5  # Penalty: halve the APY contribution
-    
-    # Calculate composite score (0-100)
+        normalized_apy *= 0.5
     composite_score = (0.4 * normalized_tvl + 0.3 * normalized_certik + 0.3 * normalized_apy) * 100
     return round(composite_score, 1)
+
+# New PDF Generation Function
+def generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price, 
+                        drawdown_initial, drawdown_12_months, current_tvl, certik_score, composite_score, 
+                        hurdle_rate, hurdle_value_12_months, risk_messages):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Title
+    story.append(Paragraph("Liquidity Pool Analysis Report", styles['Title']))
+    story.append(Spacer(1, 12))
+
+    # Key Insights
+    story.append(Paragraph("Key Insights", styles['Heading2']))
+    story.append(Paragraph(f"Current Impermanent Loss: {il:.2f}%", styles['BodyText']))
+    story.append(Paragraph(f"12-Month Outlook: ${future_value:,.0f} ({net_return:.2f}x return)", styles['BodyText']))
+    story.append(Paragraph(f"Current TVL: ${current_tvl:,.0f}", styles['BodyText']))
+    story.append(Paragraph(f"Breakeven Time: Against IL: {break_even_months} months, With Price Changes: {break_even_months_with_price} months", styles['BodyText']))
+    story.append(Paragraph(f"Worst-Case Drawdown (90%): Initial: ${drawdown_initial:,.0f}, After 12 Months: ${drawdown_12_months:,.0f}", styles['BodyText']))
+    story.append(Paragraph(f"Hurdle Rate: {hurdle_rate:.1f}% (${hurdle_value_12_months:,.0f} after 12 months)", styles['BodyText']))
+    story.append(Spacer(1, 12))
+
+    # Risk Summary
+    story.append(Paragraph("Risk Summary", styles['Heading2']))
+    if risk_messages:
+        story.append(Paragraph(f"High Risk: {', '.join(risk_messages)}", styles['BodyText']))
+    else:
+        story.append(Paragraph("Low Risk: Profitable with manageable IL", styles['BodyText']))
+    story.append(Paragraph(f"Certik Score: {certik_score:.1f}", styles['BodyText']))
+    story.append(Paragraph(f"Composite Risk Score: {composite_score:.1f} (0-100)", styles['BodyText']))
+
+    doc.build(story)
+    pdf_data = buffer.getvalue()
+    buffer.close()
+    return pdf_data
 
 def check_exit_conditions(initial_investment: float, apy: float, initial_price_asset1, initial_price_asset2,
                          current_price_asset1, current_price_asset2, current_tvl: float, risk_free_rate: float,
@@ -153,14 +185,11 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
         current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
     )
-    drawdown_initial = initial_investment * 0.1  # 90% loss
-    drawdown_12_months = future_value * 0.1      # 90% loss
-
-    # Calculate Hurdle Rate
+    drawdown_initial = initial_investment * 0.1
+    drawdown_12_months = future_value * 0.1
     hurdle_rate = risk_free_rate + 6.0
     hurdle_value_12_months = initial_investment * (1 + hurdle_rate / 100)
 
-    # Custom CSS for Metric Cards
     st.markdown("""
     <style>
     .metric-card {
@@ -191,9 +220,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     </style>
     """, unsafe_allow_html=True)
 
-    # Simplified Output with Markdown
     st.subheader("Key Insights")
-    
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
@@ -246,7 +273,6 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         </div>
         """, unsafe_allow_html=True)
 
-    # Risk Summary with Certik and Composite Score
     st.subheader("Risk Summary")
     risk_messages = []
     if net_return < 1.0:
@@ -269,7 +295,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         st.markdown(f"**Composite Risk Score**: {composite_score} (0-100)")
 
     return (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score)
+            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages)
 
 # Streamlit App
 st.title("Simple Pool Analyzer")
@@ -293,7 +319,6 @@ with st.sidebar:
     
     investment_amount = st.number_input("Investment ($)", min_value=0.01, value=2000.00, format="%.2f")
     apy = st.number_input("APY (%)", min_value=0.01, value=10.00, format="%.2f")
-
     expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=0.0, format="%.2f")
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=0.0, format="%.2f")
     current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1000000.00, format="%.2f")
@@ -309,9 +334,9 @@ if st.sidebar.button("Calculate"):
             current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, certik_score
         )
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score) = result
+         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages) = result
 
-        # Projected Pool Value Chart with Hurdle Rate
+        # Projected Pool Value Chart
         st.subheader("Projected Pool Value Over Time")
         time_periods = [0, 3, 6, 12]
         future_values = []
@@ -414,9 +439,25 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
-        st.download_button(
-            label="Export Results as CSV",
-            data=csv_data,
-            file_name="pool_results.csv",
-            mime="text/csv"
-        )
+
+        # PDF Export
+        pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
+                                       drawdown_initial, drawdown_12_months, current_tvl, certik_score, composite_score,
+                                       hurdle_rate, hurdle_value_12_months, risk_messages)
+
+        # Download Buttons
+        col_csv, col_pdf = st.columns(2)
+        with col_csv:
+            st.download_button(
+                label="Export Results as CSV",
+                data=csv_data,
+                file_name="pool_results.csv",
+                mime="text/csv"
+            )
+        with col_pdf:
+            st.download_button(
+                label="Export Results as PDF",
+                data=pdf_data,
+                file_name="pool_results.pdf",
+                mime="application/pdf"
+            )
