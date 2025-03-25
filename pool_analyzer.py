@@ -131,6 +131,25 @@ def calculate_composite_risk_score(tvl: float, platform_trust_score: float, apy:
     composite_score = (0.4 * normalized_tvl + 0.3 * normalized_platform_score + 0.3 * normalized_apy) * 100
     return round(composite_score, 1)
 
+# Updated function to categorize the composite risk score with simplified descriptions
+def get_composite_score_context(composite_score: float) -> tuple[str, str]:
+    if composite_score <= 20:
+        category = "Very High Risk"
+        description = "This pool has very high risk factors."
+    elif composite_score <= 40:
+        category = "High Risk"
+        description = "This pool has high risk factors."
+    elif composite_score <= 60:
+        category = "Moderate Risk"
+        description = "This pool has moderate risk factors."
+    elif composite_score <= 80:
+        category = "Low Risk"
+        description = "This pool has low risk factors."
+    else:
+        category = "Very Low Risk"
+        description = "This pool has very low risk factors."
+    return category, description
+
 def generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price, 
                         drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score, 
                         hurdle_rate, hurdle_value_12_months, risk_messages):
@@ -157,7 +176,8 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     else:
         story.append(Paragraph("Low Risk: Profitable with manageable IL", styles['BodyText']))
     story.append(Paragraph(f"Platform Trust Score: {platform_trust_score} (1-5)", styles['BodyText']))
-    story.append(Paragraph(f"Composite Risk Score: {composite_score:.1f} (0-100)", styles['BodyText']))
+    category, description = get_composite_score_context(composite_score)
+    story.append(Paragraph(f"Composite Risk Score: {composite_score:.1f} ({category}) - {description}", styles['BodyText']))
 
     doc.build(story)
     pdf_data = buffer.getvalue()
@@ -279,16 +299,17 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
     if apy < hurdle_rate:
         risk_messages.append(f"APY ({apy:.1f}%) below hurdle rate ({hurdle_rate:.1f}%)")
-    if platform_trust_score <= 2:  # Poor or Unknown
+    if platform_trust_score <= 2:
         risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
     composite_score = calculate_composite_risk_score(current_tvl, platform_trust_score, apy)
+    category, description = get_composite_score_context(composite_score)
     if risk_messages:
         st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
-        st.markdown(f"**Composite Risk Score**: {composite_score} (0-100)")
+        st.markdown(f"**Composite Risk Score**: {composite_score} ({category}) - {description}")
     else:
         st.success("✅ Low Risk: Profitable with manageable IL")
-        st.markdown(f"**Composite Risk Score**: {composite_score} (0-100)")
+        st.markdown(f"**Composite Risk Score**: {composite_score} ({category}) - {description}")
 
     return (il, net_return, future_value, break_even_months, break_even_months_with_price, 
             drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages)
@@ -322,7 +343,6 @@ with st.sidebar:
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=1.0, format="%.2f")
     current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1.00, format="%.2f")
     
-    # Replace Certik Score with Platform Trust Score
     platform_trust_score = st.selectbox(
         "Platform Trust Score (1-5)",
         options=[
@@ -334,7 +354,7 @@ with st.sidebar:
         ],
         format_func=lambda x: x[1],
         index=0  # Default to Unknown (1)
-    )[0]  # Extract the numeric value from the tuple
+    )[0]
 
     current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=1.00, format="%.2f")
     btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=1.0, format="%.2f")
@@ -446,7 +466,8 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
         writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
         writer.writerow(["Platform Trust Score", f"{platform_trust_score}"])
-        writer.writerow(["Composite Risk Score", f"{composite_score:.1f}"])
+        category, description = get_composite_score_context(composite_score)
+        writer.writerow(["Composite Risk Score", f"{composite_score:.1f} ({category})"])
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
