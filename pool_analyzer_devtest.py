@@ -122,17 +122,17 @@ def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initi
         "best": {"value": best_value, "il": best_il}
     }
 
-def calculate_composite_risk_score(tvl: float, certik_score: float, apy: float) -> float:
+def calculate_composite_risk_score(tvl: float, platform_trust_score: float, apy: float) -> float:
     normalized_tvl = min(tvl / 1000000, 1.0)
-    normalized_certik = certik_score / 100.0
+    normalized_platform_score = platform_trust_score / 5.0  # Normalize 1-5 to 0-1
     normalized_apy = min(apy / 50.0, 1.0)
     if apy > 300:
         normalized_apy *= 0.5
-    composite_score = (0.4 * normalized_tvl + 0.3 * normalized_certik + 0.3 * normalized_apy) * 100
+    composite_score = (0.4 * normalized_tvl + 0.3 * normalized_platform_score + 0.3 * normalized_apy) * 100
     return round(composite_score, 1)
 
 def generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price, 
-                        drawdown_initial, drawdown_12_months, current_tvl, certik_score, composite_score, 
+                        drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score, 
                         hurdle_rate, hurdle_value_12_months, risk_messages):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -156,7 +156,7 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
         story.append(Paragraph(f"High Risk: {', '.join(risk_messages)}", styles['BodyText']))
     else:
         story.append(Paragraph("Low Risk: Profitable with manageable IL", styles['BodyText']))
-    story.append(Paragraph(f"Certik Score: {certik_score:.1f}", styles['BodyText']))
+    story.append(Paragraph(f"Platform Trust Score: {platform_trust_score} (1-5)", styles['BodyText']))
     story.append(Paragraph(f"Composite Risk Score: {composite_score:.1f} (0-100)", styles['BodyText']))
 
     doc.build(story)
@@ -167,7 +167,7 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
 def check_exit_conditions(initial_investment: float, apy: float, initial_price_asset1, initial_price_asset2,
                          current_price_asset1, current_price_asset2, current_tvl: float, risk_free_rate: float,
                          expected_price_change_asset1: float, expected_price_change_asset2: float, is_new_pool: bool,
-                         certik_score: float):
+                         platform_trust_score: float):
     il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
     pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                         current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
@@ -279,10 +279,10 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
         risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
     if apy < hurdle_rate:
         risk_messages.append(f"APY ({apy:.1f}%) below hurdle rate ({hurdle_rate:.1f}%)")
-    if certik_score < 60:
-        risk_messages.append("Low Certik score: Project may be risky")
+    if platform_trust_score <= 2:  # Poor or Unknown
+        risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-    composite_score = calculate_composite_risk_score(current_tvl, certik_score, apy)
+    composite_score = calculate_composite_risk_score(current_tvl, platform_trust_score, apy)
     if risk_messages:
         st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
         st.markdown(f"**Composite Risk Score**: {composite_score} (0-100)")
@@ -297,7 +297,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 st.title("Simple Pool Analyzer")
 st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
 
-# Display the image at the top of the main page with the updated parameter
+# Display the image at the top of the main page
 st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/dm-pools.png", use_container_width=True)
 
 with st.sidebar:
@@ -321,7 +321,21 @@ with st.sidebar:
     expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=1.0, format="%.2f")
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=1.0, format="%.2f")
     current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1.00, format="%.2f")
-    certik_score = st.number_input("Certik Score (0-100)", min_value=0.0, max_value=100.0, value=50.0, format="%.1f")
+    
+    # Replace Certik Score with Platform Trust Score
+    platform_trust_score = st.selectbox(
+        "Platform Trust Score (1-5)",
+        options=[
+            (1, "1 - Unknown (highest caution)"),
+            (2, "2 - Poor (known but with concerns)"),
+            (3, "3 - Moderate (neutral, some audits)"),
+            (4, "4 - Good (trusted, audited)"),
+            (5, "5 - Excellent (top-tier, e.g., Uniswap, Aave)")
+        ],
+        format_func=lambda x: x[1],
+        index=0  # Default to Unknown (1)
+    )[0]  # Extract the numeric value from the tuple
+
     current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=1.00, format="%.2f")
     btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=1.0, format="%.2f")
     risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, format="%.2f")
@@ -330,7 +344,7 @@ if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
         result = check_exit_conditions(
             investment_amount, apy, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, certik_score
+            current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, platform_trust_score
         )
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
          drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages) = result
@@ -431,14 +445,14 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:,.0f}"])
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
         writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
-        writer.writerow(["Certik Score", f"{certik_score:.1f}"])
+        writer.writerow(["Platform Trust Score", f"{platform_trust_score}"])
         writer.writerow(["Composite Risk Score", f"{composite_score:.1f}"])
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
 
         pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
-                                       drawdown_initial, drawdown_12_months, current_tvl, certik_score, composite_score,
+                                       drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score,
                                        hurdle_rate, hurdle_value_12_months, risk_messages)
 
         col_csv, col_pdf = st.columns(2)
