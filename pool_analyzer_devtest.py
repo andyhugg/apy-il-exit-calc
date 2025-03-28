@@ -282,9 +282,11 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
             drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
 
 # Streamlit App
-# Removed the title and description
-# st.title("Simple Pool Analyzer")
-# st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
+# Display the logo (unchanged)
+st.markdown(
+    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
+    unsafe_allow_html=True
+)
 
 # Display the image at the top of the main page with programmatic fetching
 try:
