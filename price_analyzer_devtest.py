@@ -56,9 +56,23 @@ st.markdown("""
     .yellow-text {
         color: #FFD700;
     }
-    /* ... (rest of your CSS remains unchanged) */
     </style>
 """, unsafe_allow_html=True)
+
+# Helper function (moved up to be defined before use)
+def parse_market_value(value_str):
+    try:
+        value_str = value_str.replace(",", "").lower()
+        if value_str.endswith("b"):
+            return float(value_str[:-1]) * 1_000_000_000
+        elif value_str.endswith("m"):
+            return float(value_str[:-1]) * 1_000_000
+        elif value_str.endswith("k"):
+            return float(value_str[:-1]) * 1_000
+        else:
+            return float(value_str)
+    except:
+        return 0.0
 
 # Sidebar
 st.sidebar.header("Configure your Crypto Asset")
@@ -84,21 +98,6 @@ risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", m
 # Define calculate button
 calculate = st.sidebar.button("Calculate")
 
-# Helper function
-def parse_market_value(value_str):
-    try:
-        value_str = value_str.replace(",", "").lower()
-        if value_str.endswith("b"):
-            return float(value_str[:-1]) * 1_000_000_000
-        elif value_str.endswith("m"):
-            return float(value_str[:-1]) * 1_000_000
-        elif value_str.endswith("k"):
-            return float(value_str[:-1]) * 1_000
-        else:
-            return float(value_str)
-    except:
-        return 0.0
-
 # Main content
 if calculate:
     if asset_price == 0 or initial_investment == 0:
@@ -106,7 +105,7 @@ if calculate:
     elif market_cap == 0:
         st.error("Please provide Market Cap to proceed with calculations.")
     else:
-        # Basic calculations (from your original code)
+        # Basic calculations
         total_supply = fdv / asset_price if fdv > 0 and asset_price > 0 else 0
         trading_volume = (vol_mkt_cap / 100) * market_cap if market_cap > 0 else 0
         months = 12
@@ -121,7 +120,7 @@ if calculate:
         asset_values = [initial_investment * p / asset_price for p in asset_projections]
         btc_values = [initial_investment * p / btc_price for p in btc_projections]
 
-        # Monte Carlo simulation (simplified from your original)
+        # Monte Carlo simulation (simplified)
         @st.cache_data
         def run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months, n_simulations=200):
             expected_annual_return = growth_rate / 100
