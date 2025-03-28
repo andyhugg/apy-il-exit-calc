@@ -122,36 +122,8 @@ def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initi
         "best": {"value": best_value, "il": best_il}
     }
 
-def calculate_composite_risk_score(tvl: float, platform_trust_score: float, apy: float) -> float:
-    normalized_tvl = min(tvl / 1000000, 1.0)
-    normalized_platform_score = platform_trust_score / 5.0  # Normalize 1-5 to 0-1
-    normalized_apy = min(apy / 50.0, 1.0)
-    if apy > 300:
-        normalized_apy *= 0.5
-    composite_score = (0.4 * normalized_tvl + 0.3 * normalized_platform_score + 0.3 * normalized_apy) * 100
-    return round(composite_score, 1)
-
-# Updated function to categorize the composite risk score with simplified descriptions
-def get_composite_score_context(composite_score: float) -> tuple[str, str]:
-    if composite_score <= 20:
-        category = "Very High Risk"
-        description = "This pool has very high risk factors."
-    elif composite_score <= 40:
-        category = "High Risk"
-        description = "This pool has high risk factors."
-    elif composite_score <= 60:
-        category = "Moderate Risk"
-        description = "This pool has moderate risk factors."
-    elif composite_score <= 80:
-        category = "Low Risk"
-        description = "This pool has low risk factors."
-    else:
-        category = "Very Low Risk"
-        description = "This pool has very low risk factors."
-    return category, description
-
 def generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price, 
-                        drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score, 
+                        drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, 
                         hurdle_rate, hurdle_value_12_months, risk_messages):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -176,8 +148,6 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     else:
         story.append(Paragraph("Low Risk: Profitable with manageable IL", styles['BodyText']))
     story.append(Paragraph(f"Platform Trust Score: {platform_trust_score} (1-5)", styles['BodyText']))
-    category, description = get_composite_score_context(composite_score)
-    story.append(Paragraph(f"Composite Risk Score: {composite_score:.1f} ({category}) - {description}", styles['BodyText']))
 
     doc.build(story)
     pdf_data = buffer.getvalue()
@@ -302,23 +272,19 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     if platform_trust_score <= 2:
         risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-    composite_score = calculate_composite_risk_score(current_tvl, platform_trust_score, apy)
-    category, description = get_composite_score_context(composite_score)
     if risk_messages:
         st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
-        st.markdown(f"**Composite Risk Score**: {composite_score} ({category}) - {description}")
     else:
         st.success("✅ Low Risk: Profitable with manageable IL")
-        st.markdown(f"**Composite Risk Score**: {composite_score} ({category}) - {description}")
 
     return (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages)
+            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
 
 # Streamlit App
 st.title("Simple Pool Analyzer")
 st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
 
-# Display the image at the top of the main page
+# Display the image at the top of the main page with corrected URL
 st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png", use_container_width=True)
 
 with st.sidebar:
@@ -367,7 +333,7 @@ if st.sidebar.button("Calculate"):
             current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, platform_trust_score
         )
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages) = result
+         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages) = result
 
         st.subheader("Projected Pool Value Over Time")
         time_periods = [0, 3, 6, 12]
@@ -466,14 +432,12 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
         writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
         writer.writerow(["Platform Trust Score", f"{platform_trust_score}"])
-        category, description = get_composite_score_context(composite_score)
-        writer.writerow(["Composite Risk Score", f"{composite_score:.1f} ({category})"])
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
 
         pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
-                                       drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score,
+                                       drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score,
                                        hurdle_rate, hurdle_value_12_months, risk_messages)
 
         col_csv, col_pdf = st.columns(2)
