@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (unchanged)
+# Custom CSS with Tooltip Styling Added
 st.markdown("""
     <style>
     .metric-tile {
@@ -147,8 +147,50 @@ st.markdown("""
             padding: 8px;
         }
     }
+    /* Tooltip Styling */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+    }
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 300px;
+        background-color: #2A3555;
+        color: white;
+        text-align: left;
+        border-radius: 6px;
+        padding: 10px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%; /* Position above the text */
+        left: 50%;
+        margin-left: -150px; /* Center it */
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
     </style>
 """, unsafe_allow_html=True)
+
+# Tooltip Definitions
+tooltips = {
+    "Investment Value (1 Year)": "How much your money could be worth in 12 months. Example: $100 might grow to $150 (1.5x). Shows potential reward based on your investment and growth rate.",
+    "Sortino Ratio": "Measures return per unit of downside risk. Above 1 is great (good reward, low loss risk), 0 to 1 is okay, below 0 means high risk for little gain.",
+    "Sharpe Ratio": "Measures return per unit of total risk (ups and downs). Above 1 is excellent, 0 to 1 is decent, below 0 suggests too much risk for the reward.",
+    "Max Drawdown": "Biggest potential loss in a worst-case scenario. Example: 30% means $100 could drop to $70. Shows how much you might lose at the worst point.",
+    "Dilution Risk": "How much value might drop if more tokens are released. Example: 20% means 20% more tokens could shrink your share. High % = bigger risk.",
+    "Supply Concentration Risk": "How much of the crypto is circulating vs. total supply. Low % (e.g., 20%) means big holders could control price; high % is safer.",
+    "MCap Growth Plausibility": "Checks if future market cap is realistic compared to Bitcoin’s. Under 1% is easy, over 5% is tough. Market cap = price × total tokens.",
+    "Liquidity (Vol/Mkt Cap 24h)": "How easy it is to trade without moving the price. Low % (under 1%) means hard to buy/sell; high % (over 5%) is smooth.",
+    "Hurdle Rate vs. Bitcoin": "Compares your crypto’s growth to a minimum goal (risk-free rate + extra). Positive means it beats the goal; negative means it lags.",
+    "Risk-Adjusted Return Score": "Overall grade (0-100) combining risk and reward. 70+ is strong, 40-70 is moderate, below 40 suggests safer options."
+}
 
 # Display the logo (unchanged)
 st.markdown(
@@ -167,7 +209,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (updated to move Investor Profile to the top)
+# Sidebar (unchanged)
 st.sidebar.markdown("""
 **Looking to analyze a Liquidity Pool?**  
 If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
@@ -180,7 +222,6 @@ st.sidebar.markdown("""
 
 st.sidebar.header("Configure your Crypto Asset")
 
-# Moved Investor Profile to the top
 investor_profile = st.sidebar.selectbox(
     "Investor Profile",
     ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
@@ -225,7 +266,7 @@ risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", m
 
 calculate = st.sidebar.button("Calculate")
 
-# Main content (updated to incorporate investor profile into composite score)
+# Main content
 if calculate:
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
@@ -233,7 +274,6 @@ if calculate:
         st.error("Please provide Market Cap to proceed with calculations.")
     else:
         total_supply = fdv / asset_price if fdv > 0 and asset_price > 0 else 0
-
         trading_volume = (vol_mkt_cap / 100) * market_cap if market_cap > 0 else 0
 
         months = 12
@@ -396,7 +436,7 @@ if calculate:
             hurdle_label = "Below Hurdle"
             hurdle_color = "red-text"
 
-        # Define individual scores (unchanged)
+        # Define individual scores
         scores = {}
         if max_drawdown < 30:
             scores['Max Drawdown'] = 100
@@ -577,7 +617,6 @@ if calculate:
                 f"Fear and Greed Index: {fear_and_greed} ({fear_greed_classification})."
             )
 
-        # Updated Composite Risk Assessment with note about investor profile adjustment
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
@@ -587,6 +626,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
+        # Key Metrics with Tooltips
         st.subheader("Key Metrics")
         roi = ((asset_values[-1] / initial_investment) - 1) * 100
         investment_multiple = asset_values[-1] / initial_investment if initial_investment > 0 else 0
@@ -594,7 +634,11 @@ if calculate:
         st.markdown("### Investment Returns and Risk-Adjusted Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">💰 Investment Value (1 Year)</div>
+                <div class="metric-title">
+                    <div class="tooltip">💰 Investment Value (1 Year)
+                        <span class="tooltiptext">{tooltips['Investment Value (1 Year)']}</span>
+                    </div>
+                </div>
                 <div class="metric-value">${asset_values[-1]:,.2f}<br>({investment_multiple:.2f}x)</div>
                 <div class="metric-desc">Potential value of your ${initial_investment:,.2f} investment in 12 months.<br>
                 <b>Insight:</b> {'Lock in profits if reached.' if roi > 50 else 'Hold and monitor.' if roi >= 0 else 'Reassess investment.'}
@@ -604,7 +648,11 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📉 Sortino Ratio</div>
+                <div class="metric-title">
+                    <div class="tooltip">📉 Sortino Ratio
+                        <span class="tooltiptext">{tooltips['Sortino Ratio']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if sortino_ratio < 0 else ''}">{sortino_ratio:.2f}</div>
                 <div class="metric-desc">Return per unit of downside risk.<br>
                 <b>Insight:</b> {'Proceed confidently.' if sortino_ratio > 1 else 'Allocate to stable assets.' if sortino_ratio >= 0 else 'Shift to stable assets.'}
@@ -614,7 +662,11 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📊 Sharpe Ratio</div>
+                <div class="metric-title">
+                    <div class="tooltip">📊 Sharpe Ratio
+                        <span class="tooltiptext">{tooltips['Sharpe Ratio']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
                 <div class="metric-desc">Return per unit of risk.<br>
                 <b>Insight:</b> {'Proceed confidently.' if sharpe_ratio > 1 else 'Consider safer assets.' if sharpe_ratio >= 0 else 'Shift to stablecoins.'}
@@ -625,7 +677,11 @@ if calculate:
         st.markdown("### Risk Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📉 Max Drawdown</div>
+                <div class="metric-title">
+                    <div class="tooltip">📉 Max Drawdown
+                        <span class="tooltiptext">{tooltips['Max Drawdown']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if max_drawdown > 30 else ''}">{max_drawdown:.2f}%</div>
                 <div class="metric-desc">Largest potential loss in a worst-case scenario.<br>
                 <b>Insight:</b> {'Minimal action needed.' if max_drawdown < 30 else f'Set stop-loss at {max_drawdown:.2f}%.' if max_drawdown <= 50 else 'Reduce exposure.'}
@@ -635,7 +691,11 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">⚖️ Dilution Risk</div>
+                <div class="metric-title">
+                    <div class="tooltip">⚖️ Dilution Risk
+                        <span class="tooltiptext">{tooltips['Dilution Risk']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
                 <div class="metric-desc">{dilution_text}<br>
                 <b>Insight:</b> {'Minimal action needed.' if dilution_ratio < 20 else 'Check unlock schedule.' if dilution_ratio <= 50 else 'Reduce position.'}
@@ -645,7 +705,11 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">🛡️ Supply Concentration Risk</div>
+                <div class="metric-title">
+                    <div class="tooltip">🛡️ Supply Concentration Risk
+                        <span class="tooltiptext">{tooltips['Supply Concentration Risk']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if supply_ratio < 20 else 'yellow-text' if supply_ratio < 50 else 'green-text'}">{supply_ratio:.2f}%</div>
                 <div class="metric-desc">{supply_concentration_text}<br>
                 <b>Insight:</b> {'Monitor whale activity.' if supply_ratio < 20 else 'Be cautious of large holders.' if supply_ratio < 50 else 'Proceed confidently.'}
@@ -657,7 +721,11 @@ if calculate:
         mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📈 MCap Growth Plausibility</div>
+                <div class="metric-title">
+                    <div class="tooltip">📈 MCap Growth Plausibility
+                        <span class="tooltiptext">{tooltips['MCap Growth Plausibility']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
                 <div class="metric-desc">{mcap_max_note}<br>
                 <b>Insight:</b> {'Proceed confidently.' if mcap_vs_btc < 1 else 'Adjust growth rate.' if mcap_vs_btc <= 5 else 'Focus on realistic targets.'}
@@ -668,7 +736,11 @@ if calculate:
         supply_volatility_note = f"Total Supply: {max_supply_display}." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">💧 Liquidity (Vol/Mkt Cap 24h)</div>
+                <div class="metric-title">
+                    <div class="tooltip">💧 Liquidity (Vol/Mkt Cap 24h)
+                        <span class="tooltiptext">{tooltips['Liquidity (Vol/Mkt Cap 24h)']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'red-text' if vol_mkt_cap < 1 else 'green-text' if vol_mkt_cap > 5 else 'yellow-text'}">{vol_mkt_cap:.2f}%</div>
                 <div class="metric-desc">{supply_volatility_note}<br>
                 <b>Insight:</b> {'Use limit orders, monitor volume.' if vol_mkt_cap < 1 else 'Limit orders for small trades.' if vol_mkt_cap <= 5 else 'Trade confidently with stop-loss.'}
@@ -679,7 +751,11 @@ if calculate:
         st.markdown("### Comparative Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
+                <div class="metric-title">
+                    <div class="tooltip">📈 Hurdle Rate vs. Bitcoin
+                        <span class="tooltiptext">{tooltips['Hurdle Rate vs. Bitcoin']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}%<br>({hurdle_label})</div>
                 <div class="metric-desc">Growth vs. minimum return to beat Bitcoin.<br>
                 <b>Insight:</b> {'Favor this asset.' if asset_vs_hurdle >= 20 else 'Balance with Bitcoin.' if asset_vs_hurdle >= 0 else 'Increase Bitcoin allocation.'}
@@ -689,7 +765,11 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">🎯 Risk-Adjusted Return Score</div>
+                <div class="metric-title">
+                    <div class="tooltip">🎯 Risk-Adjusted Return Score
+                        <span class="tooltiptext">{tooltips['Risk-Adjusted Return Score']}</span>
+                    </div>
+                </div>
                 <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
                 <div class="metric-desc">Combines risk and return.<br>
                 <b>Insight:</b> {'Diversify confidently.' if risk_adjusted_score >= 70 else 'Small position, diversify.' if risk_adjusted_score >= 40 else 'Explore safer assets.'}
