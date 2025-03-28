@@ -284,7 +284,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 # Streamlit App
 # Display the logo 
 st.markdown(
-    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta-lp.png" class="large-logo" width="500"></div>',
+    f'<div><img src="https://github.com/andyhugg/apy-il-exit-calc/blob/main/Arta-LP.png" class="large-logo" width="500"></div>',
     unsafe_allow_html=True
 )
 
@@ -316,11 +316,11 @@ If you want to analyze a crypto asset, click the link below to use our Asset Ana
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
-**Instructions**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your impermanent loss (IL) on existing pools and the projected profit and loss over 12 months considering of IL, APY, and asset price changes.
+**Instructions for Analyzing a Liquidity Pool**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your potential profit and loss on existing or new pools over 12 months considering impermanent loss, APY, and asset price changes.
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.header("Your Pool")
+    st.header("Configure Your Pool")
     pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool"])
     is_new_pool = (pool_status == "New Pool")
     
