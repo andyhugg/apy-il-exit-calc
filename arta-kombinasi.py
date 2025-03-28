@@ -3,20 +3,15 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from flask import Flask, render_template, request, send_file
+import streamlit as st
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from io import BytesIO
 
-app = Flask(__name__)
-
 # Set up directories
-if not os.path.exists('static/images'):
-    os.makedirs('static/images')
-
-# Store PDF buffer globally
-app.config['PDF_BUFFER'] = None
+if not os.path.exists('images'):
+    os.makedirs('images')
 
 # Helper Functions
 def calculate_impermanent_loss(initial_price1, initial_price2, current_price1, current_price2):
@@ -66,7 +61,6 @@ def run_simulation(initial_price1, initial_price2, current_price1, current_price
     return pd.DataFrame(data)
 
 def calculate_max_drawdown(portfolio_values, confidence_level=0.9):
-    # Simulate 1000 price paths with volatility
     n_simulations = 1000
     monthly_volatility = 0.05  # 5% monthly volatility
     drawdowns = []
@@ -79,26 +73,14 @@ def calculate_max_drawdown(portfolio_values, confidence_level=0.9):
             current_value = portfolio_values[i] * (1 + noise)
             simulated_values.append(current_value)
 
-        # Calculate max drawdown for this path
         peak = np.maximum.accumulate(simulated_values)
         drawdown = (peak - simulated_values) / peak
         max_drawdown = np.max(drawdown)
         drawdowns.append(max_drawdown)
 
-    # Return the 90th percentile drawdown
     return np.percentile(drawdowns, confidence_level * 100)
 
 def generate_graphs(df, investment):
-    # Debugging: Print DataFrame info
-    print("DataFrame in generate_graphs:")
-    print(df)
-    print("DataFrame columns:", df.columns.tolist())
-
-    # Check if DataFrame is empty or missing required columns
-    required_columns = ['Month', 'Net Profit ($)', 'IL ($)', 'APY Gain ($)']
-    if df.empty or not all(col in df.columns for col in required_columns):
-        raise ValueError(f"DataFrame is empty or missing required columns. Found columns: {df.columns.tolist()}")
-
     sns.set_style("darkgrid")
     plt.rcParams['figure.figsize'] = (10, 6)
 
@@ -108,7 +90,7 @@ def generate_graphs(df, investment):
     plt.title('Profit Over Time')
     plt.xlabel('Month')
     plt.ylabel('Net Profit ($)')
-    plt.savefig('static/images/profit_over_time.png')
+    plt.savefig('images/profit_over_time.png')
     plt.close()
 
     # Graph 2: IL vs APY Contribution
@@ -119,17 +101,17 @@ def generate_graphs(df, investment):
     plt.xlabel('Month')
     plt.ylabel('Value ($)')
     plt.legend()
-    plt.savefig('static/images/il_vs_apy.png')
+    plt.savefig('images/il_vs_apy.png')
     plt.close()
 
-    # Graph 3: Max Drawdown (Simplified for static graph)
+    # Graph 3: Max Drawdown
     portfolio_values = investment + df['Net Profit ($)']
     plt.figure()
     sns.lineplot(x='Month', y=portfolio_values, marker='o', color='purple')
     plt.title('Portfolio Value with Max Drawdown')
     plt.xlabel('Month')
     plt.ylabel('Portfolio Value ($)')
-    plt.savefig('static/images/max_drawdown.png')
+    plt.savefig('images/max_drawdown.png')
     plt.close()
 
 def generate_pdf(df, metrics):
@@ -160,7 +142,7 @@ def generate_pdf(df, metrics):
 
     # Graphs
     y -= 20
-    for img_path in ['static/images/profit_over_time.png', 'static/images/il_vs_apy.png', 'static/images/max_drawdown.png']:
+    for img_path in ['images/profit_over_time.png', 'images/il_vs_apy.png', 'images/max_drawdown.png']:
         img = ImageReader(img_path)
         c.drawImage(img, 50, y - 150, width=500, height=150)
         y -= 170
@@ -170,77 +152,81 @@ def generate_pdf(df, metrics):
     buffer.seek(0)
     return buffer
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        try:
-            # Get form inputs
-            pool_status = request.form['pool_status']
-            initial_price1 = float(request.form['initial_price1'])
-            initial_price2 = float(request.form['initial_price2'])
-            current_price1 = float(request.form['current_price1'])
-            current_price2 = float(request.form['current_price2'])
-            investment = float(request.form['investment'])
-            apy = float(request.form['apy'])
-            price_change1 = float(request.form['price_change1'])
-            price_change2 = float(request.form['price_change2'])
-            tvl = float(request.form['tvl']) if pool_status == 'existing' else 0
-            trust_score = int(request.form['trust_score'])
-            btc_price = float(request.form['btc_price'])
-            btc_growth = float(request.form['btc_growth'])
-            risk_free_rate = float(request.form['risk_free_rate'])
+# Streamlit App
+st.title("CryptoPool Valuator")
 
-            # Run simulation
-            df = run_simulation(initial_price1, initial_price2, current_price1, current_price2, investment, apy,
-                                price_change1, price_change2)
+# Input Form
+with st.form(key='input_form'):
+    pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool", "Asset Valuation"])
+    initial_price1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.0, value=1.0, step=0.01)
+    initial_price2 = st.number_input("Initial Asset 2 Price ($)", min_value=0.0, value=1.0, step=0.01)
+    current_price1 = st.number_input("Current Asset 1 Price ($)", min_value=0.0, value=1.0, step=0.01)
+    current_price2 = st.number_input("Current Asset 2 Price ($)", min_value=0.0, value=1.0, step=0.01)
+    investment = st.number_input("Investment ($)", min_value=0.0, value=1000.0, step=0.01)
+    apy = st.number_input("APY (%)", min_value=0.0, value=25.0, step=0.01)
+    price_change1 = st.number_input("Expected Price Change Asset 1 (%)", value=1.0, step=0.01)
+    price_change2 = st.number_input("Expected Price Change Asset 2 (%)", value=1.0, step=0.01)
+    tvl = st.number_input("Current TVL ($)", min_value=0.0, value=1000.0, step=0.01) if pool_status == "Existing Pool" else 0
+    trust_score = st.selectbox("Platform Trust Score (1-5)", [1, 2, 3, 4, 5], format_func=lambda x: f"{x} - {'Unknown (High Caution)' if x == 1 else 'High Trust' if x == 5 else x}")
+    btc_price = st.number_input("Current BTC Price ($)", min_value=0.0, value=1.0, step=0.01)
+    btc_growth = st.number_input("Expected BTC Growth Rate (%)", value=1.0, step=0.01)
+    risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, step=0.01)
 
-            # Debugging: Print DataFrame info
-            print("DataFrame after run_simulation:")
-            print(df)
-            print("DataFrame columns:", df.columns.tolist())
+    submit_button = st.form_submit_button(label="Analyze")
 
-            # Calculate key metrics
-            total_profit = df['Net Profit ($)'].iloc[-1]
-            total_il = df['IL ($)'].sum()
-            total_apy = df['APY Gain ($)'].sum()
-            break_even = df[df['Net Profit ($)'] > 0]['Month'].iloc[0] if (df['Net Profit ($)'] > 0).any() else "N/A"
-            portfolio_values = investment + df['Net Profit ($)']
-            max_drawdown = calculate_max_drawdown(portfolio_values) * investment
-            recovery_percent = (max_drawdown / (portfolio_values.min() - max_drawdown)) * 100 if portfolio_values.min() != max_drawdown else 0
+# Process Form Submission
+if submit_button:
+    try:
+        # Run simulation
+        df = run_simulation(initial_price1, initial_price2, current_price1, current_price2, investment, apy,
+                            price_change1, price_change2)
 
-            metrics = {
-                "Total Projected Profit ($)": f"${round(total_profit, 2)}",
-                "Impermanent Loss Impact ($)": f"${round(total_il, 2)}",
-                "APY Contribution ($)": f"${round(total_apy, 2)}",
-                "Break-Even Point (Months)": break_even,
-                "Max Drawdown (90%) ($)": f"${round(max_drawdown, 2)}",
-                "Recovery % Required": f"{round(recovery_percent, 2)}%"
-            }
+        # Calculate key metrics
+        total_profit = df['Net Profit ($)'].iloc[-1]
+        total_il = df['IL ($)'].sum()
+        total_apy = df['APY Gain ($)'].sum()
+        break_even = df[df['Net Profit ($)'] > 0]['Month'].iloc[0] if (df['Net Profit ($)'] > 0).any() else "N/A"
+        portfolio_values = investment + df['Net Profit ($)']
+        max_drawdown = calculate_max_drawdown(portfolio_values) * investment
+        recovery_percent = (max_drawdown / (portfolio_values.min() - max_drawdown)) * 100 if portfolio_values.min() != max_drawdown else 0
 
-            # Generate graphs
-            generate_graphs(df, investment)
+        metrics = {
+            "Total Projected Profit ($)": f"${round(total_profit, 2)}",
+            "Impermanent Loss Impact ($)": f"${round(total_il, 2)}",
+            "APY Contribution ($)": f"${round(total_apy, 2)}",
+            "Break-Even Point (Months)": break_even,
+            "Max Drawdown (90%) ($)": f"${round(max_drawdown, 2)}",
+            "Recovery % Required": f"{round(recovery_percent, 2)}%"
+        }
 
-            # Generate PDF and store in app.config
-            app.config['PDF_BUFFER'] = generate_pdf(df, metrics)
+        # Generate graphs
+        generate_graphs(df, investment)
 
-            return render_template('index.html', table=df.to_html(), metrics=metrics,
-                                   profit_graph='static/images/profit_over_time.png',
-                                   il_apy_graph='static/images/il_vs_apy.png',
-                                   drawdown_graph='static/images/max_drawdown.png')
+        # Display Results
+        st.subheader("Monthly Projections")
+        st.dataframe(df)
 
-        except Exception as e:
-            # Log the error and return a user-friendly message
-            print(f"Error in index route: {str(e)}")
-            return f"An error occurred: {str(e)}", 500
+        st.subheader("Key Metrics")
+        for key, value in metrics.items():
+            st.write(f"**{key}:** {value}")
 
-    return render_template('index.html')
+        st.subheader("Graphs")
+        st.image('images/profit_over_time.png', caption="Profit Over Time")
+        st.image('images/il_vs_apy.png', caption="IL vs APY Contribution")
+        st.image('images/max_drawdown.png', caption="Max Drawdown")
 
-@app.route('/download_pdf')
-def download_pdf():
-    pdf_buffer = app.config['PDF_BUFFER']
-    if pdf_buffer is None:
-        return "No PDF available. Please run an analysis first.", 400
-    return send_file(pdf_buffer, as_attachment=True, download_name='CryptoPool_Valuator_Report.pdf')
+        # Generate and provide PDF download
+        pdf_buffer = generate_pdf(df, metrics)
+        st.subheader("Download Report")
+        st.download_button(
+            label="Download PDF",
+            data=pdf_buffer,
+            file_name="CryptoPool_Valuator_Report.pdf",
+            mime="application/pdf"
+        )
+
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    st.run()
