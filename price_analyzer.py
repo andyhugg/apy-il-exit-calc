@@ -159,7 +159,7 @@ st.markdown(
 # Title and Introduction (unchanged)
 st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
 st.markdown("""
-Whether you're trading, investing, or strategizing, Arta gives you fast, accurate insights into token prices, profit margins, and portfolio risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
+Use Arta for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
 """)
 st.markdown("""
 <div class="disclaimer">
