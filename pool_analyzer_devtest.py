@@ -322,7 +322,7 @@ st.markdown("""
 st.sidebar.markdown("""
 **Looking to Analyze a Crypto Asset?**  
 Click the link below to use our Crypto Asset Analyzer tool:  
-<a href="https://arta-crypto-risk-analyzer.onrender.com">Go to Asset Analyzer</a>
+<a href="https://arta-crypto-risk-analyzer.onrender.com" target="_self">Go to Asset Analyzer</a>
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
