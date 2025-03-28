@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (updated for better Composite Risk Score and Key Metrics styling)
+# Custom CSS (unchanged)
 st.markdown("""
     <style>
     .metric-tile {
@@ -167,7 +167,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (updated to remove Max Supply)
+# Sidebar (unchanged)
 st.sidebar.markdown("""
 **Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
@@ -224,7 +224,6 @@ if calculate:
     elif market_cap == 0:
         st.error("Please provide Market Cap to proceed with calculations.")
     else:
-        # Calculate Total Supply from FDV if provided
         total_supply = fdv / asset_price if fdv > 0 and asset_price > 0 else 0
 
         trading_volume = (vol_mkt_cap / 100) * market_cap if market_cap > 0 else 0
@@ -510,66 +509,28 @@ if calculate:
                 f"Fear and Greed Index: {fear_and_greed} ({fear_greed_classification})."
             )
 
-        # Updated Composite Risk Assessment with better styling
+        # Updated Composite Risk Assessment to show score out of 100
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
-                <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}</div>
+                <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
                 <div style="font-size: 16px; margin-top: 10px; color: #A9A9A9;">{insight}</div>
             </div>
         """, unsafe_allow_html=True)
 
-        # Updated Key Metrics with metric cards
+        # Updated Key Metrics with logical grouping
         st.subheader("Key Metrics")
         roi = ((asset_values[-1] / initial_investment) - 1) * 100
+        investment_multiple = asset_values[-1] / initial_investment if initial_investment > 0 else 0
 
+        # Group 1: Investment Returns and Risk-Adjusted Metrics
+        st.markdown("### Investment Returns and Risk-Adjusted Metrics")
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">💰 Investment Value (1 Year)</div>
-                <div class="metric-value">${asset_values[-1]:,.2f}</div>
+                <div class="metric-value">${asset_values[-1]:,.2f}<br>({investment_multiple:.2f}x)</div>
                 <div class="metric-desc">Potential value of your ${initial_investment:,.2f} investment in 12 months.<br>
                 <b>Insight:</b> {'Lock in profits if reached.' if roi > 50 else 'Hold and monitor.' if roi >= 0 else 'Reassess investment.'}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">📉 Max Drawdown</div>
-                <div class="metric-value {'red-text' if max_drawdown > 30 else ''}">{max_drawdown:.2f}%</div>
-                <div class="metric-desc">Largest potential loss in a worst-case scenario.<br>
-                <b>Insight:</b> {'Minimal action needed.' if max_drawdown < 30 else f'Set stop-loss at {max_drawdown:.2f}%.' if max_drawdown <= 50 else 'Reduce exposure.'}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">📊 Sharpe Ratio</div>
-                <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
-                <div class="metric-desc">Return per unit of risk.<br>
-                <b>Insight:</b> {'Proceed confidently.' if sharpe_ratio > 1 else 'Consider safer assets.' if sharpe_ratio >= 0 else 'Shift to stablecoins.'}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">⚖️ Dilution Risk</div>
-                <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
-                <div class="metric-desc">{dilution_text}<br>
-                <b>Insight:</b> {'Minimal action needed.' if dilution_ratio < 20 else 'Check unlock schedule.' if dilution_ratio <= 50 else 'Reduce position.'}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">📈 MCap Growth Plausibility</div>
-                <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
-                <div class="metric-desc">{mcap_max_note}<br>
-                <b>Insight:</b> {'Proceed confidently.' if mcap_vs_btc < 1 else 'Adjust growth rate.' if mcap_vs_btc <= 5 else 'Focus on realistic targets.'}
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -586,20 +547,55 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
-                <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}%<br>({hurdle_label})</div>
-                <div class="metric-desc">Growth vs. minimum return to beat Bitcoin.<br>
-                <b>Insight:</b> {'Favor this asset.' if asset_vs_hurdle >= 20 else 'Balance with Bitcoin.' if asset_vs_hurdle >= 0 else 'Increase Bitcoin allocation.'}
+                <div class="metric-title">📊 Sharpe Ratio</div>
+                <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
+                <div class="metric-desc">Return per unit of risk.<br>
+                <b>Insight:</b> {'Proceed confidently.' if sharpe_ratio > 1 else 'Consider safer assets.' if sharpe_ratio >= 0 else 'Shift to stablecoins.'}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Group 2: Risk Metrics
+        st.markdown("### Risk Metrics")
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📉 Max Drawdown</div>
+                <div class="metric-value {'red-text' if max_drawdown > 30 else ''}">{max_drawdown:.2f}%</div>
+                <div class="metric-desc">Largest potential loss in a worst-case scenario.<br>
+                <b>Insight:</b> {'Minimal action needed.' if max_drawdown < 30 else f'Set stop-loss at {max_drawdown:.2f}%.' if max_drawdown <= 50 else 'Reduce exposure.'}
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">🎯 Risk-Adjusted Return Score</div>
-                <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
-                <div class="metric-desc">Combines risk and return.<br>
-                <b>Insight:</b> {'Diversify confidently.' if risk_adjusted_score >= 70 else 'Small position, diversify.' if risk_adjusted_score >= 40 else 'Explore safer assets.'}
+                <div class="metric-title">⚖️ Dilution Risk</div>
+                <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
+                <div class="metric-desc">{dilution_text}<br>
+                <b>Insight:</b> {'Minimal action needed.' if dilution_ratio < 20 else 'Check unlock schedule.' if dilution_ratio <= 50 else 'Reduce position.'}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">🛡️ Supply Concentration Risk</div>
+                <div class="metric-value {'red-text' if supply_ratio < 20 else 'yellow-text' if supply_ratio < 50 else 'green-text'}">{supply_ratio:.2f}%</div>
+                <div class="metric-desc">{supply_concentration_text}<br>
+                <b>Insight:</b> {'Monitor whale activity.' if supply_ratio < 20 else 'Be cautious of large holders.' if supply_ratio < 50 else 'Proceed confidently.'}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Group 3: Market Metrics
+        st.markdown("### Market Metrics")
+        mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📈 MCap Growth Plausibility</div>
+                <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
+                <div class="metric-desc">{mcap_max_note}<br>
+                <b>Insight:</b> {'Proceed confidently.' if mcap_vs_btc < 1 else 'Adjust growth rate.' if mcap_vs_btc <= 5 else 'Focus on realistic targets.'}
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -615,12 +611,24 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
+        # Group 4: Comparative Metrics
+        st.markdown("### Comparative Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">🛡️ Supply Concentration Risk</div>
-                <div class="metric-value {'red-text' if supply_ratio < 20 else 'yellow-text' if supply_ratio < 50 else 'green-text'}">{supply_ratio:.2f}%</div>
-                <div class="metric-desc">{supply_concentration_text}<br>
-                <b>Insight:</b> {'Monitor whale activity.' if supply_ratio < 20 else 'Be cautious of large holders.' if supply_ratio < 50 else 'Proceed confidently.'}
+                <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
+                <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}%<br>({hurdle_label})</div>
+                <div class="metric-desc">Growth vs. minimum return to beat Bitcoin.<br>
+                <b>Insight:</b> {'Favor this asset.' if asset_vs_hurdle >= 20 else 'Balance with Bitcoin.' if asset_vs_hurdle >= 0 else 'Increase Bitcoin allocation.'}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">🎯 Risk-Adjusted Return Score</div>
+                <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
+                <div class="metric-desc">Combines risk and return.<br>
+                <b>Insight:</b> {'Diversify confidently.' if risk_adjusted_score >= 70 else 'Small position, diversify.' if risk_adjusted_score >= 40 else 'Explore safer assets.'}
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -759,7 +767,7 @@ if calculate:
         st.pyplot(plt)
         plt.clf()
 
-        # Updated to remove "Actionable Risk Management Insights"
+        # Updated to remove "Why Balance Matters"
         st.markdown("""
         ### Understanding the Asset Classes
         - **Stablecoin Liquidity Pools**: Low volatility, 5–10% returns.
@@ -767,6 +775,4 @@ if calculate:
         - **BTC**: Stable anchor, long-term growth.
         - **Blue Chips**: Lower volatility, established ecosystems.
         - **High Risk Assets**: High growth potential, high risk.
-        ### Why Balance Matters
-        Diversify to reduce drawdowns and capture upside.
         """)
