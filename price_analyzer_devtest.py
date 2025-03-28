@@ -167,7 +167,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (updated with Pool Analyzer link)
+# Sidebar (updated to move Investor Profile to the top)
 st.sidebar.markdown("""
 **Analyze a Liquidity Pool**  
 If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
@@ -179,6 +179,14 @@ st.sidebar.markdown("""
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Input Parameters")
+
+# Moved Investor Profile to the top
+investor_profile = st.sidebar.selectbox(
+    "Investor Profile",
+    ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
+    index=0
+)
+st.sidebar.markdown("**Note**: Your investor profile adjusts the composite score based on your risk tolerance.")
 
 def parse_market_value(value_str):
     try:
@@ -215,15 +223,9 @@ btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, 
 btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate % (12 months)", min_value=-100.0, value=0.0)
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=0.0)
 
-investor_profile = st.sidebar.selectbox(
-    "Investor Profile",
-    ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
-    index=0
-)
-
 calculate = st.sidebar.button("Calculate")
 
-# Main content (unchanged)
+# Main content (updated to incorporate investor profile into composite score)
 if calculate:
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
@@ -394,6 +396,7 @@ if calculate:
             hurdle_label = "Below Hurdle"
             hurdle_color = "red-text"
 
+        # Define individual scores (unchanged)
         scores = {}
         if max_drawdown < 30:
             scores['Max Drawdown'] = 100
@@ -470,7 +473,66 @@ if calculate:
         else:
             scores['Liquidity'] = 100
 
-        composite_score = sum(scores.values()) / len(scores)
+        # Define weights based on investor profile
+        weights = {
+            "Conservative Investor": {
+                "Max Drawdown": 1.5,
+                "Dilution Risk": 1.5,
+                "Supply Concentration": 1.2,
+                "MCap Growth": 0.5,
+                "Sharpe Ratio": 1.0,
+                "Sortino Ratio": 1.0,
+                "CertiK Score": 1.5,
+                "Market Cap": 1.2,
+                "Fear and Greed": 0.8,
+                "Liquidity": 1.5
+            },
+            "Bitcoin Strategist": {
+                "Max Drawdown": 1.0,
+                "Dilution Risk": 1.0,
+                "Supply Concentration": 1.0,
+                "MCap Growth": 1.5,
+                "Sharpe Ratio": 1.0,
+                "Sortino Ratio": 1.0,
+                "CertiK Score": 1.0,
+                "Market Cap": 1.0,
+                "Fear and Greed": 0.5,
+                "Liquidity": 1.0
+            },
+            "Growth Crypto Investor": {
+                "Max Drawdown": 1.0,
+                "Dilution Risk": 1.0,
+                "Supply Concentration": 1.0,
+                "MCap Growth": 1.2,
+                "Sharpe Ratio": 1.2,
+                "Sortino Ratio": 1.2,
+                "CertiK Score": 1.0,
+                "Market Cap": 1.0,
+                "Fear and Greed": 1.0,
+                "Liquidity": 1.0
+            },
+            "Aggressive Crypto Investor": {
+                "Max Drawdown": 0.5,
+                "Dilution Risk": 0.8,
+                "Supply Concentration": 0.8,
+                "MCap Growth": 1.5,
+                "Sharpe Ratio": 1.2,
+                "Sortino Ratio": 1.2,
+                "CertiK Score": 1.0,
+                "Market Cap": 1.0,
+                "Fear and Greed": 1.0,
+                "Liquidity": 0.8
+            }
+        }
+
+        # Calculate weighted composite score
+        weighted_sum = 0
+        total_weight = 0
+        for metric, score in scores.items():
+            weight = weights[investor_profile][metric]
+            weighted_sum += score * weight
+            total_weight += weight
+        composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
         return_to_hurdle_ratio = (growth_rate / hurdle_rate) if hurdle_rate > 0 else 1
         return_to_hurdle_ratio = min(return_to_hurdle_ratio, 3)
@@ -515,11 +577,13 @@ if calculate:
                 f"Fear and Greed Index: {fear_and_greed} ({fear_greed_classification})."
             )
 
+        # Updated Composite Risk Assessment with note about investor profile adjustment
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
                 <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
                 <div style="font-size: 16px; margin-top: 10px; color: #A9A9A9;">{insight}</div>
+                <div style="font-size: 14px; margin-top: 5px; color: #A9A9A9; font-style: italic;">Score adjusted based on your investor profile.</div>
             </div>
         """, unsafe_allow_html=True)
 
