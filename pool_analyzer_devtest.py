@@ -8,6 +8,7 @@ import csv
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+import requests  # Added for image fetching
 
 # Core Calculation Functions (unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
@@ -281,11 +282,18 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
             drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
 
 # Streamlit App
-st.title("Simple Pool Analyzer")
-st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
+# Removed the title and description
+# st.title("Simple Pool Analyzer")
+# st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
 
-# Display the image at the top of the main page with corrected URL
-st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png", use_container_width=True)
+# Display the image at the top of the main page with programmatic fetching
+try:
+    response = requests.get("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png")
+    response.raise_for_status()  # Check for HTTP errors
+    image_data = BytesIO(response.content)
+    st.image(image_data, use_container_width=True)
+except Exception as e:
+    st.error(f"Failed to load image: {e}")
 
 with st.sidebar:
     st.header("Your Pool")
