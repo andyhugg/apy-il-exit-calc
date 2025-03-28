@@ -282,20 +282,11 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
             drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
 
 # Streamlit App
-# Display the logo (unchanged)
+# Display the logo 
 st.markdown(
-    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
+    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta-lp.png" class="large-logo" width="600"></div>',
     unsafe_allow_html=True
 )
-
-# Display the image at the top of the main page with programmatic fetching
-try:
-    response = requests.get("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png")
-    response.raise_for_status()  # Check for HTTP errors
-    image_data = BytesIO(response.content)
-    st.image(image_data, use_container_width=True)
-except Exception as e:
-    st.error(f"Failed to load image: {e}")
 
 with st.sidebar:
     st.header("Your Pool")
