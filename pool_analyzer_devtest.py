@@ -285,7 +285,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 
 # Display the logo (unchanged)
 st.markdown(
-    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
+    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta-lp.png" class="large-logo" width="600"></div>',
     unsafe_allow_html=True
 )
 
