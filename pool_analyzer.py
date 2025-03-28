@@ -8,6 +8,7 @@ import csv
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+import requests  # Added for image fetching
 
 # Core Calculation Functions (unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
@@ -122,36 +123,8 @@ def simplified_monte_carlo_analysis(initial_investment: float, apy: float, initi
         "best": {"value": best_value, "il": best_il}
     }
 
-def calculate_composite_risk_score(tvl: float, platform_trust_score: float, apy: float) -> float:
-    normalized_tvl = min(tvl / 1000000, 1.0)
-    normalized_platform_score = platform_trust_score / 5.0  # Normalize 1-5 to 0-1
-    normalized_apy = min(apy / 50.0, 1.0)
-    if apy > 300:
-        normalized_apy *= 0.5
-    composite_score = (0.4 * normalized_tvl + 0.3 * normalized_platform_score + 0.3 * normalized_apy) * 100
-    return round(composite_score, 1)
-
-# Updated function to categorize the composite risk score with simplified descriptions
-def get_composite_score_context(composite_score: float) -> tuple[str, str]:
-    if composite_score <= 20:
-        category = "Very High Risk"
-        description = "This pool has very high risk factors."
-    elif composite_score <= 40:
-        category = "High Risk"
-        description = "This pool has high risk factors."
-    elif composite_score <= 60:
-        category = "Moderate Risk"
-        description = "This pool has moderate risk factors."
-    elif composite_score <= 80:
-        category = "Low Risk"
-        description = "This pool has low risk factors."
-    else:
-        category = "Very Low Risk"
-        description = "This pool has very low risk factors."
-    return category, description
-
 def generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price, 
-                        drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score, 
+                        drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, 
                         hurdle_rate, hurdle_value_12_months, risk_messages):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -176,8 +149,6 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     else:
         story.append(Paragraph("Low Risk: Profitable with manageable IL", styles['BodyText']))
     story.append(Paragraph(f"Platform Trust Score: {platform_trust_score} (1-5)", styles['BodyText']))
-    category, description = get_composite_score_context(composite_score)
-    story.append(Paragraph(f"Composite Risk Score: {composite_score:.1f} ({category}) - {description}", styles['BodyText']))
 
     doc.build(story)
     pdf_data = buffer.getvalue()
@@ -302,23 +273,64 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
     if platform_trust_score <= 2:
         risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-    composite_score = calculate_composite_risk_score(current_tvl, platform_trust_score, apy)
-    category, description = get_composite_score_context(composite_score)
     if risk_messages:
         st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
-        st.markdown(f"**Composite Risk Score**: {composite_score} ({category}) - {description}")
     else:
         st.success("✅ Low Risk: Profitable with manageable IL")
-        st.markdown(f"**Composite Risk Score**: {composite_score} ({category}) - {description}")
 
     return (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages)
+            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
 
-# Display the image at the top of the main page
-st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-LP.png", use_container_width=True)
+# Streamlit App
+
+# Display the logo
+st.markdown(
+    """
+    <style>
+    .large-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    </style>
+    <div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Title and Introduction
+st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
+st.markdown("""
+Use Arta for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
+""")
+
+st.markdown("""
+<style>
+.disclaimer {
+    border: 2px solid #ff0000;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+}
+</style>
+<div class="disclaimer">
+⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar (Tool Selection)
+st.sidebar.markdown("""
+**Looking to Analyze a Crypto Asset?**  
+Click the link below to use our Crypto Asset Analyzer tool:  
+<a href="https://arta-crypto-risk-analyzer.onrender.com">Go to Asset Analyzer</a>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+**Instructions for Analyzing a Liquidity Pool**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your potential profit and loss on existing or new pools over 12 months considering impermanent loss, APY, and asset price changes.
+""", unsafe_allow_html=True)
 
 with st.sidebar:
-    st.header("Your Pool")
+    st.header("Configure Your Pool")
     pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool"])
     is_new_pool = (pool_status == "New Pool")
     
@@ -363,7 +375,7 @@ if st.sidebar.button("Calculate"):
             current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, platform_trust_score
         )
         (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages) = result
+         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages) = result
 
         st.subheader("Projected Pool Value Over Time")
         time_periods = [0, 3, 6, 12]
@@ -462,14 +474,12 @@ if st.sidebar.button("Calculate"):
         writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
         writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
         writer.writerow(["Platform Trust Score", f"{platform_trust_score}"])
-        category, description = get_composite_score_context(composite_score)
-        writer.writerow(["Composite Risk Score", f"{composite_score:.1f} ({category})"])
         writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
         writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
         csv_data = output.getvalue()
 
         pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
-                                       drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score, composite_score,
+                                       drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score,
                                        hurdle_rate, hurdle_value_12_months, risk_messages)
 
         col_csv, col_pdf = st.columns(2)
