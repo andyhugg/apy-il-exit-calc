@@ -171,14 +171,14 @@ st.markdown("""
 st.sidebar.markdown("""
 **Analyze a Liquidity Pool**  
 If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
-<a href="https://crypto-pool-analyzer.onrender.com" target="_blank">Go to Pool Analyzer</a>
+<a href="https://crypto-pool-analyzer.onrender.com">Go to Pool Analyzer</a>
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
 **Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
-st.sidebar.header("Input Parameters")
+st.sidebar.header("Configure your Crypto Asset")
 
 # Moved Investor Profile to the top
 investor_profile = st.sidebar.selectbox(
