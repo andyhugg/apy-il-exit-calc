@@ -167,7 +167,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (unchanged)
+# Sidebar (updated with Pool Analyzer link)
+st.sidebar.markdown("""
+**Analyze a Liquidity Pool**  
+If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
+<a href="https://crypto-pool-analyzer.onrender.com" target="_blank">Go to Pool Analyzer</a>
+""", unsafe_allow_html=True)
+
 st.sidebar.markdown("""
 **Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
@@ -217,7 +223,7 @@ investor_profile = st.sidebar.selectbox(
 
 calculate = st.sidebar.button("Calculate")
 
-# Main content (updated)
+# Main content (unchanged)
 if calculate:
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
@@ -509,7 +515,6 @@ if calculate:
                 f"Fear and Greed Index: {fear_and_greed} ({fear_greed_classification})."
             )
 
-        # Updated Composite Risk Assessment to show score out of 100
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
@@ -518,12 +523,10 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Updated Key Metrics with logical grouping
         st.subheader("Key Metrics")
         roi = ((asset_values[-1] / initial_investment) - 1) * 100
         investment_multiple = asset_values[-1] / initial_investment if initial_investment > 0 else 0
 
-        # Group 1: Investment Returns and Risk-Adjusted Metrics
         st.markdown("### Investment Returns and Risk-Adjusted Metrics")
         st.markdown(f"""
             <div class="metric-tile">
@@ -555,7 +558,6 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Group 2: Risk Metrics
         st.markdown("### Risk Metrics")
         st.markdown(f"""
             <div class="metric-tile">
@@ -587,7 +589,6 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Group 3: Market Metrics
         st.markdown("### Market Metrics")
         mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
@@ -611,7 +612,6 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Group 4: Comparative Metrics
         st.markdown("### Comparative Metrics")
         st.markdown(f"""
             <div class="metric-tile">
@@ -767,7 +767,6 @@ if calculate:
         st.pyplot(plt)
         plt.clf()
 
-        # Updated to remove "Why Balance Matters"
         st.markdown("""
         ### Understanding the Asset Classes
         - **Stablecoin Liquidity Pools**: Low volatility, 5–10% returns.
