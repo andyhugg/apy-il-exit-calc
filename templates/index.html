@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <form method="POST">
+        <div class="form-group">
+            <label for="pool_status">Pool Status:</label>
+            <select name="pool_status" id="pool_status">
+                <option value="existing">Existing Pool</option>
+                <option value="new">New Pool</option>
+                <option value="asset">Asset Valuation</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="initial_price1">Initial Asset 1 Price ($):</label>
+            <input type="number" step="0.01" name="initial_price1" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="initial_price2">Initial Asset 2 Price ($):</label>
+            <input type="number" step="0.01" name="initial_price2" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="current_price1">Current Asset 1 Price ($):</label>
+            <input type="number" step="0.01" name="current_price1" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="current_price2">Current Asset 2 Price ($):</label>
+            <input type="number" step="0.01" name="current_price2" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="investment">Investment ($):</label>
+            <input type="number" step="0.01" name="investment" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="apy">APY (%):</label>
+            <input type="number" step="0.01" name="apy" value="25.00" required>
+        </div>
+        <div class="form-group">
+            <label for="price_change1">Expected Price Change Asset 1 (%):</label>
+            <input type="number" step="0.01" name="price_change1" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="price_change2">Expected Price Change Asset 2 (%):</label>
+            <input type="number" step="0.01" name="price_change2" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="tvl">Current TVL ($):</label>
+            <input type="number" step="0.01" name="tvl" value="1.00">
+        </div>
+        <div class="form-group">
+            <label for="trust_score">Platform Trust Score (1-5):</label>
+            <select name="trust_score" id="trust_score">
+                <option value="1">1 - Unknown (High Caution)</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5 - High Trust</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="btc_price">Current BTC Price ($):</label>
+            <input type="number" step="0.01" name="btc_price" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="btc_growth">Expected BTC Growth Rate (%):</label>
+            <input type="number" step="0.01" name="btc_growth" value="1.00" required>
+        </div>
+        <div class="form-group">
+            <label for="risk_free_rate">Risk-Free Rate (%):</label>
+            <input type="number" step="0.01" name="risk_free_rate" value="10.00" required>
+        </div>
+        <button type="submit">Analyze</button>
+    </form>
+
+    {% if table %}
+        <h2>Monthly Projections</h2>
+        {{ table | safe }}
+
+        <h2>Key Metrics</h2>
+        <div class="metrics">
+            {% for key, value in metrics.items() %}
+                <p><strong>{{ key }}:</strong> {{ value }}</p>
+            {% endfor %}
+        </div>
+
+        <h2>Graphs</h2>
+        <img src="{{ profit_graph }}" alt="Profit Over Time">
+        <img src="{{ il_apy_graph }}" alt="IL vs APY Contribution">
+        <img src="{{ drawdown_graph }}" alt="Max Drawdown">
+
+        <h2>Download Report</h2>
+        <a href="{{ url_for('download_pdf') }}">Download PDF</a>
+    {% endif %}
+{% endblock %}
