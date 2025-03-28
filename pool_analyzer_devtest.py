@@ -284,9 +284,31 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 # Streamlit App
 # Display the logo 
 st.markdown(
-    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta-lp.png" class="large-logo" width="600"></div>',
+    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta-lp.png" class="large-logo" width="500"></div>',
     unsafe_allow_html=True
 )
+
+# Title and Introduction (unchanged)
+st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
+st.markdown("""
+Use Arta for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
+""")
+st.markdown("""
+<div class="disclaimer">
+⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar (Tool Selection)
+st.sidebar.markdown("""
+**Analyze a Crypto Asset**  
+If you want to analyze a crypto asset, click the link below to use our Asset Analyzer tool:  
+<a href="https://www.cryptoriskanalyzer.com" target="_blank">Go to Asset Analyzer</a>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+""", unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("Your Pool")
