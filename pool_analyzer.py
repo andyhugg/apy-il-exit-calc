@@ -315,7 +315,7 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
             drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, composite_score, risk_messages)
 
 # Display the image at the top of the main page
-st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png", use_container_width=True)
+st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-LP.png", use_container_width=True)
 
 with st.sidebar:
     st.header("Your Pool")
