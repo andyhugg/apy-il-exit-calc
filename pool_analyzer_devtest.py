@@ -282,13 +282,14 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
             drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
 
 # Streamlit App
+
 # Display the logo 
 st.markdown(
-    f'<div><img src="https://github.com/andyhugg/apy-il-exit-calc/blob/main/Arta-LP.png" class="large-logo" width="500"></div>',
+    f'<div><img src="https://github.com/andyhugg/apy-il-exit-calc/blob/main/Arta-LP.png" class="large-logo" width="600"></div>',
     unsafe_allow_html=True
 )
 
-# Title and Introduction (unchanged)
+# Title and Introduction
 st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
 st.markdown("""
 Use Arta for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
@@ -310,9 +311,9 @@ st.markdown("""
 
 # Sidebar (Tool Selection)
 st.sidebar.markdown("""
-**Analyze a Crypto Asset**  
-If you want to analyze a crypto asset, click the link below to use our Asset Analyzer tool:  
-<a href="https://www.cryptoriskanalyzer.com" target="_blank">Go to Asset Analyzer</a>
+**Looking to Analyze a Crypto Asset?**  
+Click the link below to use our Crypto Asset Analyzer tool:  
+<a href="https://arta-crypto-risk-analyzer.onrender.com">Go to Asset Analyzer</a>
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
