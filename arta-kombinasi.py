@@ -89,6 +89,16 @@ def calculate_max_drawdown(portfolio_values, confidence_level=0.9):
     return np.percentile(drawdowns, confidence_level * 100)
 
 def generate_graphs(df, investment):
+    # Debugging: Print DataFrame info
+    print("DataFrame in generate_graphs:")
+    print(df)
+    print("DataFrame columns:", df.columns.tolist())
+
+    # Check if DataFrame is empty or missing required columns
+    required_columns = ['Month', 'Net Profit ($)', 'IL ($)', 'APY Gain ($)']
+    if df.empty or not all(col in df.columns for col in required_columns):
+        raise ValueError(f"DataFrame is empty or missing required columns. Found columns: {df.columns.tolist()}")
+
     sns.set_style("darkgrid")
     plt.rcParams['figure.figsize'] = (10, 6)
 
@@ -163,54 +173,65 @@ def generate_pdf(df, metrics):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        # Get form inputs
-        pool_status = request.form['pool_status']
-        initial_price1 = float(request.form['initial_price1'])
-        initial_price2 = float(request.form['initial_price2'])
-        current_price1 = float(request.form['current_price1'])
-        current_price2 = float(request.form['current_price2'])
-        investment = float(request.form['investment'])
-        apy = float(request.form['apy'])
-        price_change1 = float(request.form['price_change1'])
-        price_change2 = float(request.form['price_change2'])
-        tvl = float(request.form['tvl']) if pool_status == 'existing' else 0
-        trust_score = int(request.form['trust_score'])
-        btc_price = float(request.form['btc_price'])
-        btc_growth = float(request.form['btc_growth'])
-        risk_free_rate = float(request.form['risk_free_rate'])
+        try:
+            # Get form inputs
+            pool_status = request.form['pool_status']
+            initial_price1 = float(request.form['initial_price1'])
+            initial_price2 = float(request.form['initial_price2'])
+            current_price1 = float(request.form['current_price1'])
+            current_price2 = float(request.form['current_price2'])
+            investment = float(request.form['investment'])
+            apy = float(request.form['apy'])
+            price_change1 = float(request.form['price_change1'])
+            price_change2 = float(request.form['price_change2'])
+            tvl = float(request.form['tvl']) if pool_status == 'existing' else 0
+            trust_score = int(request.form['trust_score'])
+            btc_price = float(request.form['btc_price'])
+            btc_growth = float(request.form['btc_growth'])
+            risk_free_rate = float(request.form['risk_free_rate'])
 
-        # Run simulation
-        df = run_simulation(initial_price1, initial_price2, current_price1, current_price2, investment, apy,
-                            price_change1, price_change2)
+            # Run simulation
+            df = run_simulation(initial_price1, initial_price2, current_price1, current_price2, investment, apy,
+                                price_change1, price_change2)
 
-        # Calculate key metrics
-        total_profit = df['Net Profit ($)'].iloc[-1]
-        total_il = df['IL ($)'].sum()
-        total_apy = df['APY Gain ($)'].sum()
-        break_even = df[df['Net Profit ($)'] > 0]['Month'].iloc[0] if (df['Net Profit ($)'] > 0).any() else "N/A"
-        portfolio_values = investment + df['Net Profit ($)']
-        max_drawdown = calculate_max_drawdown(portfolio_values) * investment
-        recovery_percent = (max_drawdown / (portfolio_values.min() - max_drawdown)) * 100 if portfolio_values.min() != max_drawdown else 0
+            # Debugging: Print DataFrame info
+            print("DataFrame after run_simulation:")
+            print(df)
+            print("DataFrame columns:", df.columns.tolist())
 
-        metrics = {
-            "Total Projected Profit ($)": f"${round(total_profit, 2)}",
-            "Impermanent Loss Impact ($)": f"${round(total_il, 2)}",
-            "APY Contribution ($)": f"${round(total_apy, 2)}",
-            "Break-Even Point (Months)": break_even,
-            "Max Drawdown (90%) ($)": f"${round(max_drawdown, 2)}",
-            "Recovery % Required": f"{round(recovery_percent, 2)}%"
-        }
+            # Calculate key metrics
+            total_profit = df['Net Profit ($)'].iloc[-1]
+            total_il = df['IL ($)'].sum()
+            total_apy = df['APY Gain ($)'].sum()
+            break_even = df[df['Net Profit ($)'] > 0]['Month'].iloc[0] if (df['Net Profit ($)'] > 0).any() else "N/A"
+            portfolio_values = investment + df['Net Profit ($)']
+            max_drawdown = calculate_max_drawdown(portfolio_values) * investment
+            recovery_percent = (max_drawdown / (portfolio_values.min() - max_drawdown)) * 100 if portfolio_values.min() != max_drawdown else 0
 
-        # Generate graphs
-        generate_graphs(df, investment)
+            metrics = {
+                "Total Projected Profit ($)": f"${round(total_profit, 2)}",
+                "Impermanent Loss Impact ($)": f"${round(total_il, 2)}",
+                "APY Contribution ($)": f"${round(total_apy, 2)}",
+                "Break-Even Point (Months)": break_even,
+                "Max Drawdown (90%) ($)": f"${round(max_drawdown, 2)}",
+                "Recovery % Required": f"{round(recovery_percent, 2)}%"
+            }
 
-        # Generate PDF and store in app.config
-        app.config['PDF_BUFFER'] = generate_pdf(df, metrics)
+            # Generate graphs
+            generate_graphs(df, investment)
 
-        return render_template('index.html', table=df.to_html(), metrics=metrics,
-                               profit_graph='static/images/profit_over_time.png',
-                               il_apy_graph='static/images/il_vs_apy.png',
-                               drawdown_graph='static/images/max_drawdown.png')
+            # Generate PDF and store in app.config
+            app.config['PDF_BUFFER'] = generate_pdf(df, metrics)
+
+            return render_template('index.html', table=df.to_html(), metrics=metrics,
+                                   profit_graph='static/images/profit_over_time.png',
+                                   il_apy_graph='static/images/il_vs_apy.png',
+                                   drawdown_graph='static/images/max_drawdown.png')
+
+        except Exception as e:
+            # Log the error and return a user-friendly message
+            print(f"Error in index route: {str(e)}")
+            return f"An error occurred: {str(e)}", 500
 
     return render_template('index.html')
 
