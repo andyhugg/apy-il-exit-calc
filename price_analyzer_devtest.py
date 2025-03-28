@@ -171,7 +171,7 @@ st.markdown("""
 st.sidebar.markdown("""
 **Analyze a Liquidity Pool**  
 If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
-<a href="https://crypto-pool-analyzer.onrender.com">Go to Pool Analyzer</a>
+<a href="https://crypto-pool-analyzer.onrender.com" target="_self">Go to Pool Analyzer</a>
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
