@@ -15,6 +15,9 @@ app = Flask(__name__)
 if not os.path.exists('static/images'):
     os.makedirs('static/images')
 
+# Store PDF buffer globally
+app.config['PDF_BUFFER'] = None
+
 # Helper Functions
 def calculate_impermanent_loss(initial_price1, initial_price2, current_price1, current_price2):
     initial_ratio = initial_price1 / initial_price2
@@ -201,20 +204,21 @@ def index():
         # Generate graphs
         generate_graphs(df, investment)
 
-        # Generate PDF
-        pdf_buffer = generate_pdf(df, metrics)
+        # Generate PDF and store in app.config
+        app.config['PDF_BUFFER'] = generate_pdf(df, metrics)
 
         return render_template('index.html', table=df.to_html(), metrics=metrics,
                                profit_graph='static/images/profit_over_time.png',
                                il_apy_graph='static/images/il_vs_apy.png',
-                               drawdown_graph='static/images/max_drawdown.png',
-                               pdf_buffer=pdf_buffer)
+                               drawdown_graph='static/images/max_drawdown.png')
 
     return render_template('index.html')
 
 @app.route('/download_pdf')
 def download_pdf():
-    pdf_buffer = request.args.get('pdf_buffer')
+    pdf_buffer = app.config['PDF_BUFFER']
+    if pdf_buffer is None:
+        return "No PDF available. Please run an analysis first.", 400
     return send_file(pdf_buffer, as_attachment=True, download_name='CryptoPool_Valuator_Report.pdf')
 
 if __name__ == '__main__':
