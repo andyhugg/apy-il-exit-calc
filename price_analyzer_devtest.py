@@ -4,10 +4,149 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (unchanged)
+# Custom CSS (updated for better Composite Risk Score and Key Metrics styling)
 st.markdown("""
     <style>
-    ... (keeping the same CSS as in your original code) ...
+    .metric-tile {
+        background-color: #1E2A44;
+        padding: 15px;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 15px;
+        width: 100%;
+        min-height: 100px;
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: scale(0.95); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    .metric-title {
+        font-size: 18px;
+        font-weight: bold;
+        width: 20%;
+        min-width: 150px;
+    }
+    .metric-value {
+        font-size: 24px;
+        font-weight: bold;
+        width: 20%;
+        min-width: 150px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+    .metric-desc {
+        font-size: 14px;
+        color: #A9A9A9;
+        width: 60%;
+        overflow-y: auto;
+        max-height: 120px;
+        line-height: 1.4;
+    }
+    .red-text {
+        color: #FF4D4D;
+    }
+    .green-text {
+        color: #32CD32;
+    }
+    .yellow-text {
+        color: #FFD700;
+    }
+    .neutral-text {
+        color: #A9A9A9;
+    }
+    .risk-assessment {
+        background-color: #1E2A44;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        max-width: 620px;
+        color: white;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .risk-red {
+        border: 2px solid #FF4D4D;
+    }
+    .risk-yellow {
+        border: 2px solid #FFD700;
+    }
+    .risk-green {
+        border: 2px solid #32CD32;
+    }
+    .proj-table-container {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .proj-table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(to bottom, #1E2A44, #6A82FB);
+    }
+    .proj-table th, .proj-table td {
+        padding: 12px;
+        text-align: center;
+        color: white;
+        border: 1px solid #2A3555;
+        font-size: 14px;
+    }
+    .proj-table th {
+        background-color: #1E2A44;
+        font-weight: bold;
+    }
+    .proj-table tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .proj-table tr:nth-child(odd) td {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    .proj-table tr:hover td {
+        background: rgba(255, 255, 255, 0.2);
+        transition: background 0.3s ease;
+    }
+    .disclaimer {
+        border: 2px solid #FF4D4D;
+        padding: 10px;
+        border-radius: 10px;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        font-style: italic;
+    }
+    .large-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 90%;
+        padding-top: 20px;
+        padding-bottom: 30px;
+    }
+    @media (max-width: 768px) {
+        .metric-tile {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .metric-title, .metric-value, .metric-desc {
+            width: 100%;
+            min-width: 0;
+        }
+        .metric-value {
+            font-size: 20px;
+        }
+        .metric-desc {
+            max-height: 150px;
+        }
+        .proj-table th, .proj-table td {
+            font-size: 12px;
+            padding: 8px;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -28,14 +167,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (updated)
+# Sidebar (updated to remove Max Supply)
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, max supply, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Input Parameters")
 
-# Function to parse market values (unchanged)
 def parse_market_value(value_str):
     try:
         value_str = value_str.replace(",", "").lower()
@@ -64,9 +202,6 @@ market_cap = parse_market_value(market_cap_input)
 st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional.")
 fdv_input = st.sidebar.text_input("Fully Diluted Valuation (FDV) ($)", value="")
 fdv = parse_market_value(fdv_input)
-max_supply_input = st.sidebar.text_input("Max Supply (Tokens) [Optional]", value="")
-max_supply = parse_market_value(max_supply_input)
-st.sidebar.markdown("**Note**: Find the Max Supply on CoinMarketCap (e.g., 720m for 720 million). Leave blank if providing FDV; Max Supply will be derived from FDV if not provided.")
 vol_mkt_cap = st.sidebar.number_input("Vol/Mkt Cap (24h) %", min_value=0.0, value=0.0, step=0.01, format="%.2f")
 st.sidebar.markdown("**Note**: Find the Vol/Mkt Cap (24h) % on CoinMarketCap (e.g., 1.94% for AVAX).")
 initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=0.0)
@@ -84,22 +219,16 @@ calculate = st.sidebar.button("Calculate")
 
 # Main content (updated)
 if calculate:
-    # Validation check for critical inputs
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
     elif market_cap == 0:
         st.error("Please provide Market Cap to proceed with calculations.")
     else:
-        # Calculate Total Supply (Max Supply) if not provided
-        if max_supply == 0 and fdv > 0 and asset_price > 0:
-            total_supply = fdv / asset_price
-        else:
-            total_supply = max_supply
+        # Calculate Total Supply from FDV if provided
+        total_supply = fdv / asset_price if fdv > 0 and asset_price > 0 else 0
 
-        # Calculate implied 24h trading volume
         trading_volume = (vol_mkt_cap / 100) * market_cap if market_cap > 0 else 0
 
-        # Calculations (unchanged)
         months = 12
         asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1
         btc_monthly_rate = (1 + btc_growth/100) ** (1/12) - 1
@@ -112,24 +241,21 @@ if calculate:
         asset_values = [initial_investment * p / asset_price for p in asset_projections]
         btc_values = [initial_investment * p / btc_price for p in btc_projections]
         
-        # Monte Carlo Simulation (updated to use Fear and Greed for volatility)
         @st.cache_data
         def run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months, n_simulations=200):
             expected_annual_return = growth_rate / 100
             
-            # Derive volatility from Fear and Greed Index
             if fear_and_greed <= 24:
-                volatility_value = 0.75  # Extreme Fear: 75%
+                volatility_value = 0.75
             elif fear_and_greed <= 49:
-                volatility_value = 0.60  # Fear: 60%
+                volatility_value = 0.60
             elif fear_and_greed == 50:
-                volatility_value = 0.40  # Neutral: 40%
+                volatility_value = 0.40
             elif fear_and_greed <= 74:
-                volatility_value = 0.50  # Greed: 50%
+                volatility_value = 0.50
             else:
-                volatility_value = 0.70  # Extreme Greed: 70%
+                volatility_value = 0.70
             
-            # Adjust volatility based on Fear and Greed
             if fear_and_greed <= 49:
                 volatility_adjustment = 1.2
             elif fear_and_greed > 50:
@@ -173,7 +299,6 @@ if calculate:
 
         simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months, n_simulations=200)
         
-        # Rest of the calculations (unchanged except removing circulating_supply references)
         worst_case = np.percentile(simulations, 10)
         expected_case = np.mean(simulations)
         best_case = np.percentile(simulations, 90)
@@ -185,7 +310,6 @@ if calculate:
 
         break_even_percentage = (max_drawdown / (100 - max_drawdown)) * 100
 
-        # Dilution Risk (updated to not rely on circulating_supply)
         if total_supply > 0 and market_cap > 0 and asset_price > 0:
             circulating_supply = market_cap / asset_price
             dilution_ratio = 100 * (1 - (circulating_supply / total_supply))
@@ -197,7 +321,7 @@ if calculate:
                 dilution_text = "⚠ High dilution risk: Significant token releases expected."
         else:
             dilution_ratio = 0
-            dilution_text = "⚠ Max Supply/FDV not provided, cannot assess dilution risk."
+            dilution_text = "⚠ FDV not provided, cannot assess dilution risk."
 
         def format_supply(value):
             if value >= 1_000_000_000:
@@ -212,21 +336,19 @@ if calculate:
         circulating_supply_display = format_supply(circulating_supply) if 'circulating_supply' in locals() and circulating_supply > 0 else "N/A"
         max_supply_display = format_supply(total_supply) if total_supply > 0 else "N/A"
 
-        # Supply Concentration Risk (updated)
         if total_supply > 0 and market_cap > 0 and asset_price > 0:
             circulating_supply = market_cap / asset_price
             supply_ratio = (circulating_supply / total_supply) * 100
             if supply_ratio < 20:
-                supply_concentration_text = "⚠ High risk: Very low circulating supply relative to max supply increases the risk of price manipulation by large holders."
+                supply_concentration_text = "⚠ High risk: Very low circulating supply relative to total supply increases the risk of price manipulation by large holders."
             elif supply_ratio < 50:
                 supply_concentration_text = "⚠ Moderate risk: A significant portion of tokens is not yet circulating, which may allow large holders to influence price."
             else:
                 supply_concentration_text = "✓ Low risk: A large portion of tokens is circulating, reducing the risk of price manipulation by large holders."
         else:
             supply_ratio = 0
-            supply_concentration_text = "⚠ Max Supply/FDV not provided, cannot assess supply concentration risk."
+            supply_concentration_text = "⚠ FDV not provided, cannot assess supply concentration risk."
 
-        # Rest of the code (unchanged from here, just removing circulating_supply references in displays)
         projected_price = asset_projections[-1]
         projected_mcap = market_cap * (projected_price / asset_price)
         btc_mcap = btc_price * 21_000_000
@@ -388,18 +510,19 @@ if calculate:
                 f"Fear and Greed Index: {fear_and_greed} ({fear_greed_classification})."
             )
 
+        # Updated Composite Risk Assessment with better styling
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
-                <div style="font-size: 20px; font-weight: bold; color: #333;">Composite Risk Score: <span style="color: #333;">{composite_score:.1f}</span></div>
-                <div style="font-size: 14px; margin-top: 5px; color: #333;">{insight}</div>
+                <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}</div>
+                <div style="font-size: 16px; margin-top: 10px; color: #A9A9A9;">{insight}</div>
             </div>
         """, unsafe_allow_html=True)
 
+        # Updated Key Metrics with metric cards
         st.subheader("Key Metrics")
         roi = ((asset_values[-1] / initial_investment) - 1) * 100
 
-        # Key Metrics Cards (updated to remove circulating_supply displays where not calculated)
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">💰 Investment Value (1 Year)</div>
@@ -440,7 +563,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        mcap_max_note = f"Using Max Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Max Supply not provided."
+        mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">📈 MCap Growth Plausibility</div>
@@ -481,7 +604,7 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        supply_volatility_note = f"Max Supply: {max_supply_display}." if total_supply > 0 else "Max Supply not provided."
+        supply_volatility_note = f"Total Supply: {max_supply_display}." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
             <div class="metric-tile">
                 <div class="metric-title">💧 Liquidity (Vol/Mkt Cap 24h)</div>
@@ -502,7 +625,6 @@ if calculate:
             </div>
         """, unsafe_allow_html=True)
 
-        # Rest of the code (unchanged from Projected Investment Value onwards)
         st.subheader("Projected Investment Value Over Time")
         st.markdown("**Note**: Projected values reflect growth of your initial investment.")
         
@@ -637,6 +759,7 @@ if calculate:
         st.pyplot(plt)
         plt.clf()
 
+        # Updated to remove "Actionable Risk Management Insights"
         st.markdown("""
         ### Understanding the Asset Classes
         - **Stablecoin Liquidity Pools**: Low volatility, 5–10% returns.
@@ -646,9 +769,4 @@ if calculate:
         - **High Risk Assets**: High growth potential, high risk.
         ### Why Balance Matters
         Diversify to reduce drawdowns and capture upside.
-        ### Actionable Risk Management Insights
-        - **Rebalance Regularly**: Maintain target allocation.
-        - **Monitor Market Conditions**: Adjust exposure.
-        - **Use Protective Strategies**: Stop-loss or hedging.
-        - **Maintain Liquidity**: Keep funds for opportunities.
         """)
