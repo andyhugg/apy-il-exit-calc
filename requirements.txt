@@ -1,8 +1,23 @@
 streamlit==1.43.2
-numpy==2.2.4
-pandas==2.2.3
 matplotlib==3.10.1
 requests==2.32.3
 beautifulsoup4==4.12.3
 seaborn==0.13.2
+reportlab==4.2.5
+
+# Web Framework
+Flask==3.0.3
+gunicorn==23.0.0
+
+# Calculations and Data Handling
+numpy==2.2.4
+pandas==2.2.3
+
+# Visualization
+matplotlib==3.10.1
+seaborn==0.13.2
+# Optional: Add Plotly for interactive graphs
+# plotly==5.24.1
+
+# PDF Generation
 reportlab==4.2.5
