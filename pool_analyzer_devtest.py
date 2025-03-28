@@ -283,20 +283,11 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 
 # Streamlit App
 
-# Display the logo with error handling
-try:
-    # First, try loading the image directly with st.image()
-    st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta.png", width=600)
-except Exception as e:
-    st.warning(f"Failed to load image directly: {e}")
-    # Fallback: Fetch the image programmatically using requests
-    try:
-        response = requests.get("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png")
-        response.raise_for_status()  # Check for HTTP errors
-        image_data = BytesIO(response.content)
-        st.image(image_data, width=600)
-    except Exception as e:
-        st.error(f"Failed to load image via requests: {e}")
+# Display the logo (unchanged)
+st.markdown(
+    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
+    unsafe_allow_html=True
+)
 
 # Title and Introduction
 st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
