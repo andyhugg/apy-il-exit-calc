@@ -283,9 +283,18 @@ def check_exit_conditions(initial_investment: float, apy: float, initial_price_a
 
 # Streamlit App
 
-# Display the logo (unchanged)
+# Display the logo
 st.markdown(
-    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
+    """
+    <style>
+    .large-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    </style>
+    <div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>
+    """,
     unsafe_allow_html=True
 )
 
