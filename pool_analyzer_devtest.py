@@ -293,7 +293,16 @@ st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
 st.markdown("""
 Use Arta for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
 """)
+
 st.markdown("""
+<style>
+.disclaimer {
+    border: 2px solid #ff0000;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+}
+</style>
 <div class="disclaimer">
 ⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
 </div>
@@ -307,7 +316,7 @@ If you want to analyze a crypto asset, click the link below to use our Asset Ana
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your impermanent loss (IL) on existing pools and the projected profit and loss over 12 months considering of IL, APY, and asset price changes.
 """, unsafe_allow_html=True)
 
 with st.sidebar:
