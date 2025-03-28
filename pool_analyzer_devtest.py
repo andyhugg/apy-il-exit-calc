@@ -319,7 +319,7 @@ st.title("Simple Pool Analyzer")
 st.write("Evaluate your liquidity pool with key insights and minimal clutter.")
 
 # Display the image at the top of the main page
-st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/dm-pools.png", use_container_width=True)
+st.image("https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/arta-lp.png", use_container_width=True)
 
 with st.sidebar:
     st.header("Your Pool")
