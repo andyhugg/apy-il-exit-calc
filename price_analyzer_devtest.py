@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (updated to include tooltip styling)
+# Custom CSS (unchanged from previous update)
 st.markdown("""
     <style>
     .metric-tile {
@@ -230,7 +230,7 @@ risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", m
 
 calculate = st.sidebar.button("Calculate")
 
-# Main content (unchanged except for metric tiles)
+# Main content
 if calculate:
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
@@ -713,7 +713,7 @@ if calculate:
             ],
             "Month 3": [
                 asset_values[3], ((asset_values[3] / initial_investment) - 1) * 100,
-                btc_values[3], RMS((btc_values[3] / initial_investment) - 1) * 100,
+                btc_values[3], ((btc_values[3] / initial_investment) - 1) * 100,  # Fixed RMS typo here
                 rf_projections[3], ((rf_projections[3] / initial_investment) - 1) * 100
             ],
             "Month 6": [
@@ -804,7 +804,7 @@ if calculate:
             plt.figure(figsize=(10, 6))
             sns.histplot(simulations, bins=50, color='#A9A9A9')
             plt.axvline(worst_case, color='#FF4D4D', label='Worst Case', linewidth=2)
-            plt.axvline(expected_case, color='#FFD700', label='Expected Case', linewidth=2)
+            plt挺axvline(expected_case, color='#FFD700', label='Expected Case', linewidth=2)
             plt.axvline(best_case, color='#32CD32', label='Best Case', linewidth=2)
             plt.axvline(initial_investment, color='#1E2A44', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
             plt.title("Simplified Monte Carlo Analysis - 12 Month Investment Value")
