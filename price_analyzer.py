@@ -156,22 +156,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Display the logo (unchanged)
-st.markdown(
-    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
-    unsafe_allow_html=True
-)
+# Display the logo
+#st.markdown(
+#    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
+#    unsafe_allow_html=True
+#)
 
-# Title and Introduction (unchanged)
-st.title("Arta Crypto Valuations - Know the Price. Master the Risk.")
+#Title and Introduction
+st.title("Arta - Know the Price. Master the Risk.")
 st.markdown("""
-Use Arta for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. Run scenarios, test your assumptions, and sharpen your edge — all in real time. **Arta: Know the Price. Master the Risk.**
+Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
 """)
-st.markdown("""
-<div class="disclaimer">
-⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
-</div>
-""", unsafe_allow_html=True)
 
 # Sidebar (unchanged)
 st.sidebar.markdown("""
