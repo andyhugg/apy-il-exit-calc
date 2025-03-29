@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (unchanged)
+# Custom CSS (updated to include tooltip styling)
 st.markdown("""
     <style>
     .metric-tile {
@@ -46,6 +46,12 @@ st.markdown("""
         overflow-y: auto;
         max-height: 120px;
         line-height: 1.4;
+    }
+    .tooltip {
+        cursor: help;
+        color: #FFD700;
+        font-size: 16px;
+        margin-left: 5px;
     }
     .red-text {
         color: #FF4D4D;
@@ -167,7 +173,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (updated to move Investor Profile to the top)
+# Sidebar (unchanged)
 st.sidebar.markdown("""
 **Looking to analyze a Liquidity Pool?**  
 If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
@@ -180,7 +186,6 @@ st.sidebar.markdown("""
 
 st.sidebar.header("Configure your Crypto Asset")
 
-# Moved Investor Profile to the top
 investor_profile = st.sidebar.selectbox(
     "Investor Profile",
     ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
@@ -225,7 +230,7 @@ risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", m
 
 calculate = st.sidebar.button("Calculate")
 
-# Main content (updated to incorporate investor profile into composite score)
+# Main content (unchanged except for metric tiles)
 if calculate:
     if asset_price == 0 or initial_investment == 0:
         st.error("Please enter valid values for Asset Price and Initial Investment (greater than 0).")
@@ -473,7 +478,7 @@ if calculate:
         else:
             scores['Liquidity'] = 100
 
-        # Define weights based on investor profile
+        # Define weights based on investor profile (unchanged)
         weights = {
             "Conservative Investor": {
                 "Max Drawdown": 1.5,
@@ -525,7 +530,7 @@ if calculate:
             }
         }
 
-        # Calculate weighted composite score
+        # Calculate weighted composite score (unchanged)
         weighted_sum = 0
         total_weight = 0
         for metric, score in scores.items():
@@ -577,7 +582,6 @@ if calculate:
                 f"Fear and Greed Index: {fear_and_greed} ({fear_greed_classification})."
             )
 
-        # Updated Composite Risk Assessment with note about investor profile adjustment
         st.subheader("Composite Risk Assessment")
         st.markdown(f"""
             <div class="risk-assessment {bg_class}">
@@ -594,7 +598,7 @@ if calculate:
         st.markdown("### Investment Returns and Risk-Adjusted Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">💰 Investment Value (1 Year)</div>
+                <div class="metric-title">💰 Investment Value (1 Year)<span class="tooltip" title="Shows the projected value of your initial investment after 12 months based on the expected growth rate.">?</span></div>
                 <div class="metric-value">${asset_values[-1]:,.2f}<br>({investment_multiple:.2f}x)</div>
                 <div class="metric-desc">Potential value of your ${initial_investment:,.2f} investment in 12 months.<br>
                 <b>Insight:</b> {'Lock in profits if reached.' if roi > 50 else 'Hold and monitor.' if roi >= 0 else 'Reassess investment.'}
@@ -604,7 +608,7 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📉 Sortino Ratio</div>
+                <div class="metric-title">📉 Sortino Ratio<span class="tooltip" title="Measures return per unit of downside risk (negative returns only). A value > 1 is considered good, indicating strong returns relative to bad volatility.">?</span></div>
                 <div class="metric-value {'red-text' if sortino_ratio < 0 else ''}">{sortino_ratio:.2f}</div>
                 <div class="metric-desc">Return per unit of downside risk.<br>
                 <b>Insight:</b> {'Proceed confidently.' if sortino_ratio > 1 else 'Allocate to stable assets.' if sortino_ratio >= 0 else 'Shift to stable assets.'}
@@ -614,7 +618,7 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📊 Sharpe Ratio</div>
+                <div class="metric-title">📊 Sharpe Ratio<span class="tooltip" title="Measures return per unit of total risk (both upside and downside). A value > 1 is good, showing strong risk-adjusted returns.">?</span></div>
                 <div class="metric-value {'red-text' if sharpe_ratio < 0 else ''}">{sharpe_ratio:.2f}</div>
                 <div class="metric-desc">Return per unit of risk.<br>
                 <b>Insight:</b> {'Proceed confidently.' if sharpe_ratio > 1 else 'Consider safer assets.' if sharpe_ratio >= 0 else 'Shift to stablecoins.'}
@@ -625,7 +629,7 @@ if calculate:
         st.markdown("### Risk Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📉 Max Drawdown</div>
+                <div class="metric-title">📉 Max Drawdown<span class="tooltip" title="The largest potential loss from peak to trough in a worst-case scenario. Below 30% is low risk, above 50% is high risk.">?</span></div>
                 <div class="metric-value {'red-text' if max_drawdown > 30 else ''}">{max_drawdown:.2f}%</div>
                 <div class="metric-desc">Largest potential loss in a worst-case scenario.<br>
                 <b>Insight:</b> {'Minimal action needed.' if max_drawdown < 30 else f'Set stop-loss at {max_drawdown:.2f}%.' if max_drawdown <= 50 else 'Reduce exposure.'}
@@ -635,7 +639,7 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">⚖️ Dilution Risk</div>
+                <div class="metric-title">⚖️ Dilution Risk<span class="tooltip" title="Percentage of total supply not yet circulating. Below 20% is low risk, above 50% suggests significant future selling pressure.">?</span></div>
                 <div class="metric-value {'red-text' if dilution_ratio > 50 else ''}">{dilution_ratio:.2f}%</div>
                 <div class="metric-desc">{dilution_text}<br>
                 <b>Insight:</b> {'Minimal action needed.' if dilution_ratio < 20 else 'Check unlock schedule.' if dilution_ratio <= 50 else 'Reduce position.'}
@@ -645,7 +649,7 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">🛡️ Supply Concentration Risk</div>
+                <div class="metric-title">🛡️ Supply Concentration Risk<span class="tooltip" title="Percentage of total supply currently circulating. Below 20% indicates high risk of manipulation by large holders, above 50% is safer.">?</span></div>
                 <div class="metric-value {'red-text' if supply_ratio < 20 else 'yellow-text' if supply_ratio < 50 else 'green-text'}">{supply_ratio:.2f}%</div>
                 <div class="metric-desc">{supply_concentration_text}<br>
                 <b>Insight:</b> {'Monitor whale activity.' if supply_ratio < 20 else 'Be cautious of large holders.' if supply_ratio < 50 else 'Proceed confidently.'}
@@ -657,7 +661,7 @@ if calculate:
         mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📈 MCap Growth Plausibility</div>
+                <div class="metric-title">📈 MCap Growth Plausibility<span class="tooltip" title="Compares projected market cap to Bitcoin’s. Below 1% is plausible, above 5% is ambitious and may be unrealistic.">?</span></div>
                 <div class="metric-value {'red-text' if mcap_vs_btc > 5 else ''}">{mcap_vs_btc:.2f}% of BTC MCap</div>
                 <div class="metric-desc">{mcap_max_note}<br>
                 <b>Insight:</b> {'Proceed confidently.' if mcap_vs_btc < 1 else 'Adjust growth rate.' if mcap_vs_btc <= 5 else 'Focus on realistic targets.'}
@@ -668,7 +672,7 @@ if calculate:
         supply_volatility_note = f"Total Supply: {max_supply_display}." if total_supply > 0 else "Total Supply not provided."
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">💧 Liquidity (Vol/Mkt Cap 24h)</div>
+                <div class="metric-title">💧 Liquidity (Vol/Mkt Cap 24h)<span class="tooltip" title="24-hour trading volume as a percentage of market cap. Above 5% is high liquidity, below 1% suggests difficulty trading.">?</span></div>
                 <div class="metric-value {'red-text' if vol_mkt_cap < 1 else 'green-text' if vol_mkt_cap > 5 else 'yellow-text'}">{vol_mkt_cap:.2f}%</div>
                 <div class="metric-desc">{supply_volatility_note}<br>
                 <b>Insight:</b> {'Use limit orders, monitor volume.' if vol_mkt_cap < 1 else 'Limit orders for small trades.' if vol_mkt_cap <= 5 else 'Trade confidently with stop-loss.'}
@@ -679,7 +683,7 @@ if calculate:
         st.markdown("### Comparative Metrics")
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">📈 Hurdle Rate vs. Bitcoin</div>
+                <div class="metric-title">📈 Hurdle Rate vs. Bitcoin<span class="tooltip" title="Compares asset growth to a benchmark (risk-free rate + 12%). Positive values beat the hurdle, above 20% is strong.">?</span></div>
                 <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}%<br>({hurdle_label})</div>
                 <div class="metric-desc">Growth vs. minimum return to beat Bitcoin.<br>
                 <b>Insight:</b> {'Favor this asset.' if asset_vs_hurdle >= 20 else 'Balance with Bitcoin.' if asset_vs_hurdle >= 0 else 'Increase Bitcoin allocation.'}
@@ -689,7 +693,7 @@ if calculate:
 
         st.markdown(f"""
             <div class="metric-tile">
-                <div class="metric-title">🎯 Risk-Adjusted Return Score</div>
+                <div class="metric-title">🎯 Risk-Adjusted Return Score<span class="tooltip" title="Combines composite score with return-to-hurdle ratio. Above 70 is strong, below 40 suggests caution.">?</span></div>
                 <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
                 <div class="metric-desc">Combines risk and return.<br>
                 <b>Insight:</b> {'Diversify confidently.' if risk_adjusted_score >= 70 else 'Small position, diversify.' if risk_adjusted_score >= 40 else 'Explore safer assets.'}
@@ -709,7 +713,7 @@ if calculate:
             ],
             "Month 3": [
                 asset_values[3], ((asset_values[3] / initial_investment) - 1) * 100,
-                btc_values[3], ((btc_values[3] / initial_investment) - 1) * 100,
+                btc_values[3], RMS((btc_values[3] / initial_investment) - 1) * 100,
                 rf_projections[3], ((rf_projections[3] / initial_investment) - 1) * 100
             ],
             "Month 6": [
