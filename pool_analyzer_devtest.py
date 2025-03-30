@@ -406,7 +406,7 @@ if st.sidebar.button("Calculate"):
         if platform_trust_score <= 2:
             risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-        # Compute Composite Risk Score (unchanged)
+        # Compute Composite Risk Score
         scores = {
             'IL': 100 if il < 2 else 50 if il < 5 else 0,
             'Net Return': 100 if net_return > 1.5 else 50 if net_return > 1 else 0,
@@ -425,7 +425,7 @@ if st.sidebar.button("Calculate"):
         total_weight = sum(weights.values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
-        # Risk Summary Section (unchanged)
+        # Risk Summary Section (Fixed typo here)
         with st.expander("Risk Summary", expanded=True):
             bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
             insight = (
@@ -434,7 +434,7 @@ if st.sidebar.button("Calculate"):
                 f"High risk. Reassess due to IL, TVL, or platform trust."
             )
             summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
-            progress_color = "#32CD32" if compsite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
+            progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
             st.markdown(f"""
                 <div class="risk-assessment {bg_class}">
                     <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
@@ -477,7 +477,7 @@ if st.sidebar.button("Calculate"):
             st.markdown("### Break-even and Risk Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Time to recover IL. Insight: {'Proceed confidently.' if break_even_months <= 6 else 'Monitor closely.' if break_evenmetics_months <= 12 else 'Reassess.'}">?</span></div>
+                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Time to recover IL. Insight: {'Proceed confidently.' if break_even_months <= 6 else 'Monitor closely.' if break_even_months <= 12 else 'Reassess.'}">?</span></div>
                     <div class="metric-value {'red-text' if break_even_months > 12 else 'yellow-text' if break_even_months > 6 else 'green-text'}">{break_even_months} months</div>
                     <div class="metric-desc">Against IL, without price changes.</div>
                 </div>
@@ -561,12 +561,12 @@ if st.sidebar.button("Calculate"):
                 plt.fill_between(time_periods, investment_amount, future_values, where=(np.array(future_values) < investment_amount), color='#FF4D4D', alpha=0.1, label='Loss Zone')
                 plt.title('Projected Value Over 12 Months (Pool vs BTC vs Stablecoin)')
                 plt.xlabel('Months')
-                plt.ylabel('Value ($ surf)')
+                plt.ylabel('Value ($)')
                 plt.legend()
                 st.pyplot(plt)
                 plt.clf()
 
-        # Pool vs. BTC vs. Stablecoin Comparison (unchanged except for integration with updated values)
+        # Pool vs. BTC vs. Stablecoin Comparison
         with st.expander("Pool vs. BTC vs. Stablecoin Comparison", expanded=False):
             projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
             initial_btc_amount = investment_amount / current_btc_price
