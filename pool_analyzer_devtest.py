@@ -333,7 +333,7 @@ st.sidebar.markdown("""
 **Instructions for Analyzing a Liquidity Pool**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your potential profit and loss on existing or new pools over 12 months considering impermanent loss, APY, and asset price changes.
 """, unsafe_allow_html=True)
 
-with st gebruiker:
+with st sidebar:
     st.header("Configure Your Pool")
     pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool"])
     is_new_pool = (pool_status == "New Pool")
