@@ -154,7 +154,7 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     buffer.close()
     return pdf_data
 
-# Adopt Price Analyzer's CSS
+# Adopt Price Analyzer's CSS (unchanged)
 st.markdown("""
     <style>
     .metric-tile {
@@ -311,7 +311,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Title and Introduction
+# Title and Introduction (unchanged)
 st.title("Arta - Master the Risk.")
 st.markdown("""
 Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
@@ -322,7 +322,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (Tool Selection)
+# Sidebar (Tool Selection) (unchanged)
 st.sidebar.markdown("""
 **Looking to Analyze a Crypto Asset?**  
 Click the link below to use our Crypto Asset Analyzer tool:  
@@ -333,7 +333,7 @@ st.sidebar.markdown("""
 **Instructions for Analyzing a Liquidity Pool**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your potential profit and loss on existing or new pools over 12 months considering impermanent loss, APY, and asset price changes.
 """, unsafe_allow_html=True)
 
-with st.sidebar:
+with st gebruiker:
     st.header("Configure Your Pool")
     pool_status = st.selectbox("Pool Status", ["Existing Pool", "New Pool"])
     is_new_pool = (pool_status == "New Pool")
@@ -390,7 +390,7 @@ if st.sidebar.button("Calculate"):
         )
         drawdown_initial = investment_amount * 0.1
         drawdown_12_months = future_value * 0.1
-        hurdle_rate = risk_free_rate + 6.0
+        hurdle_rate = risk_free_rate + 6.0  # Updated to use user-input risk-free rate
         hurdle_value_12_months = investment_amount * (1 + hurdle_rate / 100)
 
         # Risk Assessment
@@ -406,7 +406,7 @@ if st.sidebar.button("Calculate"):
         if platform_trust_score <= 2:
             risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-        # Compute Composite Risk Score
+        # Compute Composite Risk Score (unchanged)
         scores = {
             'IL': 100 if il < 2 else 50 if il < 5 else 0,
             'Net Return': 100 if net_return > 1.5 else 50 if net_return > 1 else 0,
@@ -425,7 +425,7 @@ if st.sidebar.button("Calculate"):
         total_weight = sum(weights.values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
-        # Risk Summary Section
+        # Risk Summary Section (unchanged)
         with st.expander("Risk Summary", expanded=True):
             bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
             insight = (
@@ -434,7 +434,7 @@ if st.sidebar.button("Calculate"):
                 f"High risk. Reassess due to IL, TVL, or platform trust."
             )
             summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
-            progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
+            progress_color = "#32CD32" if compsite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
             st.markdown(f"""
                 <div class="risk-assessment {bg_class}">
                     <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
@@ -464,9 +464,11 @@ if st.sidebar.button("Calculate"):
                 </div>
             """, unsafe_allow_html=True)
 
+            # Updated TVL with flagging for < $250,000
+            tvl_insight = "TVL below $250,000 indicates limited liquidity; avoid large trade positions to minimize slippage and execution risks." if current_tvl < 250000 else "Trade confidently." if current_tvl >= 1_000_000 else "Limit small trades."
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">💧 TVL<span class="tooltip" title="Total value locked in the pool. Insight: {'Trade confidently.' if current_tvl >= 1_000_000 else 'Limit small trades.' if current_tvl >= 250_000 else 'Use limit orders.'}">?</span></div>
+                    <div class="metric-title">💧 TVL<span class="tooltip" title="Total value locked in the pool. Insight: {tvl_insight}">?</span></div>
                     <div class="metric-value {'red-text' if current_tvl < 250_000 else 'yellow-text' if current_tvl < 1_000_000 else 'green-text'}">${current_tvl:,.0f}</div>
                     <div class="metric-desc">Current total value locked.</div>
                 </div>
@@ -475,7 +477,7 @@ if st.sidebar.button("Calculate"):
             st.markdown("### Break-even and Risk Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Time to recover IL. Insight: {'Proceed confidently.' if break_even_months <= 6 else 'Monitor closely.' if break_even_months <= 12 else 'Reassess.'}">?</span></div>
+                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Time to recover IL. Insight: {'Proceed confidently.' if break_even_months <= 6 else 'Monitor closely.' if break_evenmetics_months <= 12 else 'Reassess.'}">?</span></div>
                     <div class="metric-value {'red-text' if break_even_months > 12 else 'yellow-text' if break_even_months > 6 else 'green-text'}">{break_even_months} months</div>
                     <div class="metric-desc">Against IL, without price changes.</div>
                 </div>
@@ -500,32 +502,40 @@ if st.sidebar.button("Calculate"):
             st.markdown("### Comparative Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="APY vs. hurdle rate. Insight: {'Favor this pool.' if apy >= hurdle_rate + 10 else 'Balance with stablecoins.' if apy >= hurdle_rate else 'Increase stablecoin allocation.'}">?</span></div>
+                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="APY vs. hurdle rate (risk-free rate + 6% global inflation). Insight: {'Favor this pool.' if apy >= hurdle_rate + 10 else 'Balance with stablecoins.' if apy >= hurdle_rate else 'Increase stablecoin allocation.'}">?</span></div>
                     <div class="metric-value {'green-text' if apy >= hurdle_rate + 10 else 'yellow-text' if apy >= hurdle_rate else 'red-text'}">{apy:.1f}% vs {hurdle_rate:.1f}%</div>
-                    <div class="metric-desc">APY compared to hurdle rate.</div>
+                    <div class="metric-desc">APY compared to hurdle rate (risk-free rate + 6% inflation).</div>
                 </div>
             """, unsafe_allow_html=True)
 
-        # Projected Pool Value Over Time
+        # Updated Projected Pool Value Over Time
         with st.expander("Projected Pool Value Over Time", expanded=False):
-            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months.")
+            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC and stablecoin.")
             time_periods = [0, 3, 6, 12]
             future_values = []
+            btc_values = []
+            stablecoin_values = []
             for months in time_periods:
+                # Pool value
                 value, _ = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
                                                  current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                  expected_price_change_asset2, is_new_pool)
                 future_values.append(value)
+                # BTC value
+                btc_value = (investment_amount / current_btc_price) * (current_btc_price * (1 + (btc_growth_rate / 100) * (months / 12)))
+                btc_values.append(btc_value)
+                # Stablecoin value using risk-free rate
+                stablecoin_value = investment_amount * (1 + (risk_free_rate / 100) * (months / 12))
+                stablecoin_values.append(stablecoin_value)
             
-            hurdle_rate_chart = 0.16
-            hurdle_values = [investment_amount * (1 + hurdle_rate_chart * (months / 12)) for months in time_periods]
+            hurdle_values = [investment_amount * (1 + hurdle_rate / 100 * (months / 12)) for months in time_periods]
 
             proj_data = {
-                "Metric": ["Pool Value ($)", "Hurdle Value ($)"],
-                "Month 0": [future_values[0], hurdle_values[0]],
-                "Month 3": [future_values[1], hurdle_values[1]],
-                "Month 6": [future_values[2], hurdle_values[2]],
-                "Month 12": [future_values[3], hurdle_values[3]]
+                "Metric": ["Pool Value ($)", "BTC Value ($)", "Stablecoin Value ($)", "Hurdle Value ($)"],
+                "Month 0": [future_values[0], btc_values[0], stablecoin_values[0], hurdle_values[0]],
+                "Month 3": [future_values[1], btc_values[1], stablecoin_values[1], hurdle_values[1]],
+                "Month 6": [future_values[2], btc_values[2], stablecoin_values[2], hurdle_values[2]],
+                "Month 12": [future_values[3], btc_values[3], stablecoin_values[3], hurdle_values[3]]
             }
             proj_df = pd.DataFrame(proj_data)
 
@@ -544,17 +554,19 @@ if st.sidebar.button("Calculate"):
                 plt.figure(figsize=(10, 6))
                 sns.set_style("whitegrid")
                 sns.lineplot(x=time_periods, y=future_values, label='Pool Value', color='#4B5EAA', linewidth=2.5, marker='o')
-                sns.lineplot(x=time_periods, y=hurdle_values, label='Hurdle Rate (16%)', color='#32CD32', linewidth=2.5, marker='o')
+                sns.lineplot(x=time_periods, y=btc_values, label='BTC Value', color='#FFC107', linewidth=2.5, marker='o')
+                sns.lineplot(x=time_periods, y=stablecoin_values, label=f'Stablecoin Value ({risk_free_rate:.1f}%)', color='#A9A9A9', linewidth=2.5, marker='o')
+                sns.lineplot(x=time_periods, y=hurdle_values, label=f'Hurdle Rate ({hurdle_rate:.1f}%)', color='#32CD32', linewidth=2.5, marker='o')
                 plt.axhline(y=investment_amount, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${investment_amount:,.2f})')
                 plt.fill_between(time_periods, investment_amount, future_values, where=(np.array(future_values) < investment_amount), color='#FF4D4D', alpha=0.1, label='Loss Zone')
-                plt.title('Projected Pool Value Over 12 Months')
+                plt.title('Projected Value Over 12 Months (Pool vs BTC vs Stablecoin)')
                 plt.xlabel('Months')
-                plt.ylabel('Value ($)')
+                plt.ylabel('Value ($ surf)')
                 plt.legend()
                 st.pyplot(plt)
                 plt.clf()
 
-        # Pool vs. BTC vs. Stablecoin Comparison
+        # Pool vs. BTC vs. Stablecoin Comparison (unchanged except for integration with updated values)
         with st.expander("Pool vs. BTC vs. Stablecoin Comparison", expanded=False):
             projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
             initial_btc_amount = investment_amount / current_btc_price
@@ -591,7 +603,7 @@ if st.sidebar.button("Calculate"):
                 st.pyplot(plt)
                 plt.clf()
 
-        # Monte Carlo Scenarios
+        # Monte Carlo Scenarios (unchanged)
         with st.expander("Monte Carlo Scenarios - 12 Months", expanded=False):
             st.markdown("Simulates 200 scenarios over 12 months considering APY and price change volatility.")
             st.markdown("- **Expected**: Average | **Best**: 90th percentile | **Worst**: 10th percentile")
@@ -623,7 +635,7 @@ if st.sidebar.button("Calculate"):
                 st.pyplot(plt)
                 plt.clf()
 
-        # Export Results
+        # Export Results (unchanged)
         with st.expander("Export Results", expanded=False):
             output = StringIO()
             writer = csv.writer(output)
