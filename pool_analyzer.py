@@ -8,7 +8,6 @@ import csv
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-import requests  # Added for image fetching
 
 # Core Calculation Functions (unchanged)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
@@ -155,155 +154,169 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     buffer.close()
     return pdf_data
 
-def check_exit_conditions(initial_investment: float, apy: float, initial_price_asset1, initial_price_asset2,
-                         current_price_asset1, current_price_asset2, current_tvl: float, risk_free_rate: float,
-                         expected_price_change_asset1: float, expected_price_change_asset2: float, is_new_pool: bool,
-                         platform_trust_score: float):
-    il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
-    pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
-                                        current_price_asset1, current_price_asset2) if not is_new_pool else (initial_investment, 0.0)
-    value_if_held = (initial_investment / 2 / initial_price_asset1 * current_price_asset1) + (initial_investment / 2 / initial_price_asset2 * current_price_asset2)
-    future_value, _ = calculate_future_value(initial_investment, apy, 12, initial_price_asset1, initial_price_asset2,
-                                            current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                            expected_price_change_asset2, is_new_pool)
-    net_return = future_value / initial_investment if initial_investment > 0 else 0
-    break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
-    break_even_months_with_price = calculate_break_even_months_with_price_changes(
-        initial_investment, apy, pool_value, initial_price_asset1, initial_price_asset2,
-        current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
-    )
-    drawdown_initial = initial_investment * 0.1
-    drawdown_12_months = future_value * 0.1
-    hurdle_rate = risk_free_rate + 6.0
-    hurdle_value_12_months = initial_investment * (1 + hurdle_rate / 100)
-
-    st.markdown("""
+# Adopt Price Analyzer's CSS
+st.markdown("""
     <style>
-    .metric-card {
-        background-color: #f0f0f0;
-        border-radius: 8px;
-        padding: 10px;
-        margin: 5px 0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        height: 100px;
+    .metric-tile {
+        background-color: #1E2A44;
+        padding: 15px;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 10px;
         display: flex;
-        flex-direction: column;
-        justify-content: center;
+        flex-direction: row;
+        align-items: center;
+        gap: 15px;
+        width: 100%;
+        min-height: 80px;
+        animation: fadeIn 0.5s ease-in;
     }
-    .metric-label {
-        font-size: 14px;
-        color: #333;
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: scale(0.95); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    .metric-title {
+        font-size: 16px;
         font-weight: bold;
+        width: 20%;
+        min-width: 120px;
     }
     .metric-value {
-        font-size: 16px;
-        color: #000;
+        font-size: 20px;
+        font-weight: bold;
+        width: 20%;
+        min-width: 120px;
+        white-space: normal;
+        word-wrap: break-word;
     }
-    .metric-note {
-        font-size: 12px;
-        color: #666;
+    .metric-desc {
+        font-size: 14px;
+        color: #A9A9A9;
+        width: 60%;
+        overflow-y: auto;
+        max-height: 100px;
+        line-height: 1.4;
+    }
+    .tooltip {
+        cursor: help;
+        color: #FFC107;
+        font-size: 14px;
+        margin-left: 5px;
+    }
+    .red-text { color: #FF4D4D; }
+    .green-text { color: #32CD32; }
+    .yellow-text { color: #FFC107; }
+    .neutral-text { color: #A9A9A9; }
+    .risk-assessment {
+        background-color: #1E2A44;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        max-width: 620px;
+        color: white;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .risk-red { border: 2px solid #FF4D4D; }
+    .risk-yellow { border: 2px solid #FFC107; }
+    .risk-green { border: 2px solid #32CD32; }
+    .progress-bar {
+        width: 100%;
+        background-color: #A9A9A9;
+        border-radius: 5px;
+        height: 10px;
+        margin-top: 10px;
+    }
+    .progress-fill {
+        height: 100%;
+        border-radius: 5px;
+    }
+    .proj-table-container {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .proj-table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(to bottom, #1E2A44, #6A82FB);
+    }
+    .proj-table th, .proj-table td {
+        padding: 12px;
+        text-align: center;
+        color: #FFFFFF;
+        border: 1px solid #2A3555;
+        font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+    }
+    .proj-table th {
+        background-color: #1E2A44;
+        font-weight: bold;
+    }
+    .proj-table tr:nth-child(even) td { background: rgba(255, 255, 255, 0.05); }
+    .proj-table tr:nth-child(odd) td { background: rgba(255, 255, 255, 0.1); }
+    .proj-table tr:hover td {
+        background: rgba(255, 255, 255, 0.2);
+        transition: background 0.3s ease;
+    }
+    .monte-carlo-table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: #2A3555;
+    }
+    .monte-carlo-table th, .monte-carlo-table td {
+        padding: 12px;
+        text-align: center;
+        color: #FFFFFF;
+        border: 1px solid #2A3555;
+        font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+    }
+    .monte-carlo-table th {
+        background-color: #1E2A44;
+        font-weight: bold;
+    }
+    .disclaimer {
+        border: 2px solid #FF4D4D;
+        padding: 10px;
+        border-radius: 10px;
+        margin-top: 10px;
+        margin-bottom: 20px;
         font-style: italic;
     }
+    .large-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 90%;
+        padding-top: 20px;
+        padding-bottom: 30px;
+    }
+    @media (max-width: 768px) {
+        .metric-tile { flex-direction: column; align-items: flex-start; }
+        .metric-title, .metric-value, .metric-desc { width: 100%; min-width: 0; }
+        .metric-value { font-size: 18px; }
+        .metric-desc { max-height: 120px; }
+        .proj-table th, .proj-table td { font-size: 12px; padding: 8px; }
+        .monte-carlo-table th, .monte-carlo-table td { font-size: 12px; padding: 8px; }
+    }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-    st.subheader("Key Insights")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Current Impermanent Loss</div>
-            <div class="metric-value">{il:.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">12-Month Outlook</div>
-            <div class="metric-value">${future_value:,.0f} ({net_return:.2f}x return)</div>
-            <div class="metric-note">After 12 months includes compounded APY, price changes, and IL</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Current TVL</div>
-            <div class="metric-value">${current_tvl:,.0f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Breakeven Time</div>
-            <div class="metric-value">Against IL: {break_even_months} months, With Price Changes: {break_even_months_with_price} months</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col5:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Worst-Case Drawdown (90%)</div>
-            <div class="metric-value">Initial: ${drawdown_initial:,.0f}, After 12 Months: ${drawdown_12_months:,.0f}</div>
-            <div class="metric-note">After 12 months includes compounded APY, price changes, and IL</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col6:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Hurdle Rate</div>
-            <div class="metric-value">{hurdle_rate:.1f}% (${hurdle_value_12_months:,.0f} after 12 months)</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.subheader("Risk Summary")
-    risk_messages = []
-    if net_return < 1.0:
-        risk_messages.append("Loss projected")
-    if il > 5.0:
-        risk_messages.append("High IL")
-    if current_tvl < 250000:
-        risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
-    if apy < hurdle_rate:
-        risk_messages.append(f"APY ({apy:.1f}%) below hurdle rate ({hurdle_rate:.1f}%)")
-    if platform_trust_score <= 2:
-        risk_messages.append("Low Platform Trust Score: Protocol may be risky")
-
-    if risk_messages:
-        st.error(f"⚠️ High Risk: {', '.join(risk_messages)}")
-    else:
-        st.success("✅ Low Risk: Profitable with manageable IL")
-
-    return (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-            drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages)
-
-# Streamlit App
-
-# Display the logo
-#st.markdown(
-#    f'<div><img src="https://raw.githubusercontent.com/andyhugg/apy-il-exit-calc/main/Arta.png" class="large-logo" width="600"></div>',
-#    unsafe_allow_html=True
-#)
-
-#Title and Introduction
-st.title("Arta - Know the Price. Master the Risk.")
+# Title and Introduction
+st.title("Arta - Master the Risk.")
 st.markdown("""
 Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
 """)
-
 st.markdown("""
-<style>
-.disclaimer {
-    border: 2px solid #ff0000;
-    border-radius: 5px;
-    padding: 10px;
-    margin: 10px 0;
-}
-</style>
 <div class="disclaimer">
 ⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
 </div>
@@ -361,130 +374,289 @@ with st.sidebar:
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
-        result = check_exit_conditions(
-            investment_amount, apy, initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2,
-            current_tvl, risk_free_rate, expected_price_change_asset1, expected_price_change_asset2, is_new_pool, platform_trust_score
+        # Compute Risk Metrics
+        il = calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, investment_amount)
+        pool_value, _ = calculate_pool_value(investment_amount, initial_price_asset1, initial_price_asset2,
+                                            current_price_asset1, current_price_asset2) if not is_new_pool else (investment_amount, 0.0)
+        value_if_held = (investment_amount / 2 / initial_price_asset1 * current_price_asset1) + (investment_amount / 2 / initial_price_asset2 * current_price_asset2)
+        future_value, _ = calculate_future_value(investment_amount, apy, 12, initial_price_asset1, initial_price_asset2,
+                                                current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                expected_price_change_asset2, is_new_pool)
+        net_return = future_value / investment_amount if investment_amount > 0 else 0
+        break_even_months = calculate_break_even_months(apy, il, pool_value, value_if_held)
+        break_even_months_with_price = calculate_break_even_months_with_price_changes(
+            investment_amount, apy, pool_value, initial_price_asset1, initial_price_asset2,
+            current_price_asset1, current_price_asset2, expected_price_change_asset1, expected_price_change_asset2, value_if_held, is_new_pool
         )
-        (il, net_return, future_value, break_even_months, break_even_months_with_price, 
-         drawdown_initial, drawdown_12_months, hurdle_rate, hurdle_value_12_months, risk_messages) = result
+        drawdown_initial = investment_amount * 0.1
+        drawdown_12_months = future_value * 0.1
+        hurdle_rate = risk_free_rate + 6.0
+        hurdle_value_12_months = investment_amount * (1 + hurdle_rate / 100)
 
-        st.subheader("Projected Pool Value Over Time")
-        time_periods = [0, 3, 6, 12]
-        future_values = []
-        for months in time_periods:
-            value, _ = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
-                                             current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                             expected_price_change_asset2, is_new_pool)
-            future_values.append(value)
-        
-        hurdle_rate_chart = 0.16
-        hurdle_values = [investment_amount * (1 + hurdle_rate_chart * (months / 12)) for months in time_periods]
+        # Risk Assessment
+        risk_messages = []
+        if net_return < 1.0:
+            risk_messages.append("Loss projected")
+        if il > 5.0:
+            risk_messages.append("High IL")
+        if current_tvl < 250000:
+            risk_messages.append("TVL too low: Pool may be at risk of low liquidity or manipulation")
+        if apy < hurdle_rate:
+            risk_messages.append(f"APY ({apy:.1f}%) below hurdle rate ({hurdle_rate:.1f}%)")
+        if platform_trust_score <= 2:
+            risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-        sns.set_theme()
-        plt.figure(figsize=(10, 6))
-        plt.plot(time_periods, future_values, marker='o', markersize=10, linewidth=3, color='#1f77b4', label="Pool Value")
-        plt.fill_between(time_periods, future_values, color='#1f77b4', alpha=0.2)
-        plt.plot(time_periods, hurdle_values, linestyle='--', linewidth=2, color='green', label="Hurdle Rate (16%)")
-        plt.axhline(y=investment_amount, color='#ff3333', linestyle='--', linewidth=2, label=f"Initial Investment (${investment_amount:,.0f})")
-        y_max = max(max(future_values), max(hurdle_values), investment_amount) * 1.1
-        y_min = min(min(future_values), min(hurdle_values), investment_amount) * 0.9
-        plt.fill_between(time_periods, investment_amount, y_max, color='green', alpha=0.1, label='Profit Zone')
-        plt.fill_between(time_periods, y_min, investment_amount, color='red', alpha=0.1, label='Loss Zone')
-        for i, value in enumerate(future_values):
-            plt.text(time_periods[i], value + (y_max - y_min) * 0.05, f"${value:,.0f}", ha='center', fontsize=10, color='#1f77b4')
-        plt.title("Projected Pool Value Over Time", fontsize=16, pad=20)
-        plt.xlabel("Months", fontsize=12)
-        plt.ylabel("Value ($)", fontsize=12)
-        plt.xticks(time_periods, fontsize=10)
-        plt.yticks(fontsize=10)
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(fontsize=10)
-        plt.gca().set_facecolor('#f0f0f0')
-        plt.tight_layout()
-        st.pyplot(plt)
-        st.caption("Projected over 12 months, including compounded APY, price changes, and IL.")
+        # Compute Composite Risk Score
+        scores = {
+            'IL': 100 if il < 2 else 50 if il < 5 else 0,
+            'Net Return': 100 if net_return > 1.5 else 50 if net_return > 1 else 0,
+            'TVL': 100 if current_tvl >= 1_000_000 else 50 if current_tvl >= 250_000 else 0,
+            'APY vs Hurdle': 100 if apy >= hurdle_rate + 10 else 50 if apy >= hurdle_rate else 0,
+            'Platform Trust': 100 if platform_trust_score >= 4 else 50 if platform_trust_score >= 3 else 0
+        }
+        weights = {
+            'IL': 1.5,
+            'Net Return': 1.2,
+            'TVL': 1.0,
+            'APY vs Hurdle': 1.0,
+            'Platform Trust': 1.3
+        }
+        weighted_sum = sum(scores[metric] * weights[metric] for metric in scores)
+        total_weight = sum(weights.values())
+        composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
-        st.subheader("Pool vs. BTC vs. Stablecoin Comparison")
-        projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
-        initial_btc_amount = investment_amount / current_btc_price
-        btc_value_12_months = initial_btc_amount * projected_btc_price
-        pool_value_12_months = future_values[-1]
-        stablecoin_value_12_months = investment_amount * (1 + risk_free_rate / 100)
-        
-        df_btc_comparison = pd.DataFrame({
-            "Metric": ["Pool Value", "BTC Value", "Stablecoin Value"],
-            "Value ($)": [f"${int(pool_value_12_months):,}", f"${int(btc_value_12_months):,}", f"${int(stablecoin_value_12_months):,}"]
-        })
-        st.dataframe(df_btc_comparison.style.set_properties(**{'text-align': 'right'}), hide_index=True, use_container_width=True)
-        st.caption("Values projected over 12 months. Pool value includes compounded APY, price changes, and IL.")
-
-        st.subheader("Monte Carlo Scenarios - 12 Months")
-        mc_results = simplified_monte_carlo_analysis(
-            investment_amount, apy, initial_price_asset1, initial_price_asset2,
-            current_price_asset1, current_price_asset2, expected_price_change_asset1,
-            expected_price_change_asset2, is_new_pool
-        )
-        df_monte_carlo = pd.DataFrame({
-            "Scenario": ["Worst Case", "Expected Case", "Best Case"],
-            "Value ($)": [f"${mc_results['worst']['value']:,.0f}", f"${mc_results['expected']['value']:,.0f}", f"${mc_results['best']['value']:,.0f}"]
-        })
-        def highlight_rows(row):
-            if row["Scenario"] == "Worst Case":
-                return ['background-color: #ff4d4d; color: white'] * len(row)
-            elif row["Scenario"] == "Expected Case":
-                return ['background-color: #ffeb3b; color: black'] * len(row)
-            elif row["Scenario"] == "Best Case":
-                return ['background-color: #4caf50; color: white'] * len(row)
-            return [''] * len(row)
-        styled_df_monte_carlo = df_monte_carlo.style.apply(highlight_rows, axis=1).set_properties(**{'text-align': 'center'})
-        st.dataframe(styled_df_monte_carlo, hide_index=True, use_container_width=True)
-
-        sns.set_theme()
-        plt.figure(figsize=(8, 5))
-        scenarios = ["Worst", "Expected", "Best"]
-        values = [mc_results["worst"]["value"], mc_results["expected"]["value"], mc_results["best"]["value"]]
-        colors = ["#ff4d4d", "#ffeb3b", "#4caf50"]
-        plt.bar(scenarios, values, color=colors)
-        plt.axhline(y=investment_amount, color='r', linestyle='--', label=f"Initial Investment (${investment_amount:,.0f})")
-        plt.title("Monte Carlo Scenarios - 12 Month Pool Value", fontsize=16)
-        plt.ylabel("Value ($)", fontsize=12)
-        plt.legend(fontsize=10)
-        plt.gca().set_facecolor('#f0f0f0')
-        plt.tight_layout()
-        st.pyplot(plt)
-
-        output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Metric", "Value"])
-        writer.writerow(["Current Impermanent Loss (%)", f"{il:.2f}"])
-        writer.writerow(["12-Month Projected Value ($)", f"{future_value:,.0f}"])
-        writer.writerow(["12-Month Net Return (x)", f"{net_return:.2f}"])
-        writer.writerow(["Breakeven Against IL (months)", break_even_months])
-        writer.writerow(["Breakeven With Price Changes (months)", break_even_months_with_price])
-        writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:,.0f}"])
-        writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
-        writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
-        writer.writerow(["Platform Trust Score", f"{platform_trust_score}"])
-        writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
-        writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
-        csv_data = output.getvalue()
-
-        pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
-                                       drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score,
-                                       hurdle_rate, hurdle_value_12_months, risk_messages)
-
-        col_csv, col_pdf = st.columns(2)
-        with col_csv:
-            st.download_button(
-                label="Export Results as CSV",
-                data=csv_data,
-                file_name="pool_results.csv",
-                mime="text/csv"
+        # Risk Summary Section
+        with st.expander("Risk Summary", expanded=True):
+            bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
+            insight = (
+                f"Low risk profile. Profitable with manageable IL." if composite_score >= 70 else
+                f"Moderate risk. Check IL, TVL, or APY." if composite_score >= 40 else
+                f"High risk. Reassess due to IL, TVL, or platform trust."
             )
-        with col_pdf:
-            st.download_button(
-                label="Export Results as PDF",
-                data=pdf_data,
-                file_name="pool_results.pdf",
-                mime="application/pdf"
+            summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
+            progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
+            st.markdown(f"""
+                <div class="risk-assessment {bg_class}">
+                    <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
+                    <div style="font-size: 16px; margin-top: 5px; color: white;">Summary: {summary}</div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: {composite_score}%; background-color: {progress_color};"></div></div>
+                    <div style="font-size: 16px; margin-top: 10px; color: #A9A9A9;">{insight}</div>
+                    <div style="font-size: 14px; margin-top: 5px; color: #A9A9A9; font-style: italic;">Platform Trust Score: {platform_trust_score}/5</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Key Insights Section
+        with st.expander("Key Insights", expanded=False):
+            st.markdown("### Pool Performance Metrics")
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📉 Impermanent Loss<span class="tooltip" title="Loss due to price divergence. Insight: {'Minimal action.' if il < 2 else 'Monitor closely.' if il < 5 else 'Consider exiting.'}">?</span></div>
+                    <div class="metric-value {'red-text' if il > 5 else 'yellow-text' if il > 2 else 'green-text'}">{il:.2f}%</div>
+                    <div class="metric-desc">Current loss from price divergence.</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">💰 12-Month Value<span class="tooltip" title="Projected value after 12 months. Insight: {'Lock in profits.' if net_return > 1.5 else 'Hold and monitor.' if net_return >= 1 else 'Reassess.'}">?</span></div>
+                    <div class="metric-value">${future_value:,.0f}<br>({net_return:.2f}x)</div>
+                    <div class="metric-desc">After 12 months includes compounded APY, price changes, and IL.</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">💧 TVL<span class="tooltip" title="Total value locked in the pool. Insight: {'Trade confidently.' if current_tvl >= 1_000_000 else 'Limit small trades.' if current_tvl >= 250_000 else 'Use limit orders.'}">?</span></div>
+                    <div class="metric-value {'red-text' if current_tvl < 250_000 else 'yellow-text' if current_tvl < 1_000_000 else 'green-text'}">${current_tvl:,.0f}</div>
+                    <div class="metric-desc">Current total value locked.</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("### Break-even and Risk Metrics")
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Time to recover IL. Insight: {'Proceed confidently.' if break_even_months <= 6 else 'Monitor closely.' if break_even_months <= 12 else 'Reassess.'}">?</span></div>
+                    <div class="metric-value {'red-text' if break_even_months > 12 else 'yellow-text' if break_even_months > 6 else 'green-text'}">{break_even_months} months</div>
+                    <div class="metric-desc">Against IL, without price changes.</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">⏳ Break-even (Price)<span class="tooltip" title="Time to recover IL with price changes. Insight: {'Proceed confidently.' if break_even_months_with_price <= 6 else 'Monitor closely.' if break_even_months_with_price <= 12 else 'Reassess.'}">?</span></div>
+                    <div class="metric-value {'red-text' if break_even_months_with_price > 12 else 'yellow-text' if break_even_months_with_price > 6 else 'green-text'}">{break_even_months_with_price} months</div>
+                    <div class="metric-desc">With expected price changes.</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📉 Drawdown<span class="tooltip" title="Worst-case loss scenario. Insight: {'Minimal action.' if drawdown_12_months < investment_amount * 0.2 else 'Set stop-loss.' if drawdown_12_months < investment_amount * 0.5 else 'Reduce exposure.'}">?</span></div>
+                    <div class="metric-value {'red-text' if drawdown_12_months > investment_amount * 0.5 else 'yellow-text' if drawdown_12_months > investment_amount * 0.2 else 'green-text'}">${drawdown_12_months:,.0f}</div>
+                    <div class="metric-desc">After 12 months (90th percentile).</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("### Comparative Metrics")
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="APY vs. hurdle rate. Insight: {'Favor this pool.' if apy >= hurdle_rate + 10 else 'Balance with stablecoins.' if apy >= hurdle_rate else 'Increase stablecoin allocation.'}">?</span></div>
+                    <div class="metric-value {'green-text' if apy >= hurdle_rate + 10 else 'yellow-text' if apy >= hurdle_rate else 'red-text'}">{apy:.1f}% vs {hurdle_rate:.1f}%</div>
+                    <div class="metric-desc">APY compared to hurdle rate.</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Projected Pool Value Over Time
+        with st.expander("Projected Pool Value Over Time", expanded=False):
+            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months.")
+            time_periods = [0, 3, 6, 12]
+            future_values = []
+            for months in time_periods:
+                value, _ = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
+                                                 current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                 expected_price_change_asset2, is_new_pool)
+                future_values.append(value)
+            
+            hurdle_rate_chart = 0.16
+            hurdle_values = [investment_amount * (1 + hurdle_rate_chart * (months / 12)) for months in time_periods]
+
+            proj_data = {
+                "Metric": ["Pool Value ($)", "Hurdle Value ($)"],
+                "Month 0": [future_values[0], hurdle_values[0]],
+                "Month 3": [future_values[1], hurdle_values[1]],
+                "Month 6": [future_values[2], hurdle_values[2]],
+                "Month 12": [future_values[3], hurdle_values[3]]
+            }
+            proj_df = pd.DataFrame(proj_data)
+
+            styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
+                "Month 0": lambda x: "${:,.2f}".format(x),
+                "Month 3": lambda x: "${:,.2f}".format(x),
+                "Month 6": lambda x: "${:,.2f}".format(x),
+                "Month 12": lambda x: "${:,.2f}".format(x)
+            })
+            
+            st.markdown('<div class="proj-table-container">', unsafe_allow_html=True)
+            st.table(styled_proj_df)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            with st.spinner("Generating chart..."):
+                plt.figure(figsize=(10, 6))
+                sns.set_style("whitegrid")
+                sns.lineplot(x=time_periods, y=future_values, label='Pool Value', color='#4B5EAA', linewidth=2.5, marker='o')
+                sns.lineplot(x=time_periods, y=hurdle_values, label='Hurdle Rate (16%)', color='#32CD32', linewidth=2.5, marker='o')
+                plt.axhline(y=investment_amount, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${investment_amount:,.2f})')
+                plt.fill_between(time_periods, investment_amount, future_values, where=(np.array(future_values) < investment_amount), color='#FF4D4D', alpha=0.1, label='Loss Zone')
+                plt.title('Projected Pool Value Over 12 Months')
+                plt.xlabel('Months')
+                plt.ylabel('Value ($)')
+                plt.legend()
+                st.pyplot(plt)
+                plt.clf()
+
+        # Pool vs. BTC vs. Stablecoin Comparison
+        with st.expander("Pool vs. BTC vs. Stablecoin Comparison", expanded=False):
+            projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
+            initial_btc_amount = investment_amount / current_btc_price
+            btc_value_12_months = initial_btc_amount * projected_btc_price
+            pool_value_12_months = future_values[-1]
+            stablecoin_value_12_months = investment_amount * (1 + risk_free_rate / 100)
+            
+            proj_data = {
+                "Metric": ["Pool Value ($)", "BTC Value ($)", "Stablecoin Value ($)"],
+                "Value at 12 Months": [pool_value_12_months, btc_value_12_months, stablecoin_value_12_months]
+            }
+            proj_df = pd.DataFrame(proj_data)
+
+            styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
+                "Value at 12 Months": lambda x: "${:,.2f}".format(x)
+            })
+            
+            st.markdown('<div class="proj-table-container">', unsafe_allow_html=True)
+            st.table(styled_proj_df)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            with st.spinner("Generating chart..."):
+                df_comp = pd.DataFrame({
+                    'Month': [12, 12, 12],
+                    'Value': [pool_value_12_months, btc_value_12_months, stablecoin_value_12_months],
+                    'Type': ['Pool Value', 'BTC Value', 'Stablecoin Value']
+                })
+                plt.figure(figsize=(8, 5))
+                sns.barplot(x='Type', y='Value', data=df_comp, palette=['#4B5EAA', '#FFC107', '#A9A9A9'])
+                plt.axhline(y=investment_amount, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${investment_amount:,.2f})')
+                plt.title("12-Month Value Comparison")
+                plt.ylabel("Value ($)")
+                plt.legend()
+                st.pyplot(plt)
+                plt.clf()
+
+        # Monte Carlo Scenarios
+        with st.expander("Monte Carlo Scenarios - 12 Months", expanded=False):
+            st.markdown("Simulates 200 scenarios over 12 months considering APY and price change volatility.")
+            st.markdown("- **Expected**: Average | **Best**: 90th percentile | **Worst**: 10th percentile")
+            mc_results = simplified_monte_carlo_analysis(
+                investment_amount, apy, initial_price_asset1, initial_price_asset2,
+                current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                expected_price_change_asset2, is_new_pool
             )
+            df_monte_carlo = pd.DataFrame({
+                "Scenario": ["Worst Case", "Expected Case", "Best Case"],
+                "Value ($)": [mc_results['worst']['value'], mc_results['expected']['value'], mc_results['best']['value']],
+                "IL (%)": [mc_results['worst']['il'], mc_results['expected']['il'], mc_results['best']['il']]
+            })
+            def highlight_rows(row):
+                return ['background: #D32F2F'] * len(row) if row['Scenario'] == 'Worst Case' else ['background: #FFB300'] * len(row) if row['Scenario'] == 'Expected Case' else ['background: #388E3C'] * len(row)
+            styled_mc_df = df_monte_carlo.style.apply(highlight_rows, axis=1).set_table_attributes('class="monte-carlo-table"')
+            st.table(styled_mc_df)
+
+            with st.spinner("Generating chart..."):
+                plt.figure(figsize=(10, 6))
+                scenarios = ["Worst", "Expected", "Best"]
+                values = [mc_results["worst"]["value"], mc_results["expected"]["value"], mc_results["best"]["value"]]
+                colors = ["#D32F2F", "#FFB300", "#388E3C"]
+                plt.bar(scenarios, values, color=colors)
+                plt.axhline(y=investment_amount, color='#1E2A44', linestyle='--', label=f'Initial Investment (${investment_amount:,.2f})')
+                plt.title("Monte Carlo Scenarios - 12 Month Pool Value")
+                plt.ylabel("Value ($)")
+                plt.legend()
+                st.pyplot(plt)
+                plt.clf()
+
+        # Export Results
+        with st.expander("Export Results", expanded=False):
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerow(["Metric", "Value"])
+            writer.writerow(["Current Impermanent Loss (%)", f"{il:.2f}"])
+            writer.writerow(["12-Month Projected Value ($)", f"{future_value:,.0f}"])
+            writer.writerow(["12-Month Net Return (x)", f"{net_return:.2f}"])
+            writer.writerow(["Breakeven Against IL (months)", break_even_months])
+            writer.writerow(["Breakeven With Price Changes (months)", break_even_months_with_price])
+            writer.writerow(["Drawdown Initial ($)", f"{drawdown_initial:,.0f}"])
+            writer.writerow(["Drawdown After 12 Months ($)", f"{drawdown_12_months:,.0f}"])
+            writer.writerow(["Current TVL ($)", f"{current_tvl:,.0f}"])
+            writer.writerow(["Platform Trust Score", f"{platform_trust_score}"])
+            writer.writerow(["Hurdle Rate (%)", f"{hurdle_rate:.1f}"])
+            writer.writerow(["Hurdle Rate Value After 12 Months ($)", f"{hurdle_value_12_months:,.0f}"])
+            csv_data = output.getvalue()
+
+            pdf_data = generate_pdf_report(il, net_return, future_value, break_even_months, break_even_months_with_price,
+                                           drawdown_initial, drawdown_12_months, current_tvl, platform_trust_score,
+                                           hurdle_rate, hurdle_value_12_months, risk_messages)
+
+            col_csv, col_pdf = st.columns(2)
+            with col_csv:
+                st.download_button(
+                    label="Export Results as CSV",
+                    data=csv_data,
+                    file_name="pool_results.csv",
+                    mime="text/csv"
+                )
+            with col_pdf:
+                st.download_button(
+                    label="Export Results as PDF",
+                    data=pdf_data,
+                    file_name="pool_results.pdf",
+                    mime="application/pdf"
+                )
