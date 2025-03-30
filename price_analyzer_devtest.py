@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (Updated for consistency and simplification)
+# Custom CSS (Updated with new color scheme and Monte Carlo table styling)
 st.markdown("""
     <style>
     .metric-tile {
@@ -18,7 +18,7 @@ st.markdown("""
         align-items: center;
         gap: 15px;
         width: 100%;
-        min-height: 80px; /* Reduced height */
+        min-height: 80px;
         animation: fadeIn 0.5s ease-in;
     }
     @keyframes fadeIn {
@@ -26,13 +26,13 @@ st.markdown("""
         100% { opacity: 1; transform: scale(1); }
     }
     .metric-title {
-        font-size: 16px; /* Reduced from 18px */
+        font-size: 16px;
         font-weight: bold;
         width: 20%;
-        min-width: 120px; /* Slightly smaller */
+        min-width: 120px;
     }
     .metric-value {
-        font-size: 20px; /* Reduced from 24px */
+        font-size: 20px;
         font-weight: bold;
         width: 20%;
         min-width: 120px;
@@ -44,18 +44,18 @@ st.markdown("""
         color: #A9A9A9;
         width: 60%;
         overflow-y: auto;
-        max-height: 100px; /* Reduced height */
+        max-height: 100px;
         line-height: 1.4;
     }
     .tooltip {
         cursor: help;
-        color: #FFD700;
-        font-size: 14px; /* Smaller tooltip */
+        color: #FFC107; /* Updated yellow */
+        font-size: 14px;
         margin-left: 5px;
     }
-    .red-text { color: #FF4D4D; } /* Consistent red */
-    .green-text { color: #32CD32; } /* Consistent green */
-    .yellow-text { color: #FFD700; } /* Consistent yellow */
+    .red-text { color: #FF4D4D; }
+    .green-text { color: #32CD32; }
+    .yellow-text { color: #FFC107; } /* Updated yellow */
     .neutral-text { color: #A9A9A9; }
     .risk-assessment {
         background-color: #1E2A44;
@@ -67,7 +67,7 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
     .risk-red { border: 2px solid #FF4D4D; }
-    .risk-yellow { border: 2px solid #FFD700; }
+    .risk-yellow { border: 2px solid #FFC107; } /* Updated yellow */
     .risk-green { border: 2px solid #32CD32; }
     .progress-bar {
         width: 100%;
@@ -96,9 +96,11 @@ st.markdown("""
     .proj-table th, .proj-table td {
         padding: 12px;
         text-align: center;
-        color: white;
+        color: #FFFFFF;
         border: 1px solid #2A3555;
         font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* Added shadow */
+        font-weight: 500; /* Slightly bolder */
     }
     .proj-table th {
         background-color: #1E2A44;
@@ -109,6 +111,28 @@ st.markdown("""
     .proj-table tr:hover td {
         background: rgba(255, 255, 255, 0.2);
         transition: background 0.3s ease;
+    }
+    .monte-carlo-table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: #2A3555; /* Solid background */
+    }
+    .monte-carlo-table th, .monte-carlo-table td {
+        padding: 12px;
+        text-align: center;
+        color: #FFFFFF;
+        border: 1px solid #2A3555;
+        font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* Added shadow */
+        font-weight: 500; /* Slightly bolder */
+    }
+    .monte-carlo-table th {
+        background-color: #1E2A44;
+        font-weight: bold;
     }
     .disclaimer {
         border: 2px solid #FF4D4D;
@@ -132,6 +156,7 @@ st.markdown("""
         .metric-value { font-size: 18px; }
         .metric-desc { max-height: 120px; }
         .proj-table th, .proj-table td { font-size: 12px; padding: 8px; }
+        .monte-carlo-table th, .monte-carlo-table td { font-size: 12px; padding: 8px; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -147,7 +172,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (Unchanged)
+# Sidebar
 st.sidebar.markdown("""
 **Looking to analyze a Liquidity Pool?**  
 If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
@@ -366,7 +391,7 @@ if calculate:
 
         # Risk Assessment with Progress Bar
         with st.expander("Composite Risk Assessment", expanded=True):
-            progress_color = "#32CD32" if composite_score >= 70 else "#FFD700" if composite_score >= 40 else "#FF4D4D"
+            progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"  # Updated yellow
             st.markdown(f"""
                 <div class="risk-assessment {bg_class}">
                     <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
@@ -501,7 +526,7 @@ if calculate:
                 plt.figure(figsize=(10, 6))
                 sns.set_style("whitegrid")
                 sns.lineplot(data=df_proj, x='Month', y='Asset Value', label='Asset', color='#4B5EAA', linewidth=2.5, marker='o')
-                sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFD700', linewidth=2.5, marker='o')
+                sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFC107', linewidth=2.5, marker='o')  # Updated yellow
                 sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin', color='#A9A9A9', linewidth=2.5, marker='o')
                 plt.axhline(y=initial_investment, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
                 plt.fill_between(df_proj['Month'], initial_investment, df_proj['Asset Value'], where=(df_proj['Asset Value'] < initial_investment), color='#FF4D4D', alpha=0.1, label='Loss Zone')
@@ -523,16 +548,16 @@ if calculate:
             }
             mc_df = pd.DataFrame(mc_data)
             def highlight_rows(row):
-                return ['background: #FF4D4D'] * len(row) if row['Scenario'] == 'Worst Case' else ['background: #FFD700'] * len(row) if row['Scenario'] == 'Expected Case' else ['background: #32CD32'] * len(row)
-            styled_mc_df = mc_df.style.apply(highlight_rows, axis=1)
+                return ['background: #D32F2F'] * len(row) if row['Scenario'] == 'Worst Case' else ['background: #FFB300'] * len(row) if row['Scenario'] == 'Expected Case' else ['background: #388E3C'] * len(row)
+            styled_mc_df = mc_df.style.apply(highlight_rows, axis=1).set_table_attributes('class="monte-carlo-table"')
             st.table(styled_mc_df)
 
             with st.spinner("Generating chart..."):
                 plt.figure(figsize=(10, 6))
                 sns.histplot(simulations, bins=50, color='#A9A9A9')
-                plt.axvline(worst_case, color='#FF4D4D', label='Worst Case', linewidth=2)
-                plt.axvline(expected_case, color='#FFD700', label='Expected Case', linewidth=2)
-                plt.axvline(best_case, color='#32CD32', label='Best Case', linewidth=2)
+                plt.axvline(worst_case, color='#D32F2F', label='Worst Case', linewidth=2)  # Updated color
+                plt.axvline(expected_case, color='#FFB300', label='Expected Case', linewidth=2)  # Updated color
+                plt.axvline(best_case, color='#388E3C', label='Best Case', linewidth=2)  # Updated color
                 plt.axvline(initial_investment, color='#1E2A44', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
                 plt.title("Simplified Monte Carlo Analysis - 12 Month Investment Value")
                 plt.xlabel("Value ($)")
@@ -552,7 +577,7 @@ if calculate:
             }
             labels = list(portfolios[investor_profile].keys())
             sizes = list(portfolios[investor_profile].values())
-            colors = ['#4B5EAA', '#FFD700', '#32CD32', '#FF4D4D']
+            colors = ['#4B5EAA', '#FFC107', '#32CD32', '#FF4D4D']  # Updated yellow
             explode = (0.05, 0, 0, 0)
             plt.figure(figsize=(8, 8))
             plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', shadow=True, startangle=140)
