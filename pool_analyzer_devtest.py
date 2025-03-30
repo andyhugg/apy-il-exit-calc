@@ -390,7 +390,7 @@ if st.sidebar.button("Calculate"):
         )
         drawdown_initial = investment_amount * 0.1
         drawdown_12_months = future_value * 0.1
-        hurdle_rate = risk_free_rate + 6.0  # Updated to use user-input risk-free rate
+        hurdle_rate = risk_free_rate + 6.0
         hurdle_value_12_months = investment_amount * (1 + hurdle_rate / 100)
 
         # Risk Assessment
@@ -425,7 +425,7 @@ if st.sidebar.button("Calculate"):
         total_weight = sum(weights.values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
-        # Risk Summary Section (Fixed typo here)
+        # Risk Summary Section
         with st.expander("Risk Summary", expanded=True):
             bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
             insight = (
@@ -464,7 +464,6 @@ if st.sidebar.button("Calculate"):
                 </div>
             """, unsafe_allow_html=True)
 
-            # Updated TVL with flagging for < $250,000
             tvl_insight = "TVL below $250,000 indicates limited liquidity; avoid large trade positions to minimize slippage and execution risks." if current_tvl < 250000 else "Trade confidently." if current_tvl >= 1_000_000 else "Limit small trades."
             st.markdown(f"""
                 <div class="metric-tile">
@@ -500,9 +499,30 @@ if st.sidebar.button("Calculate"):
             """, unsafe_allow_html=True)
 
             st.markdown("### Comparative Metrics")
+            # Calculate BTC and pool values for the alert condition
+            time_periods = [0, 3, 6, 12]
+            future_values = []
+            btc_values = []
+            for months in time_periods:
+                value, _ = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
+                                                 current_price_asset1, current_price_asset2, expected_price_change_asset1,
+                                                 expected_price_change_asset2, is_new_pool)
+                future_values.append(value)
+                btc_value = (investment_amount / current_btc_price) * (current_btc_price * (1 + (btc_growth_rate / 100) * (months / 12)))
+                btc_values.append(btc_value)
+            
+            # Check if BTC value is within 15% of pool value at 12 months
+            pool_value_12 = future_values[-1]
+            btc_value_12 = btc_values[-1]
+            threshold = 0.15  # 15%
+            btc_close_to_pool = abs(btc_value_12 - pool_value_12) / pool_value_12 <= threshold if pool_value_12 > 0 else False
+            hurdle_insight = "Favor this pool." if apy >= hurdle_rate + 10 else "Balance with stablecoins." if apy >= hurdle_rate else "Increase stablecoin allocation."
+            if btc_close_to_pool:
+                hurdle_insight += " Warning: BTC projected value within 15% of pool value; BTC may offer similar returns with less complexity."
+            
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="APY vs. hurdle rate (risk-free rate + 6% global inflation). Insight: {'Favor this pool.' if apy >= hurdle_rate + 10 else 'Balance with stablecoins.' if apy >= hurdle_rate else 'Increase stablecoin allocation.'}">?</span></div>
+                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="APY vs. hurdle rate (risk-free rate + 6% global inflation). Insight: {hurdle_insight}">?</span></div>
                     <div class="metric-value {'green-text' if apy >= hurdle_rate + 10 else 'yellow-text' if apy >= hurdle_rate else 'red-text'}">{apy:.1f}% vs {hurdle_rate:.1f}%</div>
                     <div class="metric-desc">APY compared to hurdle rate (risk-free rate + 6% inflation).</div>
                 </div>
@@ -511,20 +531,8 @@ if st.sidebar.button("Calculate"):
         # Updated Projected Pool Value Over Time
         with st.expander("Projected Pool Value Over Time", expanded=False):
             st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC and stablecoin.")
-            time_periods = [0, 3, 6, 12]
-            future_values = []
-            btc_values = []
             stablecoin_values = []
             for months in time_periods:
-                # Pool value
-                value, _ = calculate_future_value(investment_amount, apy, months, initial_price_asset1, initial_price_asset2,
-                                                 current_price_asset1, current_price_asset2, expected_price_change_asset1,
-                                                 expected_price_change_asset2, is_new_pool)
-                future_values.append(value)
-                # BTC value
-                btc_value = (investment_amount / current_btc_price) * (current_btc_price * (1 + (btc_growth_rate / 100) * (months / 12)))
-                btc_values.append(btc_value)
-                # Stablecoin value using risk-free rate
                 stablecoin_value = investment_amount * (1 + (risk_free_rate / 100) * (months / 12))
                 stablecoin_values.append(stablecoin_value)
             
@@ -562,43 +570,6 @@ if st.sidebar.button("Calculate"):
                 plt.title('Projected Value Over 12 Months (Pool vs BTC vs Stablecoin)')
                 plt.xlabel('Months')
                 plt.ylabel('Value ($)')
-                plt.legend()
-                st.pyplot(plt)
-                plt.clf()
-
-        # Pool vs. BTC vs. Stablecoin Comparison
-        with st.expander("Pool vs. BTC vs. Stablecoin Comparison", expanded=False):
-            projected_btc_price = current_btc_price * (1 + btc_growth_rate / 100)
-            initial_btc_amount = investment_amount / current_btc_price
-            btc_value_12_months = initial_btc_amount * projected_btc_price
-            pool_value_12_months = future_values[-1]
-            stablecoin_value_12_months = investment_amount * (1 + risk_free_rate / 100)
-            
-            proj_data = {
-                "Metric": ["Pool Value ($)", "BTC Value ($)", "Stablecoin Value ($)"],
-                "Value at 12 Months": [pool_value_12_months, btc_value_12_months, stablecoin_value_12_months]
-            }
-            proj_df = pd.DataFrame(proj_data)
-
-            styled_proj_df = proj_df.style.set_table_attributes('class="proj-table"').format({
-                "Value at 12 Months": lambda x: "${:,.2f}".format(x)
-            })
-            
-            st.markdown('<div class="proj-table-container">', unsafe_allow_html=True)
-            st.table(styled_proj_df)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            with st.spinner("Generating chart..."):
-                df_comp = pd.DataFrame({
-                    'Month': [12, 12, 12],
-                    'Value': [pool_value_12_months, btc_value_12_months, stablecoin_value_12_months],
-                    'Type': ['Pool Value', 'BTC Value', 'Stablecoin Value']
-                })
-                plt.figure(figsize=(8, 5))
-                sns.barplot(x='Type', y='Value', data=df_comp, palette=['#4B5EAA', '#FFC107', '#A9A9A9'])
-                plt.axhline(y=investment_amount, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${investment_amount:,.2f})')
-                plt.title("12-Month Value Comparison")
-                plt.ylabel("Value ($)")
                 plt.legend()
                 st.pyplot(plt)
                 plt.clf()
