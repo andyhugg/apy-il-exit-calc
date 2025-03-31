@@ -311,8 +311,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Title and Introduction (unchanged)
-st.title("Arta - Master the Risk.")
+# Title and Introduction
+st.title("Arta - Master the Risk - CryptoRiskAnalyzer.com")
 st.markdown("""
 Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
 """)
