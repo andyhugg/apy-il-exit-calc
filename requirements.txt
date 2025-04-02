@@ -14,4 +14,3 @@ reportlab==4.2.5
 
 # API and Web Scraping
 requests==2.32.3
-pycoingecko==3.0.0
