@@ -530,7 +530,7 @@ if st.sidebar.button("Calculate"):
 
         # Updated Projected Pool Value Over Time
         with st.expander("Projected Pool Value Over Time", expanded=False):
-            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC and stablecoin.")
+            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC and Stablecoin pools. It also takes into consideration, impermanent loss, APY, and asset price changes.")
             stablecoin_values = []
             for months in time_periods:
                 stablecoin_value = investment_amount * (1 + (risk_free_rate / 100) * (months / 12))
