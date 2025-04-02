@@ -8,13 +8,8 @@ import seaborn as sns
 import requests
 from pycoingecko import CoinGeckoAPI
 import time
-import logging
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize CoinGecko API client
+# Initialize CoinGecko API client (for asset list only)
 cg = CoinGeckoAPI()
 
 # Custom CSS (unchanged)
@@ -192,55 +187,59 @@ If you want to analyze a liquidity pool for potential returns, risks, or imperma
 <a href="https://crypto-pool-analyzer.onrender.com" target="_self">Go to Pool Analyzer</a>
 """, unsafe_allow_html=True)
 
-# Cache CoinGecko asset list (top 1,000 by market cap)
+# Cache CoinGecko asset list (top 1,000 by market cap) to populate dropdown
 @st.cache_data(ttl=86400)  # Cache for 24 hours
 def get_coingecko_assets():
     try:
         # Fetch top 1,000 assets by market cap
         assets = cg.get_coins_markets(vs_currency='usd', per_page=1000, page=1, order='market_cap_desc')
         asset_dict = {asset['name']: asset['id'] for asset in assets}
-        logger.info(f"Fetched asset list with {len(asset_dict)} assets")
+        print(f"Fetched asset list with {len(asset_dict)} assets")
         # Check if MANTRA is in the list
         if "MANTRA" in asset_dict:
-            logger.info(f"MANTRA found in asset list with ID: {asset_dict['MANTRA']}")
+            print(f"MANTRA found in asset list with ID: {asset_dict['MANTRA']}")
         else:
-            logger.warning("MANTRA not found in top 1,000 assets")
+            print("MANTRA not found in top 1,000 assets")
         return asset_dict
     except Exception as e:
-        logger.error(f"Error fetching asset list: {str(e)}")
+        print(f"Error fetching asset list: {str(e)}")
         st.error(f"Error fetching asset list: {str(e)}")
         return None  # Return None to trigger fallback
 
-# Cache asset data with enhanced logging and retry mechanism
+# Fetch asset data using CoinCap API
 @st.cache_data
 def get_asset_data(asset_id):
-    logger.info(f"Fetching data for asset ID: {asset_id}")
+    print(f"Fetching data for asset ID: {asset_id}")
     for attempt in range(3):  # Retry up to 3 times
         try:
-            data = cg.get_coins_markets(vs_currency='usd', ids=[asset_id, 'bitcoin'])
-            logger.info(f"API response for {asset_id}: {data}")
-            if not data:
-                logger.warning(f"No data returned for asset ID: {asset_id}")
+            # Fetch data for the selected asset
+            asset_response = requests.get(f"https://api.coincap.io/v2/assets/{asset_id}", timeout=5)
+            asset_response.raise_for_status()  # Raise an exception for bad status codes
+            asset_data = asset_response.json()['data']
+            print(f"CoinCap response for {asset_id}: {asset_data}")
+
+            # Fetch data for Bitcoin
+            btc_response = requests.get("https://api.coincap.io/v2/assets/bitcoin", timeout=5)
+            btc_response.raise_for_status()
+            btc_data = btc_response.json()['data']
+            print(f"CoinCap response for bitcoin: {btc_data}")
+
+            # Check if data is valid
+            if not asset_data or not btc_data:
+                print(f"No data returned for asset ID: {asset_id} or bitcoin")
                 return None
-            asset_data = next((item for item in data if item['id'] == asset_id), None)
-            btc_data = next((item for item in data if item['id'] == 'bitcoin'), None)
-            if not asset_data:
-                logger.warning(f"Asset ID {asset_id} not found in CoinGecko response")
-                return None
-            if not btc_data:
-                logger.warning("Bitcoin data not found in CoinGecko response")
-                return None
+
             return {
-                'price': asset_data['current_price'],
-                'market_cap': asset_data['market_cap'],
-                'fdv': asset_data.get('fully_diluted_valuation', asset_data['market_cap']),
-                'vol_24h': asset_data['total_volume'],
-                'btc_price': btc_data['current_price']
+                'price': float(asset_data['priceUsd']),
+                'market_cap': float(asset_data['marketCapUsd']),
+                'fdv': float(asset_data.get('marketCapUsd', 0)),  # CoinCap doesn't provide FDV, use market cap as fallback
+                'vol_24h': float(asset_data['volumeUsd24Hr']),
+                'btc_price': float(btc_data['priceUsd'])
             }
         except Exception as e:
-            logger.warning(f"Attempt {attempt + 1} failed for {asset_id}: {str(e)}. Retrying...")
+            print(f"Attempt {attempt + 1} failed for {asset_id}: {str(e)}. Retrying...")
             time.sleep(2)  # Increased delay to avoid rate limits
-    logger.error(f"All attempts failed to fetch data for {asset_id}")
+    print(f"All attempts failed to fetch data for {asset_id}")
     return None  # Return None if all retries fail
 
 # Cache Fear and Greed Index with retry mechanism
