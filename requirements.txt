@@ -1,7 +1,5 @@
 # Web Framework
 streamlit==1.43.2
-Flask==3.0.3
-gunicorn==23.0.0
 
 # Calculations and Data Handling
 numpy==2.2.4
@@ -16,5 +14,4 @@ reportlab==4.2.5
 
 # API and Web Scraping
 requests==2.32.3
-beautifulsoup4==4.12.3
 pycoingecko==3.0.0
