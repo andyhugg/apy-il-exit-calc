@@ -8,6 +8,11 @@ import seaborn as sns
 import requests
 from pycoingecko import CoinGeckoAPI
 import time
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize CoinGecko API client
 cg = CoinGeckoAPI()
@@ -193,27 +198,37 @@ def get_coingecko_assets():
     try:
         # Fetch top 1,000 assets by market cap
         assets = cg.get_coins_markets(vs_currency='usd', per_page=1000, page=1, order='market_cap_desc')
-        return {asset['name']: asset['id'] for asset in assets}
+        asset_dict = {asset['name']: asset['id'] for asset in assets}
+        logger.info(f"Fetched asset list with {len(asset_dict)} assets")
+        # Check if MANTRA is in the list
+        if "MANTRA" in asset_dict:
+            logger.info(f"MANTRA found in asset list with ID: {asset_dict['MANTRA']}")
+        else:
+            logger.warning("MANTRA not found in top 1,000 assets")
+        return asset_dict
     except Exception as e:
-        st.error(f"Error fetching asset list: {e}")
+        logger.error(f"Error fetching asset list: {str(e)}")
+        st.error(f"Error fetching asset list: {str(e)}")
         return None  # Return None to trigger fallback
 
-# Cache asset data with retry mechanism
+# Cache asset data with enhanced logging and retry mechanism
 @st.cache_data
 def get_asset_data(asset_id):
-    for _ in range(3):  # Retry up to 3 times
+    logger.info(f"Fetching data for asset ID: {asset_id}")
+    for attempt in range(3):  # Retry up to 3 times
         try:
             data = cg.get_coins_markets(vs_currency='usd', ids=[asset_id, 'bitcoin'])
+            logger.info(f"API response for {asset_id}: {data}")
             if not data:
-                st.warning(f"No data returned for asset ID: {asset_id}")
+                logger.warning(f"No data returned for asset ID: {asset_id}")
                 return None
             asset_data = next((item for item in data if item['id'] == asset_id), None)
             btc_data = next((item for item in data if item['id'] == 'bitcoin'), None)
             if not asset_data:
-                st.warning(f"Asset ID {asset_id} not found in CoinGecko response")
+                logger.warning(f"Asset ID {asset_id} not found in CoinGecko response")
                 return None
             if not btc_data:
-                st.warning("Bitcoin data not found in CoinGecko response")
+                logger.warning("Bitcoin data not found in CoinGecko response")
                 return None
             return {
                 'price': asset_data['current_price'],
@@ -223,8 +238,9 @@ def get_asset_data(asset_id):
                 'btc_price': btc_data['current_price']
             }
         except Exception as e:
-            st.warning(f"Error fetching data for {asset_id}: {e}. Retrying...")
-            time.sleep(1)  # Wait before retrying
+            logger.warning(f"Attempt {attempt + 1} failed for {asset_id}: {str(e)}. Retrying...")
+            time.sleep(2)  # Increased delay to avoid rate limits
+    logger.error(f"All attempts failed to fetch data for {asset_id}")
     return None  # Return None if all retries fail
 
 # Cache Fear and Greed Index with retry mechanism
