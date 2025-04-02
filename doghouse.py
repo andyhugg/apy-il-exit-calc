@@ -198,27 +198,34 @@ def get_coingecko_assets():
         st.error(f"Error fetching asset list: {e}")
         return None  # Return None to trigger fallback
 
-# Cache asset data
+# Cache asset data with retry mechanism
 @st.cache_data
 def get_asset_data(asset_id):
-    try:
-        data = cg.get_coins_markets(vs_currency='usd', ids=[asset_id, 'bitcoin'])
-        if not data:
-            return None
-        asset_data = next((item for item in data if item['id'] == asset_id), None)
-        btc_data = next((item for item in data if item['id'] == 'bitcoin'), None)
-        if not asset_data or not btc_data:
-            return None
-        return {
-            'price': asset_data['current_price'],
-            'market_cap': asset_data['market_cap'],
-            'fdv': asset_data.get('fully_diluted_valuation', asset_data['market_cap']),
-            'vol_24h': asset_data['total_volume'],
-            'btc_price': btc_data['current_price']
-        }
-    except Exception as e:
-        st.error(f"Error fetching data for {asset_id}: {e}")
-        return None
+    for _ in range(3):  # Retry up to 3 times
+        try:
+            data = cg.get_coins_markets(vs_currency='usd', ids=[asset_id, 'bitcoin'])
+            if not data:
+                st.warning(f"No data returned for asset ID: {asset_id}")
+                return None
+            asset_data = next((item for item in data if item['id'] == asset_id), None)
+            btc_data = next((item for item in data if item['id'] == 'bitcoin'), None)
+            if not asset_data:
+                st.warning(f"Asset ID {asset_id} not found in CoinGecko response")
+                return None
+            if not btc_data:
+                st.warning("Bitcoin data not found in CoinGecko response")
+                return None
+            return {
+                'price': asset_data['current_price'],
+                'market_cap': asset_data['market_cap'],
+                'fdv': asset_data.get('fully_diluted_valuation', asset_data['market_cap']),
+                'vol_24h': asset_data['total_volume'],
+                'btc_price': btc_data['current_price']
+            }
+        except Exception as e:
+            st.warning(f"Error fetching data for {asset_id}: {e}. Retrying...")
+            time.sleep(1)  # Wait before retrying
+    return None  # Return None if all retries fail
 
 # Cache Fear and Greed Index with retry mechanism
 @st.cache_data(ttl=86400)  # Cache for 24 hours
@@ -262,6 +269,9 @@ with st.sidebar.form(key='config_form'):
             st.session_state.selected_asset = selected_asset
             asset_id = assets[selected_asset]
             st.session_state.asset_data = get_asset_data(asset_id)
+            if st.session_state.asset_data is None:
+                st.session_state.use_manual_inputs = True
+                st.warning(f"Failed to fetch data for {selected_asset} (ID: {asset_id}). Falling back to manual inputs. Please enter the asset details below.")
 
     # Input fields based on mode (autofill or manual)
     if st.session_state.use_manual_inputs or not st.session_state.asset_data:
