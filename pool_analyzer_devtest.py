@@ -9,7 +9,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-# Core Calculation Functions (unchanged)
+# Core Calculation Functions (Updated for APY Decay)
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
@@ -32,10 +32,9 @@ def calculate_pool_value(initial_investment: float, initial_price_asset1: float,
 
 def calculate_future_value(initial_investment: float, apy: float, months: int, initial_price_asset1: float, initial_price_asset2: float,
                           current_price_asset1: float, current_price_asset2: float, expected_price_change_asset1: float,
-                          expected_price_change_asset2: float, is_new_pool: bool = False) -> tuple[float, float]:
+                          expected_price_asset2: float, is_new_pool: bool = False) -> tuple[float, float]:
     if months < 0:
         return initial_investment, 0.0
-    monthly_apy = (apy / 100) / 12
     monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
     if is_new_pool:
@@ -53,22 +52,25 @@ def calculate_future_value(initial_investment: float, apy: float, months: int, i
         starting_price_asset2 = initial_price_asset2
     if months == 0:
         return round(pool_value, 2), calculate_il(initial_price_asset1, initial_price_asset2, current_price_asset1, current_price_asset2, initial_investment)
-    apy_compounded_value = pool_value * (1 + monthly_apy) ** months
+    current_value = pool_value
+    for month in range(1, months + 1):
+        monthly_apy = (apy / 100) / 12 * (0.95 ** (month - 1))  # 5% monthly decay
+        current_value *= (1 + monthly_apy)
     final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
     final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
     new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
                                            final_price_asset1, final_price_asset2)
     future_il = calculate_il(initial_price_asset1, initial_price_asset2, final_price_asset1, final_price_asset2, initial_investment)
-    current_value = apy_compounded_value + (new_pool_value - pool_value)
+    current_value += (new_pool_value - pool_value)
     return round(current_value, 2), future_il
 
 def calculate_break_even_months(apy: float, il: float, initial_pool_value: float, value_if_held: float) -> float:
     if apy <= 0 or initial_pool_value <= 0 or value_if_held <= initial_pool_value:
         return 0
-    monthly_apy = (apy / 100) / 12
-    months = 0
     current_value = initial_pool_value
+    months = 0
     while current_value < value_if_held and months < 1000:
+        monthly_apy = (apy / 100) / 12 * (0.95 ** months)  # 5% monthly decay
         current_value *= (1 + monthly_apy)
         months += 1
     return round(months, 2) if months < 1000 else float('inf')
@@ -80,13 +82,13 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   value_if_held: float, is_new_pool: bool = False) -> float:
     if apy <= 0:
         return float('inf')
-    monthly_apy = (apy / 100) / 12
     monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
     months = 0
     current_value = pool_value
     while current_value < value_if_held and months < 1000:
         months += 1
+        monthly_apy = (apy / 100) / 12 * (0.95 ** (months - 1))  # 5% monthly decay
         final_price_asset1 = current_price_asset1 * (1 + monthly_price_change_asset1 * months)
         final_price_asset2 = current_price_asset2 * (1 + monthly_price_change_asset2 * months)
         new_pool_value, _ = calculate_pool_value(initial_investment, initial_price_asset1, initial_price_asset2,
@@ -154,7 +156,7 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     buffer.close()
     return pdf_data
 
-# Adopt Price Analyzer's CSS (unchanged)
+# CSS (Unchanged)
 st.markdown("""
     <style>
     .metric-tile {
@@ -311,7 +313,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Title and Introduction
+# Title and Introduction (Unchanged)
 st.title("Arta - Master the Risk - CryptoRiskAnalyzer.com")
 st.markdown("""
 Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
@@ -322,7 +324,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (Tool Selection) (unchanged)
+# Sidebar (Updated)
 st.sidebar.markdown("""
 **Looking to Analyze a Crypto Asset?**  
 Click the link below to use our Crypto Asset Analyzer tool:  
@@ -330,7 +332,7 @@ Click the link below to use our Crypto Asset Analyzer tool:
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
-**Instructions for Analyzing a Liquidity Pool**: To get started, enter the values below and adjust growth rates as needed - Arta will calculate your potential profit and loss on existing or new pools over 12 months considering impermanent loss, APY, and asset price changes.
+**Instructions for Analyzing a Liquidity Pool**: Enter the values below to analyze your pool. APY decays at 5% monthly, and BTC growth is fixed at 25% CAGR.
 """, unsafe_allow_html=True)
 
 with st.sidebar:
@@ -339,18 +341,19 @@ with st.sidebar:
     is_new_pool = (pool_status == "New Pool")
     
     if is_new_pool:
-        current_price_asset1 = st.number_input("Asset 1 Price (Today) ($)", min_value=0.01, value=1.00, format="%.2f")
-        current_price_asset2 = st.number_input("Asset 2 Price (Today) ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset1 = st.number_input("Current Price Asset 1 ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset2 = st.number_input("Current Price Asset 2 ($)", min_value=0.01, value=1.00, format="%.2f")
         initial_price_asset1 = current_price_asset1
         initial_price_asset2 = current_price_asset2
     else:
-        initial_price_asset1 = st.number_input("Initial Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
-        initial_price_asset2 = st.number_input("Initial Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
-        current_price_asset1 = st.number_input("Current Asset 1 Price ($)", min_value=0.01, value=1.00, format="%.2f")
-        current_price_asset2 = st.number_input("Current Asset 2 Price ($)", min_value=0.01, value=1.00, format="%.2f")
+        initial_price_asset1 = st.number_input("Initial Price Asset 1 ($)", min_value=0.01, value=1.00, format="%.2f")
+        initial_price_asset2 = st.number_input("Initial Price Asset 2 ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset1 = st.number_input("Current Price Asset 1 ($)", min_value=0.01, value=1.00, format="%.2f")
+        current_price_asset2 = st.number_input("Current Price Asset 2 ($)", min_value=0.01, value=1.00, format="%.2f")
     
     investment_amount = st.number_input("Investment ($)", min_value=0.01, value=1.00, format="%.2f")
-    apy = st.number_input("APY (%)", min_value=0.01, value=25.00, format="%.2f")
+    apy = st.number_input("Pool APY (%)", min_value=0.01, value=25.00, format="%.2f")
+    fear_and_greed_score = st.number_input("Fear and Greed Score (0-100)", min_value=0, max_value=100, value=50)
     expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=1.0, format="%.2f")
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=1.0, format="%.2f")
     current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1.00, format="%.2f")
@@ -365,12 +368,11 @@ with st.sidebar:
             (5, "5 - Excellent (top-tier, e.g., Uniswap, Aave)")
         ],
         format_func=lambda x: x[1],
-        index=0  # Default to Unknown (1)
+        index=0
     )[0]
 
-    current_btc_price = st.number_input("Current BTC Price ($)", min_value=0.01, value=1.00, format="%.2f")
-    btc_growth_rate = st.number_input("Expected BTC Growth Rate (%)", min_value=-100.0, value=1.0, format="%.2f")
     risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, format="%.2f")
+    st.markdown("**Note**: BTC growth is assumed at a 25% CAGR based on historical trends.")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
@@ -406,26 +408,28 @@ if st.sidebar.button("Calculate"):
         if platform_trust_score <= 2:
             risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-        # Compute Composite Risk Score
+        # Compute Composite Risk Score with Fear and Greed
         scores = {
             'IL': 100 if il < 2 else 50 if il < 5 else 0,
             'Net Return': 100 if net_return > 1.5 else 50 if net_return > 1 else 0,
             'TVL': 100 if current_tvl >= 1_000_000 else 50 if current_tvl >= 250_000 else 0,
             'APY vs Hurdle': 100 if apy >= hurdle_rate + 10 else 50 if apy >= hurdle_rate else 0,
-            'Platform Trust': 100 if platform_trust_score >= 4 else 50 if platform_trust_score >= 3 else 0
+            'Platform Trust': 100 if platform_trust_score >= 4 else 50 if platform_trust_score >= 3 else 0,
+            'Fear and Greed': 100 - abs(50 - fear_and_greed_score) * 2  # Parabolic penalty
         }
         weights = {
             'IL': 1.5,
             'Net Return': 1.2,
             'TVL': 1.0,
             'APY vs Hurdle': 1.0,
-            'Platform Trust': 1.3
+            'Platform Trust': 1.3,
+            'Fear and Greed': 2.0  # Heavy weighting
         }
         weighted_sum = sum(scores[metric] * weights[metric] for metric in scores)
         total_weight = sum(weights.values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
-        # Risk Summary Section
+        # Risk Summary Section (Unchanged Layout)
         with st.expander("Risk Summary", expanded=True):
             bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
             insight = (
@@ -445,7 +449,7 @@ if st.sidebar.button("Calculate"):
                 </div>
             """, unsafe_allow_html=True)
 
-        # Key Insights Section
+        # Key Insights Section (Unchanged Layout)
         with st.expander("Key Insights", expanded=False):
             st.markdown("### Pool Performance Metrics")
             st.markdown(f"""
@@ -499,7 +503,6 @@ if st.sidebar.button("Calculate"):
             """, unsafe_allow_html=True)
 
             st.markdown("### Comparative Metrics")
-            # Calculate BTC and pool values for the alert condition
             time_periods = [0, 3, 6, 12]
             future_values = []
             btc_values = []
@@ -508,13 +511,12 @@ if st.sidebar.button("Calculate"):
                                                  current_price_asset1, current_price_asset2, expected_price_change_asset1,
                                                  expected_price_change_asset2, is_new_pool)
                 future_values.append(value)
-                btc_value = (investment_amount / current_btc_price) * (current_btc_price * (1 + (btc_growth_rate / 100) * (months / 12)))
+                btc_value = investment_amount * (1 + 0.25) ** (months / 12)  # 25% CAGR
                 btc_values.append(btc_value)
             
-            # Check if BTC value is within 15% of pool value at 12 months
             pool_value_12 = future_values[-1]
             btc_value_12 = btc_values[-1]
-            threshold = 0.15  # 15%
+            threshold = 0.15
             btc_close_to_pool = abs(btc_value_12 - pool_value_12) / pool_value_12 <= threshold if pool_value_12 > 0 else False
             hurdle_insight = "Favor this pool." if apy >= hurdle_rate + 10 else "Balance with stablecoins." if apy >= hurdle_rate else "Increase stablecoin allocation."
             if btc_close_to_pool:
@@ -528,7 +530,7 @@ if st.sidebar.button("Calculate"):
                 </div>
             """, unsafe_allow_html=True)
 
-        # Updated Projected Pool Value Over Time
+        # Projected Pool Value Over Time (Unchanged Layout)
         with st.expander("Projected Pool Value Over Time", expanded=False):
             st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC and Stablecoin pools. It also takes into consideration, impermanent loss, APY, and asset price changes.")
             stablecoin_values = []
@@ -574,7 +576,7 @@ if st.sidebar.button("Calculate"):
                 st.pyplot(plt)
                 plt.clf()
 
-        # Monte Carlo Scenarios (unchanged)
+        # Monte Carlo Scenarios (Unchanged Layout)
         with st.expander("Monte Carlo Scenarios - 12 Months", expanded=False):
             st.markdown("Simulates 200 scenarios over 12 months considering APY and price change volatility.")
             st.markdown("- **Expected**: Average | **Best**: 90th percentile | **Worst**: 10th percentile")
@@ -606,7 +608,7 @@ if st.sidebar.button("Calculate"):
                 st.pyplot(plt)
                 plt.clf()
 
-        # Export Results (unchanged)
+        # Export Results (Unchanged Layout)
         with st.expander("Export Results", expanded=False):
             output = StringIO()
             writer = csv.writer(output)
