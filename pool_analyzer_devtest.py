@@ -9,7 +9,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-# Core Calculation Functions (Updated for APY Decay)
+# Core Calculation Functions
 def calculate_il(initial_price_asset1: float, initial_price_asset2: float, current_price_asset1: float, current_price_asset2: float, initial_investment: float) -> float:
     if initial_price_asset2 == 0 or current_price_asset2 == 0 or initial_investment <= 0:
         return 0
@@ -32,7 +32,7 @@ def calculate_pool_value(initial_investment: float, initial_price_asset1: float,
 
 def calculate_future_value(initial_investment: float, apy: float, months: int, initial_price_asset1: float, initial_price_asset2: float,
                           current_price_asset1: float, current_price_asset2: float, expected_price_change_asset1: float,
-                          expected_price_asset2: float, is_new_pool: bool = False) -> tuple[float, float]:
+                          expected_price_change_asset2: float, is_new_pool: bool = False) -> tuple[float, float]:
     if months < 0:
         return initial_investment, 0.0
     monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
@@ -82,7 +82,7 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   value_if_held: float, is_new_pool: bool = False) -> float:
     if apy <= 0:
         return float('inf')
-    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
+    monthly_price_change_asset1 = (expected.windowsprice_change_asset1 / 100) / 12
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
     months = 0
     current_value = pool_value
@@ -156,7 +156,20 @@ def generate_pdf_report(il, net_return, future_value, break_even_months, break_e
     buffer.close()
     return pdf_data
 
-# CSS (Unchanged)
+# Parse TVL Input Function
+def parse_tvl_input(tvl_str: str) -> float:
+    try:
+        tvl_str = tvl_str.strip().lower()
+        if tvl_str.endswith('m'):
+            return float(tvl_str[:-1]) * 1_000_000
+        elif tvl_str.endswith('k'):
+            return float(tvl_str[:-1]) * 1_000
+        else:
+            return float(tvl_str)
+    except ValueError:
+        return 1.00  # Default on invalid input
+
+# CSS (Updated for Tooltip Lag)
 st.markdown("""
     <style>
     .metric-tile {
@@ -204,6 +217,22 @@ st.markdown("""
         color: #FFC107;
         font-size: 14px;
         margin-left: 5px;
+        position: relative;
+    }
+    .tooltip:hover:after {
+        content: attr(title);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        background-color: #2A3555;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 14px;
+        z-index: 1000;
+        width: 300px;
+        transition-delay: 0s !important;
+        visibility: visible !important;
     }
     .red-text { color: #FF4D4D; }
     .green-text { color: #32CD32; }
@@ -313,7 +342,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Title and Introduction (Unchanged)
+# Title and Introduction
 st.title("Arta - Master the Risk - CryptoRiskAnalyzer.com")
 st.markdown("""
 Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
@@ -324,7 +353,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar (Updated)
+# Sidebar
 st.sidebar.markdown("""
 **Looking to Analyze a Crypto Asset?**  
 Click the link below to use our Crypto Asset Analyzer tool:  
@@ -356,7 +385,11 @@ with st.sidebar:
     fear_and_greed_score = st.number_input("Fear and Greed Score (0-100)", min_value=0, max_value=100, value=50)
     expected_price_change_asset1 = st.number_input("Expected Price Change Asset 1 (%)", min_value=-100.0, value=1.0, format="%.2f")
     expected_price_change_asset2 = st.number_input("Expected Price Change Asset 2 (%)", min_value=-100.0, value=1.0, format="%.2f")
-    current_tvl = st.number_input("Current TVL ($)", min_value=0.01, value=1.00, format="%.2f")
+    tvl_input = st.text_input("Current TVL ($)", value="1.00", help="Enter as 18m, 250k, or full number (e.g., 18000000)")
+    current_tvl = parse_tvl_input(tvl_input)
+    if current_tvl < 0.01:
+        current_tvl = 1.00
+        st.sidebar.warning("TVL must be at least 0.01. Set to 1.00.")
     
     platform_trust_score = st.selectbox(
         "Platform Trust Score (1-5)",
@@ -408,28 +441,28 @@ if st.sidebar.button("Calculate"):
         if platform_trust_score <= 2:
             risk_messages.append("Low Platform Trust Score: Protocol may be risky")
 
-        # Compute Composite Risk Score with Fear and Greed
+        # Compute Composite Risk Score
         scores = {
             'IL': 100 if il < 2 else 50 if il < 5 else 0,
             'Net Return': 100 if net_return > 1.5 else 50 if net_return > 1 else 0,
             'TVL': 100 if current_tvl >= 1_000_000 else 50 if current_tvl >= 250_000 else 0,
             'APY vs Hurdle': 100 if apy >= hurdle_rate + 10 else 50 if apy >= hurdle_rate else 0,
             'Platform Trust': 100 if platform_trust_score >= 4 else 50 if platform_trust_score >= 3 else 0,
-            'Fear and Greed': 100 - abs(50 - fear_and_greed_score) * 2  # Parabolic penalty
+            'Fear and Greed': 100 - abs(50 - fear_and_greed_score) * 2
         }
         weights = {
             'IL': 1.5,
             'Net Return': 1.2,
             'TVL': 1.0,
             'APY vs Hurdle': 1.0,
-            'Platform Trust': 1.3,
-            'Fear and Greed': 2.0  # Heavy weighting
+            'Platform Trust': 2.5,  # Increased from 1.3
+            'Fear and Greed': 2.0
         }
         weighted_sum = sum(scores[metric] * weights[metric] for metric in scores)
         total_weight = sum(weights.values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
-        # Risk Summary Section (Unchanged Layout)
+        # Risk Summary Section
         with st.expander("Risk Summary", expanded=True):
             bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
             insight = (
@@ -449,12 +482,12 @@ if st.sidebar.button("Calculate"):
                 </div>
             """, unsafe_allow_html=True)
 
-        # Key Insights Section (Unchanged Layout)
+        # Key Insights Section
         with st.expander("Key Insights", expanded=False):
             st.markdown("### Pool Performance Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📉 Impermanent Loss<span class="tooltip" title="Loss due to price divergence. Insight: {'Minimal action.' if il < 2 else 'Monitor closely.' if il < 5 else 'Consider exiting.'}">?</span></div>
+                    <div class="metric-title">📉 Impermanent Loss<span class="tooltip" title="Shows how much you’re losing because the pool’s assets changed in price compared to just holding them. High loss means your earnings might take a hit. What to do: If it’s below 2%, you’re fine—keep going. Between 2-5%, keep an eye on it. Over 5%, think about pulling out to avoid bigger losses.">?</span></div>
                     <div class="metric-value {'red-text' if il > 5 else 'yellow-text' if il > 2 else 'green-text'}">{il:.2f}%</div>
                     <div class="metric-desc">Current loss from price divergence.</div>
                 </div>
@@ -462,16 +495,16 @@ if st.sidebar.button("Calculate"):
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">💰 12-Month Value<span class="tooltip" title="Projected value after 12 months. Insight: {'Lock in profits.' if net_return > 1.5 else 'Hold and monitor.' if net_return >= 1 else 'Reassess.'}">?</span></div>
+                    <div class="metric-title">💰 12-Month Value<span class="tooltip" title="Your money’s expected value in a year, based on pool earnings (which drop 5% monthly), price shifts, and losses. The ‘x’ shows how much your investment grows. What to do: Above 1.5x, you’re in great shape—consider locking in gains. At 1-1.5x, hold steady but watch the market. Below 1x, rethink if this pool’s worth it.">?</span></div>
                     <div class="metric-value">${future_value:,.0f}<br>({net_return:.2f}x)</div>
                     <div class="metric-desc">After 12 months includes compounded APY, price changes, and IL.</div>
                 </div>
             """, unsafe_allow_html=True)
 
-            tvl_insight = "TVL below $250,000 indicates limited liquidity; avoid large trade positions to minimize slippage and execution risks." if current_tvl < 250000 else "Trade confidently." if current_tvl >= 1_000_000 else "Limit small trades."
+            tvl_insight = "Below $250k, stick to small moves to avoid price swings." if current_tvl < 250000 else "Trade carefully." if current_tvl < 1_000_000 else "You’re good for bigger trades."
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">💧 TVL<span class="tooltip" title="Total value locked in the pool. Insight: {tvl_insight}">?</span></div>
+                    <div class="metric-title">💧 TVL<span class="tooltip" title="The total cash locked in the pool—more means it’s safer and easier to trade. Low cash can mean risky trades. What to do: Below $250k, stick to small moves to avoid price swings. $250k-$1M, trade carefully. Above $1M, you’re good for bigger trades.">?</span></div>
                     <div class="metric-value {'red-text' if current_tvl < 250_000 else 'yellow-text' if current_tvl < 1_000_000 else 'green-text'}">${current_tvl:,.0f}</div>
                     <div class="metric-desc">Current total value locked.</div>
                 </div>
@@ -480,7 +513,7 @@ if st.sidebar.button("Calculate"):
             st.markdown("### Break-even and Risk Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Time to recover IL. Insight: {'Proceed confidently.' if break_even_months <= 6 else 'Monitor closely.' if break_even_months <= 12 else 'Reassess.'}">?</span></div>
+                    <div class="metric-title">⏳ Break-even<span class="tooltip" title="Shows how many months until your pool’s earnings cover price losses, if prices stay the same. What to do: Under 6 months, you’re fine—stay in. 6-12 months, check often to avoid delays. Over 12 months, it takes too long—find a better pool.">?</span></div>
                     <div class="metric-value {'red-text' if break_even_months > 12 else 'yellow-text' if break_even_months > 6 else 'green-text'}">{break_even_months} months</div>
                     <div class="metric-desc">Against IL, without price changes.</div>
                 </div>
@@ -488,7 +521,7 @@ if st.sidebar.button("Calculate"):
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">⏳ Break-even (Price)<span class="tooltip" title="Time to recover IL with price changes. Insight: {'Proceed confidently.' if break_even_months_with_price <= 6 else 'Monitor closely.' if break_even_months_with_price <= 12 else 'Reassess.'}">?</span></div>
+                    <div class="metric-title">⏳ Break-even (Price)<span class="tooltip" title="Tells how many months until earnings cover losses, using your expected price changes. What to do: Under 6 months, it’s good—keep going. 6-12 months, watch prices closely. Over 12 months, it’s risky—look for another pool.">?</span></div>
                     <div class="metric-value {'red-text' if break_even_months_with_price > 12 else 'yellow-text' if break_even_months_with_price > 6 else 'green-text'}">{break_even_months_with_price} months</div>
                     <div class="metric-desc">With expected price changes.</div>
                 </div>
@@ -496,7 +529,7 @@ if st.sidebar.button("Calculate"):
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📉 Drawdown<span class="tooltip" title="Worst-case loss scenario. Insight: {'Minimal action.' if drawdown_12_months < investment_amount * 0.2 else 'Set stop-loss.' if drawdown_12_months < investment_amount * 0.5 else 'Reduce exposure.'}">?</span></div>
+                    <div class="metric-title">📉 Drawdown<span class="tooltip" title="Shows the largest loss you might face in a bad year. What to do: Under 20% of your investment, don’t worry—stay calm. 20-50%, set a limit to reduce loss. Over 50%, take money out to protect it.">?</span></div>
                     <div class="metric-value {'red-text' if drawdown_12_months > investment_amount * 0.5 else 'yellow-text' if drawdown_12_months > investment_amount * 0.2 else 'green-text'}">${drawdown_12_months:,.0f}</div>
                     <div class="metric-desc">After 12 months (90th percentile).</div>
                 </div>
@@ -518,21 +551,21 @@ if st.sidebar.button("Calculate"):
             btc_value_12 = btc_values[-1]
             threshold = 0.15
             btc_close_to_pool = abs(btc_value_12 - pool_value_12) / pool_value_12 <= threshold if pool_value_12 > 0 else False
-            hurdle_insight = "Favor this pool." if apy >= hurdle_rate + 10 else "Balance with stablecoins." if apy >= hurdle_rate else "Increase stablecoin allocation."
+            hurdle_insight = "If it’s 10% or more above, it’s excellent—stay in." if apy >= hurdle_rate + 10 else "If it’s equal, add some stablecoins." if apy >= hurdle_rate else "If it’s below, choose stablecoins."
             if btc_close_to_pool:
-                hurdle_insight += " Warning: BTC projected value within 15% of pool value; BTC may offer similar returns with less complexity."
+                hurdle_insight += " If BTC’s return is similar, holding Bitcoin may be easier with less risk."
             
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="APY vs. hurdle rate (risk-free rate + 6% global inflation). Insight: {hurdle_insight}">?</span></div>
+                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="Checks if your pool earns more than a safe choice (like stablecoins) plus 6% for inflation and risk. What to do: If it’s 10% or more above, it’s excellent—stay in. If it’s equal, add some stablecoins. If it’s below, choose stablecoins. If BTC’s return is similar, holding Bitcoin may be easier with less risk.">?</span></div>
                     <div class="metric-value {'green-text' if apy >= hurdle_rate + 10 else 'yellow-text' if apy >= hurdle_rate else 'red-text'}">{apy:.1f}% vs {hurdle_rate:.1f}%</div>
                     <div class="metric-desc">APY compared to hurdle rate (risk-free rate + 6% inflation).</div>
                 </div>
             """, unsafe_allow_html=True)
 
-        # Projected Pool Value Over Time (Unchanged Layout)
+        # Projected Pool Value Over Time
         with st.expander("Projected Pool Value Over Time", expanded=False):
-            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC and Stablecoin pools. It also takes into consideration, impermanent loss, APY, and asset price changes.")
+            st.markdown("**Note**: Projected values reflect growth of your initial investment over 12 months, compared with BTC (25% CAGR) and Stablecoin pools. It considers impermanent loss, APY (with 5% monthly decay), asset price changes, and market volatility via the Fear and Greed Score.")
             stablecoin_values = []
             for months in time_periods:
                 stablecoin_value = investment_amount * (1 + (risk_free_rate / 100) * (months / 12))
@@ -576,7 +609,7 @@ if st.sidebar.button("Calculate"):
                 st.pyplot(plt)
                 plt.clf()
 
-        # Monte Carlo Scenarios (Unchanged Layout)
+        # Monte Carlo Scenarios
         with st.expander("Monte Carlo Scenarios - 12 Months", expanded=False):
             st.markdown("Simulates 200 scenarios over 12 months considering APY and price change volatility.")
             st.markdown("- **Expected**: Average | **Best**: 90th percentile | **Worst**: 10th percentile")
@@ -608,7 +641,7 @@ if st.sidebar.button("Calculate"):
                 st.pyplot(plt)
                 plt.clf()
 
-        # Export Results (Unchanged Layout)
+        # Export Results
         with st.expander("Export Results", expanded=False):
             output = StringIO()
             writer = csv.writer(output)
