@@ -169,7 +169,7 @@ def parse_tvl_input(tvl_str: str) -> float:
     except ValueError:
         return 1.00  # Default on invalid input
 
-# CSS (Updated for Arrows)
+# CSS (Updated to Remove Custom Tooltip)
 st.markdown("""
     <style>
     .metric-tile {
@@ -218,22 +218,6 @@ st.markdown("""
         font-size: 14px;
         margin-left: 5px;
         position: relative;
-    }
-    .tooltip:hover:after {
-        content: attr(title);
-        position: absolute;
-        left: 10px;
-        top: calc(100% + 5px);
-        background-color: #2A3555;
-        color: white;
-        padding: 10px;
-        border-radius: 5px;
-        font-size: 14px;
-        z-index: 1000;
-        max-width: 300px;
-        white-space: normal;
-        transition-delay: 0s !important;
-        visibility: visible !important;
     }
     .red-text { color: #FF4D4D; }
     .green-text { color: #32CD32; }
