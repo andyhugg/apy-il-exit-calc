@@ -1,3 +1,235 @@
+import streamlit as st
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Custom CSS (Updated to Remove Custom Tooltip and Add Emojis for Insights)
+st.markdown("""
+    <style>
+    .metric-tile {
+        background-color: #1E2A44;
+        padding: 15px;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 15px;
+        width: 100%;
+        min-height: 80px;
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: scale(0.95); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    .metric-title {
+        font-size: 16px;
+        font-weight: bold;
+        width: 20%;
+        min-width: 120px;
+    }
+    .metric-value {
+        font-size: 20px;
+        font-weight: bold;
+        width: 20%;
+        min-width: 120px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+    .metric-desc {
+        font-size: 14px;
+        color: #A9A9A9;
+        width: 60%;
+        overflow-y: auto;
+        max-height: 100px;
+        line-height: 1.4;
+    }
+    .tooltip {
+        cursor: help;
+        color: #FFC107;
+        font-size: 14px;
+        margin-left: 5px;
+        position: relative;
+    }
+    .red-text { color: #FF4D4D; }
+    .green-text { color: #32CD32; }
+    .yellow-text { color: #FFC107; }
+    .neutral-text { color: #A9A9A9; }
+    .arrow-up { color: #32CD32; font-size: 16px; margin-left: 5px; }
+    .arrow-down { color: #FF4D4D; font-size: 16px; margin-left: 5px; }
+    .risk-assessment {
+        background-color: #1E2A44;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        max-width: 620px;
+        color: white;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .risk-red { border: 2px solid #FF4D4D; }
+    .risk-yellow { border: 2px solid #FFC107; }
+    .risk-green { border: 2px solid #32CD32; }
+    .progress-bar {
+        width: 100%;
+        background-color: #A9A9A9;
+        border-radius: 5px;
+        height: 10px;
+        margin-top: 10px;
+    }
+    .progress-fill {
+        height: 100%;
+        border-radius: 5px;
+    }
+    .proj-table-container {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .proj-table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(to bottom, #1E2A44, #6A82FB);
+    }
+    .proj-table th, .proj-table td {
+        padding: 12px;
+        text-align: center;
+        color: #FFFFFF;
+        border: 1px solid #2A3555;
+        font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+    }
+    .proj-table th {
+        background-color: #1E2A44;
+        font-weight: bold;
+    }
+    .proj-table tr:nth-child(even) td { background: rgba(255, 255, 255, 0.05); }
+    .proj-table tr:nth-child(odd) td { background: rgba(255, 255, 255, 0.1); }
+    .proj-table tr:hover td {
+        background: rgba(255, 255, 255, 0.2);
+        transition: background 0.3s ease;
+    }
+    .monte-carlo-table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        background: #2A3555;
+    }
+    .monte-carlo-table th, .monte-carlo-table td {
+        padding: 12px;
+        text-align: center;
+        color: #FFFFFF;
+        border: 1px solid #2A3555;
+        font-size: 14px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+    }
+    .monte-carlo-table th {
+        background-color: #1E2A44;
+        font-weight: bold;
+    }
+    .disclaimer {
+        border: 2px solid #FF4D4D;
+        padding: 10px;
+        border-radius: 10px;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        font-style: italic;
+    }
+    .large-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 90%;
+        padding-top: 20px;
+        padding-bottom: 30px;
+    }
+    @media (max-width: 768px) {
+        .metric-tile { flex-direction: column; align-items: flex-start; }
+        .metric-title, .metric-value, .metric-desc { width: 100%; min-width: 0; }
+        .metric-value { font-size: 18px; }
+        .metric-desc { max-height: 120px; }
+        .proj-table th, .proj-table td { font-size: 12px; padding: 8px; }
+        .monte-carlo-table th, .monte-carlo-table td { font-size: 12px; padding: 8px; }
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Title and Introduction
+st.title("Arta - Master the Risk - CryptoRiskAnalyzer.com")
+st.markdown("""
+Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
+""")
+st.markdown("""
+<div class="disclaimer">
+⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar
+st.sidebar.markdown("""
+**Looking to analyze a Liquidity Pool?**  
+If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
+<a href="https://crypto-pool-analyzer.onrender.com" target="_self">Go to Pool Analyzer</a>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s details. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+""", unsafe_allow_html=True)
+
+st.sidebar.header("Configure your Crypto Asset")
+investor_profile = st.sidebar.selectbox(
+    "Investor Profile",
+    ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
+    index=0
+)
+st.sidebar.markdown("**Note**: Your investor profile adjusts the composite score based on your risk tolerance.")
+
+def parse_market_value(value_str):
+    try:
+        value_str = value_str.replace(",", "").lower()
+        if value_str.endswith("b"):
+            return float(value_str[:-1]) * 1_000_000_000
+        elif value_str.endswith("m"):
+            return float(value_str[:-1]) * 1_000_000
+        elif value_str.endswith("k"):
+            return float(value_str[:-1]) * 1_000
+        else:
+            return float(value_str)
+    except:
+        return 0.0
+
+asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=0.0, step=0.0001, format="%.4f")
+certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=0.0)
+st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
+fear_and_greed = st.sidebar.number_input("Fear and Greed Index (0–100)", min_value=0.0, max_value=100.0, value=50.0)
+st.sidebar.markdown(
+    "**Note**: Find the current Fear and Greed Index on <a href='https://coinmarketcap.com' target='_blank'>coinmarketcap.com</a>. Enter 50 if unavailable (neutral sentiment). Volatility is derived as: Extreme Fear (≤ 24): 75%, Fear (25–49): 60%, Neutral (50): 40%, Greed (51–74): 50%, Extreme Greed (≥ 75): 70%.",
+    unsafe_allow_html=True
+)
+growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=0.0)
+market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="")
+market_cap = parse_market_value(market_cap_input)
+st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional.")
+fdv_input = st.sidebar.text_input("Fully Diluted Valuation (FDV) ($)", value="")
+fdv = parse_market_value(fdv_input)
+vol_mkt_cap = st.sidebar.number_input("Vol/Mkt Cap (24h) %", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+st.sidebar.markdown("**Note**: Find the Vol/Mkt Cap (24h) % on CoinMarketCap (e.g., 1.94% for AVAX).")
+initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=0.0)
+risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=0.0)
+st.sidebar.markdown("**Note**: BTC growth is assumed at a 25% CAGR, based on Michael Saylor’s growth forecasts for BTC over the next 15 years.")
+
+calculate = st.sidebar.button("Calculate")
+
 # Main content
 if calculate:
     if asset_price == 0 or initial_investment == 0:
