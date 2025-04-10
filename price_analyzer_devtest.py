@@ -1,235 +1,3 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Custom CSS (Updated to Remove Custom Tooltip and Add Emojis for Insights)
-st.markdown("""
-    <style>
-    .metric-tile {
-        background-color: #1E2A44;
-        padding: 15px;
-        border-radius: 10px;
-        color: white;
-        margin-bottom: 10px;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 15px;
-        width: 100%;
-        min-height: 80px;
-        animation: fadeIn 0.5s ease-in;
-    }
-    @keyframes fadeIn {
-        0% { opacity: 0; transform: scale(0.95); }
-        100% { opacity: 1; transform: scale(1); }
-    }
-    .metric-title {
-        font-size: 16px;
-        font-weight: bold;
-        width: 20%;
-        min-width: 120px;
-    }
-    .metric-value {
-        font-size: 20px;
-        font-weight: bold;
-        width: 20%;
-        min-width: 120px;
-        white-space: normal;
-        word-wrap: break-word;
-    }
-    .metric-desc {
-        font-size: 14px;
-        color: #A9A9A9;
-        width: 60%;
-        overflow-y: auto;
-        max-height: 100px;
-        line-height: 1.4;
-    }
-    .tooltip {
-        cursor: help;
-        color: #FFC107;
-        font-size: 14px;
-        margin-left: 5px;
-        position: relative;
-    }
-    .red-text { color: #FF4D4D; }
-    .green-text { color: #32CD32; }
-    .yellow-text { color: #FFC107; }
-    .neutral-text { color: #A9A9A9; }
-    .arrow-up { color: #32CD32; font-size: 16px; margin-left: 5px; }
-    .arrow-down { color: #FF4D4D; font-size: 16px; margin-left: 5px; }
-    .risk-assessment {
-        background-color: #1E2A44;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        max-width: 620px;
-        color: white;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-    .risk-red { border: 2px solid #FF4D4D; }
-    .risk-yellow { border: 2px solid #FFC107; }
-    .risk-green { border: 2px solid #32CD32; }
-    .progress-bar {
-        width: 100%;
-        background-color: #A9A9A9;
-        border-radius: 5px;
-        height: 10px;
-        margin-top: 10px;
-    }
-    .progress-fill {
-        height: 100%;
-        border-radius: 5px;
-    }
-    .proj-table-container {
-        overflow-x: auto;
-        max-width: 100%;
-    }
-    .proj-table {
-        border-collapse: collapse;
-        width: 100%;
-        max-width: 100%;
-        margin: 0 auto;
-        border-radius: 10px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-        background: linear-gradient(to bottom, #1E2A44, #6A82FB);
-    }
-    .proj-table th, .proj-table td {
-        padding: 12px;
-        text-align: center;
-        color: #FFFFFF;
-        border: 1px solid #2A3555;
-        font-size: 14px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        font-weight: 500;
-    }
-    .proj-table th {
-        background-color: #1E2A44;
-        font-weight: bold;
-    }
-    .proj-table tr:nth-child(even) td { background: rgba(255, 255, 255, 0.05); }
-    .proj-table tr:nth-child(odd) td { background: rgba(255, 255, 255, 0.1); }
-    .proj-table tr:hover td {
-        background: rgba(255, 255, 255, 0.2);
-        transition: background 0.3s ease;
-    }
-    .monte-carlo-table {
-        border-collapse: collapse;
-        width: 100%;
-        max-width: 100%;
-        margin: 0 auto;
-        border-radius: 10px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-        background: #2A3555;
-    }
-    .monte-carlo-table th, .monte-carlo-table td {
-        padding: 12px;
-        text-align: center;
-        color: #FFFFFF;
-        border: 1px solid #2A3555;
-        font-size: 14px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        font-weight: 500;
-    }
-    .monte-carlo-table th {
-        background-color: #1E2A44;
-        font-weight: bold;
-    }
-    .disclaimer {
-        border: 2px solid #FF4D4D;
-        padding: 10px;
-        border-radius: 10px;
-        margin-top: 10px;
-        margin-bottom: 20px;
-        font-style: italic;
-    }
-    .large-logo {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        max-width: 90%;
-        padding-top: 20px;
-        padding-bottom: 30px;
-    }
-    @media (max-width: 768px) {
-        .metric-tile { flex-direction: column; align-items: flex-start; }
-        .metric-title, .metric-value, .metric-desc { width: 100%; min-width: 0; }
-        .metric-value { font-size: 18px; }
-        .metric-desc { max-height: 120px; }
-        .proj-table th, .proj-table td { font-size: 12px; padding: 8px; }
-        .monte-carlo-table th, .monte-carlo-table td { font-size: 12px; padding: 8px; }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Title and Introduction
-st.title("Arta - Master the Risk - CryptoRiskAnalyzer.com")
-st.markdown("""
-Arta - Indonesian for "wealth" - was the name of my cat and now the name of my app! It's perfect for fast, accurate insights into price projections, potential profits, and crypto asset or liquidity pool risk. You can run scenarios, test your assumptions, and sharpen your edge, all in real time. **Builder - AHU**
-""")
-st.markdown("""
-<div class="disclaimer">
-⚠️ <b>Disclaimer</b>: Arta is a tool for educational and informational purposes only. It does not provide financial advice. All projections are hypothetical and not guarantees of future performance. Always do your own research and consult a licensed advisor before making financial decisions.
-</div>
-""", unsafe_allow_html=True)
-
-# Sidebar
-st.sidebar.markdown("""
-**Looking to analyze a Liquidity Pool?**  
-If you want to analyze a liquidity pool for potential returns, risks, or impermanent loss, click the link below to use our Pool Analyzer tool:  
-<a href="https://crypto-pool-analyzer.onrender.com" target="_self">Go to Pool Analyzer</a>
-""", unsafe_allow_html=True)
-
-st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s details. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
-""", unsafe_allow_html=True)
-
-st.sidebar.header("Configure your Crypto Asset")
-investor_profile = st.sidebar.selectbox(
-    "Investor Profile",
-    ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
-    index=0
-)
-st.sidebar.markdown("**Note**: Your investor profile adjusts the composite score based on your risk tolerance.")
-
-def parse_market_value(value_str):
-    try:
-        value_str = value_str.replace(",", "").lower()
-        if value_str.endswith("b"):
-            return float(value_str[:-1]) * 1_000_000_000
-        elif value_str.endswith("m"):
-            return float(value_str[:-1]) * 1_000_000
-        elif value_str.endswith("k"):
-            return float(value_str[:-1]) * 1_000
-        else:
-            return float(value_str)
-    except:
-        return 0.0
-
-asset_price = st.sidebar.number_input("Current Asset Price ($)", min_value=0.0, value=0.0, step=0.0001, format="%.4f")
-certik_score = st.sidebar.number_input("CertiK Score (0–100)", min_value=0.0, max_value=100.0, value=0.0)
-st.sidebar.markdown("**Note**: Enter 0 if no CertiK score is available; this will default to a neutral score of 50.")
-fear_and_greed = st.sidebar.number_input("Fear and Greed Index (0–100)", min_value=0.0, max_value=100.0, value=50.0)
-st.sidebar.markdown(
-    "**Note**: Find the current Fear and Greed Index on <a href='https://coinmarketcap.com' target='_blank'>coinmarketcap.com</a>. Enter 50 if unavailable (neutral sentiment). Volatility is derived as: Extreme Fear (≤ 24): 75%, Fear (25–49): 60%, Neutral (50): 40%, Greed (51–74): 50%, Extreme Greed (≥ 75): 70%.",
-    unsafe_allow_html=True
-)
-growth_rate = st.sidebar.number_input("Expected Growth Rate % (Annual)", min_value=-100.0, value=0.0)
-market_cap_input = st.sidebar.text_input("Current Market Cap ($)", value="")
-market_cap = parse_market_value(market_cap_input)
-st.sidebar.markdown("**Note**: Enter values as shorthand (e.g., 67b for 67 billion, 500m for 500 million, 1.5k for 1,500) or full numbers (e.g., 67,000,000,000). Commas are optional.")
-fdv_input = st.sidebar.text_input("Fully Diluted Valuation (FDV) ($)", value="")
-fdv = parse_market_value(fdv_input)
-vol_mkt_cap = st.sidebar.number_input("Vol/Mkt Cap (24h) %", min_value=0.0, value=0.0, step=0.01, format="%.2f")
-st.sidebar.markdown("**Note**: Find the Vol/Mkt Cap (24h) % on CoinMarketCap (e.g., 1.94% for AVAX).")
-initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=0.0)
-risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=0.0)
-st.sidebar.markdown("**Note**: BTC growth is assumed at a 25% CAGR, based on Michael Saylor’s growth forecasts for BTC over the next 15 years.")
-
-calculate = st.sidebar.button("Calculate")
-
 # Main content
 if calculate:
     if asset_price == 0 or initial_investment == 0:
@@ -366,24 +134,24 @@ if calculate:
         # Define weights based on investor profile
         weights = {
             "Conservative Investor": {
-                "Max Drawdown": 1.5, "Dilution Risk": 1.5, "Supply Concentration": 1.2, "MCap Growth": 0.5,
-                "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 2.5, "Market Cap": 1.2,
-                "Fear and Greed": 0.8, "Liquidity": 1.5, "Fear and Greed Penalty": 2.0
+                "Max Drawdown": 2.0, "Dilution Risk": 1.5, "Supply Concentration": 1.2, "MCap Growth": 0.5,
+                "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 3.0, "Market Cap": 1.2,
+                "Fear and Greed": 0.8, "Liquidity": 1.5, "Fear and Greed Penalty": 2.5
             },
             "Bitcoin Strategist": {
-                "Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 1.5,
+                "Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 2.0,
                 "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 2.5, "Market Cap": 1.0,
-                "Fear and Greed": 0.5, "Liquidity": 1.0, "Fear and Greed Penalty": 2.0
+                "Fear and Greed": 0.5, "Liquidity": 1.0, "Fear and Greed Penalty": 1.5
             },
             "Growth Crypto Investor": {
                 "Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 1.2,
-                "Sharpe Ratio": 1.2, "Sortino Ratio": 1.2, "CertiK Score": 2.5, "Market Cap": 1.0,
+                "Sharpe Ratio": 1.5, "Sortino Ratio": 1.5, "CertiK Score": 2.5, "Market Cap": 1.0,
                 "Fear and Greed": 1.0, "Liquidity": 1.0, "Fear and Greed Penalty": 2.0
             },
             "Aggressive Crypto Investor": {
-                "Max Drawdown": 0.5, "Dilution Risk": 0.8, "Supply Concentration": 0.8, "MCap Growth": 1.5,
+                "Max Drawdown": 0.3, "Dilution Risk": 0.8, "Supply Concentration": 0.8, "MCap Growth": 2.0,
                 "Sharpe Ratio": 1.2, "Sortino Ratio": 1.2, "CertiK Score": 2.5, "Market Cap": 1.0,
-                "Fear and Greed": 1.0, "Liquidity": 0.8, "Fear and Greed Penalty": 2.0
+                "Fear and Greed": 1.0, "Liquidity": 0.8, "Fear and Greed Penalty": 1.5
             }
         }
 
@@ -391,6 +159,13 @@ if calculate:
         weighted_sum = sum(scores[metric] * weights[investor_profile][metric] for metric in scores)
         total_weight = sum(weights[investor_profile].values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
+
+        # Calculate Baseline Score (Using Growth Investor Weights for Comparison)
+        baseline_weighted_sum = sum(scores[metric] * weights["Growth Crypto Investor"][metric] for metric in scores)
+        baseline_total_weight = sum(weights["Growth Crypto Investor"].values())
+        baseline_score = baseline_weighted_sum / baseline_total_weight if baseline_total_weight > 0 else 0
+        profile_adjustment = composite_score - baseline_score
+        profile_adjustment_text = f"Profile Adjustment: {'+' if profile_adjustment >= 0 else ''}{profile_adjustment:.1f} points"
 
         return_to_hurdle_ratio = min((growth_rate / hurdle_rate) if hurdle_rate > 0 else 1, 3)
         risk_adjusted_score = min(composite_score * return_to_hurdle_ratio, 100)
@@ -404,17 +179,23 @@ if calculate:
             insight = "✅ Low risk—good to invest. Add this asset to your portfolio."
             if investor_profile == "Conservative Investor":
                 insight += " As a Conservative Investor, mix with stablecoins for extra safety."
+            if composite_score > 80 and investor_profile == "Aggressive Crypto Investor":
+                insight += " Note: This asset’s low risk may not match your Aggressive Investor profile’s growth goals."
         elif composite_score >= 40:
             insight = "⚠️ Moderate risk—invest a small amount. Watch for high drawdown or dilution."
             if certik_low:
-                insight += " If CertiK score is below 40, consider BTC instead."
+                insight += " Low CertiK score adds security concerns—consider BTC instead."
             if investor_profile in ["Conservative Investor", "Bitcoin Strategist"]:
                 insight += f" As a {investor_profile}, lean toward BTC or stablecoins."
+            if investor_profile == "Conservative Investor" and composite_score < 50:
+                insight += " Warning: This asset’s risk level may not suit your Conservative Investor profile."
         else:
             insight = "🚨 High risk—avoid or invest very little. High drawdown or dilution makes this risky."
             if certik_low:
                 insight += " Low CertiK score adds security concerns."
             insight += " Switch to BTC or stablecoins for safety."
+            if investor_profile == "Conservative Investor":
+                insight += " Warning: This asset’s risk level may not suit your Conservative Investor profile."
 
         summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
 
@@ -427,6 +208,7 @@ if calculate:
                     <div style="font-size: 16px; margin-top: 5px; color: white;">Summary: {summary}</div>
                     <div class="progress-bar"><div class="progress-fill" style="width: {composite_score}%; background-color: {progress_color};"></div></div>
                     <div style="font-size: 16px; margin-top: 10px; color: #A9A9A9;">{insight}</div>
+                    <div style="font-size: 14px; margin-top: 5px; color: #A9A9A9; font-style: italic;">{profile_adjustment_text}</div>
                     <div style="font-size: 14px; margin-top: 5px; color: #A9A9A9; font-style: italic;">Fear and Greed: {fear_and_greed} ({fear_greed_classification})</div>
                 </div>
             """, unsafe_allow_html=True)
@@ -505,61 +287,61 @@ if calculate:
                 </div>
             """, unsafe_allow_html=True)
 
-# How Does This Compare? Section
-st.markdown("### How Does This Compare?")
-asset_return = asset_values[-1] / initial_investment if initial_investment > 0 else 0
-btc_return = 1.25  # 25% CAGR
-stablecoin_return = 1 + (risk_free_rate / 100)
+        # How Does This Compare? Section
+        st.markdown("### How Does This Compare?")
+        asset_return = asset_values[-1] / initial_investment if initial_investment > 0 else 0
+        btc_return = 1.25  # 25% CAGR
+        stablecoin_return = 1 + (risk_free_rate / 100)
 
-asset_vs_hurdle = growth_rate >= hurdle_rate
-asset_vs_btc = asset_return >= btc_return
-asset_vs_stablecoin = asset_return >= stablecoin_return
+        asset_vs_hurdle = growth_rate >= hurdle_rate
+        asset_vs_btc = asset_return >= btc_return
+        asset_vs_stablecoin = asset_return >= stablecoin_return
 
-# Dynamically construct the tooltip message
-if asset_vs_btc and asset_vs_stablecoin:
-    tooltip_text = (
-        f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
-        f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
-    )
-elif asset_vs_btc:
-    tooltip_text = (
-        f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
-        f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
-    )
-elif asset_vs_stablecoin:
-    tooltip_text = (
-        f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
-        f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
-    )
-else:
-    tooltip_text = (
-        f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
-        f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
-    )
+        # Dynamically construct the tooltip message
+        if asset_vs_btc and asset_vs_stablecoin:
+            tooltip_text = (
+                f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
+                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
+            )
+        elif asset_vs_btc:
+            tooltip_text = (
+                f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
+            )
+        elif asset_vs_stablecoin:
+            tooltip_text = (
+                f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
+                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
+            )
+        else:
+            tooltip_text = (
+                f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
+                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+            )
 
-st.markdown(f"""
-    <div class="metric-tile">
-        <div class="metric-title">📈 Asset vs Safe Target<span class="tooltip" title="{tooltip_text}">?</span></div>
-        <div class="metric-value">{growth_rate:.1f}% vs {hurdle_rate:.1f}% <span class="{'arrow-up' if asset_vs_hurdle else 'arrow-down'}">{'▲' if asset_vs_hurdle else '▼'}</span></div>
-        <div class="metric-desc">Growth compared to safe target (risk-free rate + 12%).</div>
-    </div>
-""", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📈 Asset vs Safe Target<span class="tooltip" title="{tooltip_text}">?</span></div>
+                <div class="metric-value">{growth_rate:.1f}% vs {hurdle_rate:.1f}% <span class="{'arrow-up' if asset_vs_hurdle else 'arrow-down'}">{'▲' if asset_vs_hurdle else '▼'}</span></div>
+                <div class="metric-desc">Growth compared to safe target (risk-free rate + 12%).</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-st.markdown(f"""
-    <div class="metric-tile">
-        <div class="metric-title">📈 Asset vs BTC<span class="tooltip" title="{tooltip_text}">?</span></div>
-        <div class="metric-value">{asset_return:.2f}x vs {btc_return:.2f}x <span class="{'arrow-up' if asset_vs_btc else 'arrow-down'}">{'▲' if asset_vs_btc else '▼'}</span></div>
-        <div class="metric-desc">12-month growth compared to BTC (25% CAGR).</div>
-    </div>
-""", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📈 Asset vs BTC<span class="tooltip" title="{tooltip_text}">?</span></div>
+                <div class="metric-value">{asset_return:.2f}x vs {btc_return:.2f}x <span class="{'arrow-up' if asset_vs_btc else 'arrow-down'}">{'▲' if asset_vs_btc else '▼'}</span></div>
+                <div class="metric-desc">12-month growth compared to BTC (25% CAGR).</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-st.markdown(f"""
-    <div class="metric-tile">
-        <div class="metric-title">📈 Asset vs Stablecoin<span class="tooltip" title="{tooltip_text}">?</span></div>
-        <div class="metric-value">{asset_return:.2f}x vs {stablecoin_return:.2f}x <span class="{'arrow-up' if asset_vs_stablecoin else 'arrow-down'}">{'▲' if asset_vs_stablecoin else '▼'}</span></div>
-        <div class="metric-desc">12-month growth compared to stablecoin ({risk_free_rate:.1f}%).</div>
-    </div>
-""", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="metric-tile">
+                <div class="metric-title">📈 Asset vs Stablecoin<span class="tooltip" title="{tooltip_text}">?</span></div>
+                <div class="metric-value">{asset_return:.2f}x vs {stablecoin_return:.2f}x <span class="{'arrow-up' if asset_vs_stablecoin else 'arrow-down'}">{'▲' if asset_vs_stablecoin else '▼'}</span></div>
+                <div class="metric-desc">12-month growth compared to stablecoin ({risk_free_rate:.1f}%).</div>
+            </div>
+        """, unsafe_allow_html=True)
 
         # Projections
         with st.expander("Projected Investment Value Over Time", expanded=False):
