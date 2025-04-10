@@ -392,7 +392,7 @@ with st.sidebar:
     )[0]
 
     risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=10.0, format="%.2f")
-    st.markdown("**Note**: BTC growth is assumed at a 25% CAGR based on historical trends.")
+    st.markdown("**Note**: BTC growth is assumed at a 25% CAGR, based on Michael Saylor’s growth forecasts for BTC over the next 15 years.")
 
 if st.sidebar.button("Calculate"):
     with st.spinner("Calculating..."):
