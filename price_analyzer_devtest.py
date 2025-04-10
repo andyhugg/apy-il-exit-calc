@@ -519,61 +519,61 @@ if calculate:
                 </div>
             """, unsafe_allow_html=True)
 
-        # How Does This Compare? Section
-        st.markdown("### How Does This Compare?")
-        asset_return = asset_values[-1] / initial_investment if initial_investment > 0 else 0
-        btc_return = 1.25  # 25% CAGR
-        stablecoin_return = 1 + (risk_free_rate / 100)
+            # How Does This Compare? Section (Moved Inside Key Metrics Expander)
+            st.markdown("### How Does This Compare?")
+            asset_return = asset_values[-1] / initial_investment if initial_investment > 0 else 0
+            btc_return = 1.25  # 25% CAGR
+            stablecoin_return = 1 + (risk_free_rate / 100)
 
-        asset_vs_hurdle = growth_rate >= hurdle_rate
-        asset_vs_btc = asset_return >= btc_return
-        asset_vs_stablecoin = asset_return >= stablecoin_return
+            asset_vs_hurdle = growth_rate >= hurdle_rate
+            asset_vs_btc = asset_return >= btc_return
+            asset_vs_stablecoin = asset_return >= stablecoin_return
 
-        # Dynamically construct the tooltip message
-        if asset_vs_btc and asset_vs_stablecoin:
-            tooltip_text = (
-                f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
-                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
-            )
-        elif asset_vs_btc:
-            tooltip_text = (
-                f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
-                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
-            )
-        elif asset_vs_stablecoin:
-            tooltip_text = (
-                f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
-                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. Stay in. If risks are high, add stablecoins or switch to BTC."
-            )
-        else:
-            tooltip_text = (
-                f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
-                f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
-            )
+            # Dynamically construct the tooltip message (removed "Stay in")
+            if asset_vs_btc and asset_vs_stablecoin:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_stablecoin:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+            else:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
 
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">📈 Asset vs Safe Target<span class="tooltip" title="{tooltip_text}">?</span></div>
-                <div class="metric-value">{growth_rate:.1f}% vs {hurdle_rate:.1f}% <span class="{'arrow-up' if asset_vs_hurdle else 'arrow-down'}">{'▲' if asset_vs_hurdle else '▼'}</span></div>
-                <div class="metric-desc">Growth compared to safe target (risk-free rate + 12%).</div>
-            </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Asset vs Safe Target<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{growth_rate:.1f}% vs {hurdle_rate:.1f}% <span class="{'arrow-up' if asset_vs_hurdle else 'arrow-down'}">{'▲' if asset_vs_hurdle else '▼'}</span></div>
+                    <div class="metric-desc">Growth compared to safe target (risk-free rate + 12%).</div>
+                </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">📈 Asset vs BTC<span class="tooltip" title="{tooltip_text}">?</span></div>
-                <div class="metric-value">{asset_return:.2f}x vs {btc_return:.2f}x <span class="{'arrow-up' if asset_vs_btc else 'arrow-down'}">{'▲' if asset_vs_btc else '▼'}</span></div>
-                <div class="metric-desc">12-month growth compared to BTC (25% CAGR).</div>
-            </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Asset vs BTC<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{asset_return:.2f}x vs {btc_return:.2f}x <span class="{'arrow-up' if asset_vs_btc else 'arrow-down'}">{'▲' if asset_vs_btc else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to BTC (25% CAGR).</div>
+                </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown(f"""
-            <div class="metric-tile">
-                <div class="metric-title">📈 Asset vs Stablecoin<span class="tooltip" title="{tooltip_text}">?</span></div>
-                <div class="metric-value">{asset_return:.2f}x vs {stablecoin_return:.2f}x <span class="{'arrow-up' if asset_vs_stablecoin else 'arrow-down'}">{'▲' if asset_vs_stablecoin else '▼'}</span></div>
-                <div class="metric-desc">12-month growth compared to stablecoin ({risk_free_rate:.1f}%).</div>
-            </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Asset vs Stablecoin<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{asset_return:.2f}x vs {stablecoin_return:.2f}x <span class="{'arrow-up' if asset_vs_stablecoin else 'arrow-down'}">{'▲' if asset_vs_stablecoin else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to stablecoin ({risk_free_rate:.1f}%).</div>
+                </div>
+            """, unsafe_allow_html=True)
 
         # Projections
         with st.expander("Projected Investment Value Over Time", expanded=False):
