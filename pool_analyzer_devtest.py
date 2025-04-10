@@ -82,7 +82,7 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   value_if_held: float, is_new_pool: bool = False) -> float:
     if apy <= 0:
         return float('inf')
-    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12  # Fixed typo
+    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
     months = 0
     current_value = pool_value
@@ -169,7 +169,7 @@ def parse_tvl_input(tvl_str: str) -> float:
     except ValueError:
         return 1.00  # Default on invalid input
 
-# CSS
+# CSS (Updated for Arrows)
 st.markdown("""
     <style>
     .metric-tile {
@@ -222,15 +222,16 @@ st.markdown("""
     .tooltip:hover:after {
         content: attr(title);
         position: absolute;
-        left: 0;
-        top: 100%;
+        left: 10px;
+        top: calc(100% + 5px);
         background-color: #2A3555;
         color: white;
         padding: 10px;
         border-radius: 5px;
         font-size: 14px;
         z-index: 1000;
-        width: 300px;
+        max-width: 300px;
+        white-space: normal;
         transition-delay: 0s !important;
         visibility: visible !important;
     }
@@ -238,6 +239,8 @@ st.markdown("""
     .green-text { color: #32CD32; }
     .yellow-text { color: #FFC107; }
     .neutral-text { color: #A9A9A9; }
+    .arrow-up { color: #32CD32; font-size: 16px; margin-left: 5px; }
+    .arrow-down { color: #FF4D4D; font-size: 16px; margin-left: 5px; }
     .risk-assessment {
         background-color: #1E2A44;
         padding: 20px;
@@ -535,7 +538,8 @@ if st.sidebar.button("Calculate"):
                 </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("### Comparative Metrics")
+            # Updated Section: How Does This Compare?
+            st.markdown("### How Does This Compare?")
             time_periods = [0, 3, 6, 12]
             future_values = []
             btc_values = []
@@ -546,20 +550,46 @@ if st.sidebar.button("Calculate"):
                 future_values.append(value)
                 btc_value = investment_amount * (1 + 0.25) ** (months / 12)  # 25% CAGR
                 btc_values.append(btc_value)
-            
-            pool_value_12 = future_values[-1]
-            btc_value_12 = btc_values[-1]
-            threshold = 0.15
-            btc_close_to_pool = abs(btc_value_12 - pool_value_12) / pool_value_12 <= threshold if pool_value_12 > 0 else False
-            hurdle_insight = "If it’s 10% or more above, it’s excellent—stay in." if apy >= hurdle_rate + 10 else "If it’s equal, add some stablecoins." if apy >= hurdle_rate else "If it’s below, choose stablecoins."
-            if btc_close_to_pool:
-                hurdle_insight += " If BTC’s return is similar, holding Bitcoin may be easier with less risk."
-            
+
+            # Calculate returns for comparisons
+            pool_return = net_return  # Already calculated as future_value / investment_amount
+            btc_return = 1.25  # 25% CAGR over 12 months
+            stablecoin_return = 1 + (risk_free_rate / 100)  # 12-month stablecoin growth
+
+            # Determine arrow directions
+            pool_vs_hurdle = apy >= hurdle_rate
+            pool_vs_btc = pool_return >= btc_return
+            pool_vs_stablecoin = pool_return >= stablecoin_return
+
+            # Combined tooltip
+            tooltip_text = (
+                f"Your pool’s growth ({pool_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
+                f"It also beats the safe earning target. Stay in the pool. "
+                f"If the platform trust is low or price losses are high, add some stablecoins or switch to BTC for less risk."
+            )
+
+            # Display comparisons with arrows
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="Checks if your pool earns more than a safe choice (like stablecoins) plus 6% for inflation and risk. What to do: If it’s 10% or more above, it’s excellent—stay in. If it’s equal, add some stablecoins. If it’s below, choose stablecoins. If BTC’s return is similar, holding Bitcoin may be easier with less risk.">?</span></div>
-                    <div class="metric-value {'green-text' if apy >= hurdle_rate + 10 else 'yellow-text' if apy >= hurdle_rate else 'red-text'}">{apy:.1f}% vs {hurdle_rate:.1f}%</div>
-                    <div class="metric-desc">APY compared to hurdle rate (risk-free rate + 6% inflation).</div>
+                    <div class="metric-title">📈 Pool vs Safe Target<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{apy:.1f}% vs {hurdle_rate:.1f}% <span class="{'arrow-up' if pool_vs_hurdle else 'arrow-down'}">{'▲' if pool_vs_hurdle else '▼'}</span></div>
+                    <div class="metric-desc">Earnings compared to safe target (risk-free rate + 6% inflation).</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Pool vs BTC<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{pool_return:.2f}x vs {btc_return:.2f}x <span class="{'arrow-up' if pool_vs_btc else 'arrow-down'}">{'▲' if pool_vs_btc else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to BTC (25% CAGR).</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Pool vs Stablecoin<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{pool_return:.2f}x vs {stablecoin_return:.2f}x <span class="{'arrow-up' if pool_vs_stablecoin else 'arrow-down'}">{'▲' if pool_vs_stablecoin else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to stablecoin ({risk_free_rate:.1f}%).</div>
                 </div>
             """, unsafe_allow_html=True)
 
