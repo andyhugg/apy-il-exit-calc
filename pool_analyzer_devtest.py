@@ -516,7 +516,7 @@ if st.sidebar.button("Calculate"):
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📉 Drawdown<span class="tooltip" title="Shows the largest loss you might face in a bad year. What to do: Under 20% of your investment, don’t worry—stay calm. 20-50%, set a limit to reduce loss. Over 50%, take money out to protect it.">?</span></div>
+                    <div class="metric-title">📉 Drawdown<span class="tooltip" title="Shows your biggest possible loss after 12 months in a worst case. What to do: Below 20% of your investment, stay in. Above 20%, consider selling to avoid more loss—or hold if you trust the assets’ future value and expect prices to recover.">?</span></div>
                     <div class="metric-value {'red-text' if drawdown_12_months > investment_amount * 0.5 else 'yellow-text' if drawdown_12_months > investment_amount * 0.2 else 'green-text'}">${drawdown_12_months:,.0f}</div>
                     <div class="metric-desc">After 12 months (90th percentile).</div>
                 </div>
