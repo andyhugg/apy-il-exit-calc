@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (Updated with new color scheme and Monte Carlo table styling)
+# Custom CSS (Updated to Remove Custom Tooltip and Add Emojis for Insights)
 st.markdown("""
     <style>
     .metric-tile {
@@ -49,14 +49,17 @@ st.markdown("""
     }
     .tooltip {
         cursor: help;
-        color: #FFC107; /* Updated yellow */
+        color: #FFC107;
         font-size: 14px;
         margin-left: 5px;
+        position: relative;
     }
     .red-text { color: #FF4D4D; }
     .green-text { color: #32CD32; }
-    .yellow-text { color: #FFC107; } /* Updated yellow */
+    .yellow-text { color: #FFC107; }
     .neutral-text { color: #A9A9A9; }
+    .arrow-up { color: #32CD32; font-size: 16px; margin-left: 5px; }
+    .arrow-down { color: #FF4D4D; font-size: 16px; margin-left: 5px; }
     .risk-assessment {
         background-color: #1E2A44;
         padding: 20px;
@@ -67,7 +70,7 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
     .risk-red { border: 2px solid #FF4D4D; }
-    .risk-yellow { border: 2px solid #FFC107; } /* Updated yellow */
+    .risk-yellow { border: 2px solid #FFC107; }
     .risk-green { border: 2px solid #32CD32; }
     .progress-bar {
         width: 100%;
@@ -99,8 +102,8 @@ st.markdown("""
         color: #FFFFFF;
         border: 1px solid #2A3555;
         font-size: 14px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* Added shadow */
-        font-weight: 500; /* Slightly bolder */
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
     }
     .proj-table th {
         background-color: #1E2A44;
@@ -119,7 +122,7 @@ st.markdown("""
         margin: 0 auto;
         border-radius: 10px;
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-        background: #2A3555; /* Solid background */
+        background: #2A3555;
     }
     .monte-carlo-table th, .monte-carlo-table td {
         padding: 12px;
@@ -127,8 +130,8 @@ st.markdown("""
         color: #FFFFFF;
         border: 1px solid #2A3555;
         font-size: 14px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* Added shadow */
-        font-weight: 500; /* Slightly bolder */
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
     }
     .monte-carlo-table th {
         background-color: #1E2A44;
@@ -180,7 +183,7 @@ If you want to analyze a liquidity pool for potential returns, risks, or imperma
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
-**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s current price, market cap, fully diluted valuation (FDV), 24h trading volume, Vol/Mkt Cap (24h) %, and Bitcoin’s price. Ensure these values are up-to-date, as they directly impact metrics like MCap Growth Plausibility and Liquidity. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
+**Instructions**: To get started, visit <a href="https://coinmarketcap.com" target="_blank">coinmarketcap.com</a> to find your asset’s details. Visit <a href="https://certik.com" target="_blank">certik.com</a> for the asset’s CertiK security score. Enter the values below and adjust growth rates as needed.
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Configure your Crypto Asset")
@@ -222,9 +225,8 @@ fdv = parse_market_value(fdv_input)
 vol_mkt_cap = st.sidebar.number_input("Vol/Mkt Cap (24h) %", min_value=0.0, value=0.0, step=0.01, format="%.2f")
 st.sidebar.markdown("**Note**: Find the Vol/Mkt Cap (24h) % on CoinMarketCap (e.g., 1.94% for AVAX).")
 initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", min_value=0.0, value=0.0)
-btc_price = st.sidebar.number_input("Current Bitcoin Price ($)", min_value=0.0, value=0.0)
-btc_growth = st.sidebar.number_input("Bitcoin Expected Growth Rate % (12 months)", min_value=-100.0, value=0.0)
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=0.0)
+st.sidebar.markdown("**Note**: BTC growth is assumed at a 25% CAGR, based on Michael Saylor’s growth forecasts for BTC over the next 15 years.")
 
 calculate = st.sidebar.button("Calculate")
 
@@ -240,15 +242,13 @@ if calculate:
 
         months = 12
         asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1
-        btc_monthly_rate = (1 + btc_growth/100) ** (1/12) - 1
         rf_monthly_rate = (1 + risk_free_rate/100) ** (1/12) - 1
         
         asset_projections = [asset_price * (1 + asset_monthly_rate) ** i for i in range(months + 1)]
-        btc_projections = [btc_price * (1 + btc_monthly_rate) ** i for i in range(months + 1)]
+        btc_values = [initial_investment * (1 + 0.25) ** (i / 12) for i in range(months + 1)]  # Hardcoded 25% CAGR
         rf_projections = [initial_investment * (1 + rf_monthly_rate) ** i for i in range(months + 1)]
         
         asset_values = [initial_investment * p / asset_price for p in asset_projections]
-        btc_values = [initial_investment * p / btc_price for p in btc_projections]
         
         @st.cache_data
         def run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months, n_simulations=200):
@@ -326,7 +326,7 @@ if calculate:
 
         projected_price = asset_projections[-1]
         projected_mcap = market_cap * (projected_price / asset_price)
-        btc_mcap = btc_price * 21_000_000
+        btc_mcap = 21_000_000 * 100_000  # Approximate BTC price for MCap comparison (not used directly)
         mcap_vs_btc = (projected_mcap / btc_mcap) * 100 if btc_mcap > 0 else 0
         mcap_text = "✓ Plausible growth" if mcap_vs_btc <= 1 else "⚠ Ambitious growth" if mcap_vs_btc <= 5 else "⚠ Very ambitious"
 
@@ -347,12 +347,10 @@ if calculate:
 
         hurdle_rate = (risk_free_rate + 6) * 2
         asset_vs_hurdle = growth_rate - hurdle_rate
-        hurdle_label = "Strong Outperformance" if asset_vs_hurdle >= 20 else "Moderate Outperformance" if asset_vs_hurdle >= 0 else "Below Hurdle"
-        hurdle_color = "green-text" if asset_vs_hurdle >= 20 else "yellow-text" if asset_vs_hurdle >= 0 else "red-text"
 
         # Define individual scores
         scores = {
-            'Max Drawdown': 100 if max_drawdown < 30 else 50 if max_drawdown < 50 else 0,
+            'Max Drawdown': 100 if max_drawdown < 20 else 50 if max_drawdown < 40 else 0,  # Adjusted thresholds
             'Dilution Risk': 100 if dilution_ratio < 20 else 50 if dilution_ratio < 50 else 0,
             'Supply Concentration': 0 if supply_ratio < 20 else 50 if supply_ratio < 50 else 100,
             'MCap Growth': 100 if mcap_vs_btc < 1 else 50 if mcap_vs_btc < 5 else 0,
@@ -361,15 +359,32 @@ if calculate:
             'CertiK Score': 100 if (50 if certik_score == 0 else certik_score) >= 70 else 50 if (50 if certik_score == 0 else certik_score) >= 40 else 0,
             'Market Cap': 100 if market_cap >= 1_000_000_000 else 50 if market_cap >= 10_000_000 else 0,
             'Fear and Greed': 100 if fear_and_greed <= 24 else 75 if fear_and_greed <= 49 else 50 if fear_and_greed == 50 else 25 if fear_and_greed <= 74 else 0,
-            'Liquidity': 0 if vol_mkt_cap < 1 else 50 if vol_mkt_cap <= 5 else 100
+            'Liquidity': 0 if vol_mkt_cap < 1 else 50 if vol_mkt_cap <= 5 else 100,
+            'Fear and Greed Penalty': 100 - abs(50 - fear_and_greed) * 2  # Added parabolic penalty
         }
 
         # Define weights based on investor profile
         weights = {
-            "Conservative Investor": {"Max Drawdown": 1.5, "Dilution Risk": 1.5, "Supply Concentration": 1.2, "MCap Growth": 0.5, "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 1.5, "Market Cap": 1.2, "Fear and Greed": 0.8, "Liquidity": 1.5},
-            "Bitcoin Strategist": {"Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 1.5, "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 1.0, "Market Cap": 1.0, "Fear and Greed": 0.5, "Liquidity": 1.0},
-            "Growth Crypto Investor": {"Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 1.2, "Sharpe Ratio": 1.2, "Sortino Ratio": 1.2, "CertiK Score": 1.0, "Market Cap": 1.0, "Fear and Greed": 1.0, "Liquidity": 1.0},
-            "Aggressive Crypto Investor": {"Max Drawdown": 0.5, "Dilution Risk": 0.8, "Supply Concentration": 0.8, "MCap Growth": 1.5, "Sharpe Ratio": 1.2, "Sortino Ratio": 1.2, "CertiK Score": 1.0, "Market Cap": 1.0, "Fear and Greed": 1.0, "Liquidity": 0.8}
+            "Conservative Investor": {
+                "Max Drawdown": 2.0, "Dilution Risk": 1.5, "Supply Concentration": 1.2, "MCap Growth": 0.5,
+                "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 3.0, "Market Cap": 1.2,
+                "Fear and Greed": 0.8, "Liquidity": 1.5, "Fear and Greed Penalty": 2.5
+            },
+            "Bitcoin Strategist": {
+                "Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 2.0,
+                "Sharpe Ratio": 1.0, "Sortino Ratio": 1.0, "CertiK Score": 2.5, "Market Cap": 1.0,
+                "Fear and Greed": 0.5, "Liquidity": 1.0, "Fear and Greed Penalty": 1.5
+            },
+            "Growth Crypto Investor": {
+                "Max Drawdown": 1.0, "Dilution Risk": 1.0, "Supply Concentration": 1.0, "MCap Growth": 1.2,
+                "Sharpe Ratio": 1.5, "Sortino Ratio": 1.5, "CertiK Score": 2.5, "Market Cap": 1.0,
+                "Fear and Greed": 1.0, "Liquidity": 1.0, "Fear and Greed Penalty": 2.0
+            },
+            "Aggressive Crypto Investor": {
+                "Max Drawdown": 0.3, "Dilution Risk": 0.8, "Supply Concentration": 0.8, "MCap Growth": 2.0,
+                "Sharpe Ratio": 1.2, "Sortino Ratio": 1.2, "CertiK Score": 2.5, "Market Cap": 1.0,
+                "Fear and Greed": 1.0, "Liquidity": 0.8, "Fear and Greed Penalty": 1.5
+            }
         }
 
         # Calculate weighted composite score
@@ -377,32 +392,60 @@ if calculate:
         total_weight = sum(weights[investor_profile].values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
 
+        # Calculate Baseline Score (Using Growth Investor Weights for Comparison)
+        baseline_weighted_sum = sum(scores[metric] * weights["Growth Crypto Investor"][metric] for metric in scores)
+        baseline_total_weight = sum(weights["Growth Crypto Investor"].values())
+        baseline_score = baseline_weighted_sum / baseline_total_weight if baseline_total_weight > 0 else 0
+        profile_adjustment = composite_score - baseline_score
+        profile_adjustment_text = f"Profile Adjustment: {'+' if profile_adjustment >= 0 else ''}{profile_adjustment:.1f} points"
+
         return_to_hurdle_ratio = min((growth_rate / hurdle_rate) if hurdle_rate > 0 else 1, 3)
         risk_adjusted_score = min(composite_score * return_to_hurdle_ratio, 100)
 
         fear_greed_classification = "Extreme Fear" if fear_and_greed <= 24 else "Fear" if fear_and_greed <= 49 else "Neutral" if fear_and_greed == 50 else "Greed" if fear_and_greed <= 74 else "Extreme Greed"
         bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
-        insight = (
-            f"Low risk profile. Strong returns vs. risk-free rate." if composite_score >= 70 else
-            f"Moderate risk. Check drawdown, dilution, or growth." if composite_score >= 40 else
-            f"High risk. Reassess due to drawdown or dilution."
-        )
+        
+        # Actionable Insights for Composite Score
+        certik_low = (50 if certik_score == 0 else certik_score) < 40
+        if composite_score >= 70:
+            insight = "✅ Low risk—good to invest. Add this asset to your portfolio."
+            if investor_profile == "Conservative Investor":
+                insight += " As a Conservative Investor, mix with stablecoins for extra safety."
+            if composite_score > 80 and investor_profile == "Aggressive Crypto Investor":
+                insight += " Note: This asset’s low risk may not match your Aggressive Investor profile’s growth goals."
+        elif composite_score >= 40:
+            insight = "⚠️ Moderate risk—invest a small amount. Watch for high drawdown or dilution."
+            if certik_low:
+                insight += " Low CertiK score adds security concerns—consider BTC instead."
+            if investor_profile in ["Conservative Investor", "Bitcoin Strategist"]:
+                insight += f" As a {investor_profile}, lean toward BTC or stablecoins."
+            if investor_profile == "Conservative Investor" and composite_score < 50:
+                insight += " Warning: This asset’s risk level may not suit your Conservative Investor profile."
+        else:
+            insight = "🚨 High risk—avoid or invest very little. High drawdown or dilution makes this risky."
+            if certik_low:
+                insight += " Low CertiK score adds security concerns."
+            insight += " Switch to BTC or stablecoins for safety."
+            if investor_profile == "Conservative Investor":
+                insight += " Warning: This asset’s risk level may not suit your Conservative Investor profile."
+
         summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
 
         # Risk Assessment with Progress Bar
         with st.expander("Composite Risk Assessment", expanded=True):
-            progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"  # Updated yellow
+            progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
             st.markdown(f"""
                 <div class="risk-assessment {bg_class}">
                     <div style="font-size: 24px; font-weight: bold; color: white;">Composite Risk Score: {composite_score:.1f}/100</div>
                     <div style="font-size: 16px; margin-top: 5px; color: white;">Summary: {summary}</div>
                     <div class="progress-bar"><div class="progress-fill" style="width: {composite_score}%; background-color: {progress_color};"></div></div>
                     <div style="font-size: 16px; margin-top: 10px; color: #A9A9A9;">{insight}</div>
+                    <div style="font-size: 14px; margin-top: 5px; color: #A9A9A9; font-style: italic;">{profile_adjustment_text}</div>
                     <div style="font-size: 14px; margin-top: 5px; color: #A9A9A9; font-style: italic;">Fear and Greed: {fear_and_greed} ({fear_greed_classification})</div>
                 </div>
             """, unsafe_allow_html=True)
 
-        # Key Metrics with Simplified Tiles
+        # Key Metrics with Updated Tooltips
         with st.expander("Key Metrics", expanded=False):
             roi = ((asset_values[-1] / initial_investment) - 1) * 100
             investment_multiple = asset_values[-1] / initial_investment if initial_investment > 0 else 0
@@ -410,7 +453,7 @@ if calculate:
             st.markdown("### Investment Returns and Risk-Adjusted Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">💰 Value (1 Yr)<span class="tooltip" title="Projected value after 12 months. Insight: {'Lock in profits.' if roi > 50 else 'Hold and monitor.' if roi >= 0 else 'Reassess.'}">?</span></div>
+                    <div class="metric-title">💰 Value (1 Yr)<span class="tooltip" title="Your money’s expected value in a year. What to do: Above 1.5x, take profits. At 1-1.5x, keep watching. Below 1x, rethink this asset.">?</span></div>
                     <div class="metric-value">${asset_values[-1]:,.2f}<br>({investment_multiple:.2f}x)</div>
                     <div class="metric-desc">From ${initial_investment:,.2f} investment.</div>
                 </div>
@@ -418,7 +461,7 @@ if calculate:
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📉 Sortino<span class="tooltip" title="Return per downside risk. Insight: {'Proceed confidently.' if sortino_ratio > 1 else 'Allocate to stable assets.' if sortino_ratio >= 0 else 'Shift to stable assets.'}">?</span></div>
+                    <div class="metric-title">📉 Sortino<span class="tooltip" title="Earnings compared to bad losses. What to do: Above 1, stay in. At 0-1, add stable assets. Below 0, switch to stable assets.">?</span></div>
                     <div class="metric-value {'red-text' if sortino_ratio < 0 else 'green-text' if sortino_ratio > 1 else 'yellow-text'}">{sortino_ratio:.2f}</div>
                     <div class="metric-desc">Downside risk-adjusted return.</div>
                 </div>
@@ -426,7 +469,7 @@ if calculate:
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📊 Sharpe<span class="tooltip" title="Return per total risk. Insight: {'Proceed confidently.' if sharpe_ratio > 1 else 'Consider safer assets.' if sharpe_ratio >= 0 else 'Shift to stablecoins.'}">?</span></div>
+                    <div class="metric-title">📊 Sharpe<span class="tooltip" title="Earnings compared to all risks. What to do: Above 1, stay in. At 0-1, look at safer assets. Below 0, switch to stablecoins.">?</span></div>
                     <div class="metric-value {'red-text' if sharpe_ratio < 0 else 'green-text' if sharpe_ratio > 1 else 'yellow-text'}">{sharpe_ratio:.2f}</div>
                     <div class="metric-desc">Total risk-adjusted return.</div>
                 </div>
@@ -435,15 +478,15 @@ if calculate:
             st.markdown("### Risk Metrics")
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📉 Max DD<span class="tooltip" title="Largest potential loss. Insight: {'Minimal action.' if max_drawdown < 30 else f'Set stop-loss at {max_drawdown:.2f}%.' if max_drawdown <= 50 else 'Reduce exposure.'}">?</span></div>
-                    <div class="metric-value {'red-text' if max_drawdown > 50 else 'yellow-text' if max_drawdown > 30 else 'green-text'}">{max_drawdown:.2f}%</div>
+                    <div class="metric-title">📉 Max DD<span class="tooltip" title="Biggest possible loss after 12 months in a worst case. What to do: Below 20%, stay in. Above 20%, set a stop-loss—or hold if you trust the asset’s future value.">?</span></div>
+                    <div class="metric-value {'yellow-text' if max_drawdown > 20 else 'green-text'}">{max_drawdown:.2f}%</div>
                     <div class="metric-desc">Worst-case loss scenario.</div>
                 </div>
             """, unsafe_allow_html=True)
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">⚖️ Dilution<span class="tooltip" title="{dilution_text}. Insight: {'Minimal action.' if dilution_ratio < 20 else 'Check unlock schedule.' if dilution_ratio <= 50 else 'Reduce position.'}">?</span></div>
+                    <div class="metric-title">⚖️ Dilution<span class="tooltip" title="Risk from unreleased tokens. What to do: Below 20%, stay in. 20-50%, check token release dates. Above 50%, lower your investment.">?</span></div>
                     <div class="metric-value {'red-text' if dilution_ratio > 50 else 'yellow-text' if dilution_ratio > 20 else 'green-text'}">{dilution_ratio:.2f}%</div>
                     <div class="metric-desc">Uncirculated token risk.</div>
                 </div>
@@ -451,7 +494,7 @@ if calculate:
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">🛡️ Supply<span class="tooltip" title="{supply_concentration_text}. Insight: {'Monitor whales.' if supply_ratio < 20 else 'Be cautious.' if supply_ratio < 50 else 'Proceed confidently.'}">?</span></div>
+                    <div class="metric-title">🛡️ Supply<span class="tooltip" title="How many tokens are in use. What to do: Below 20%, watch for big sellers. 20-50%, be careful. Above 50%, stay in.">?</span></div>
                     <div class="metric-value {'red-text' if supply_ratio < 20 else 'yellow-text' if supply_ratio < 50 else 'green-text'}">{supply_ratio:.2f}%</div>
                     <div class="metric-desc">Circulating supply ratio.</div>
                 </div>
@@ -461,7 +504,7 @@ if calculate:
             mcap_max_note = f"Using Total Supply ({max_supply_display}), projected market cap would be {mcap_vs_btc_max:.2f}% of BTC’s." if total_supply > 0 else "Total Supply not provided."
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📈 MCap<span class="tooltip" title="{mcap_text}. Insight: {'Proceed confidently.' if mcap_vs_btc < 1 else 'Adjust growth rate.' if mcap_vs_btc <= 5 else 'Focus on realistic targets.'}">?</span></div>
+                    <div class="metric-title">📈 MCap<span class="tooltip" title="How big the asset might grow compared to BTC. What to do: Below 1%, stay in. 1-5%, lower your growth guess. Above 5%, set a realistic goal.">?</span></div>
                     <div class="metric-value {'red-text' if mcap_vs_btc > 5 else 'yellow-text' if mcap_vs_btc > 1 else 'green-text'}">{mcap_vs_btc:.2f}%</div>
                     <div class="metric-desc">Projected vs. BTC MCap.</div>
                 </div>
@@ -470,26 +513,65 @@ if calculate:
             supply_volatility_note = f"Total Supply: {max_supply_display}." if total_supply > 0 else "Total Supply not provided."
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">💧 Liquidity<span class="tooltip" title="24h volume/MCap. Insight: {'Use limit orders.' if vol_mkt_cap < 1 else 'Limit small trades.' if vol_mkt_cap <= 5 else 'Trade confidently.'}">?</span></div>
+                    <div class="metric-title">💧 Liquidity<span class="tooltip" title="How easy it is to trade. What to do: Below 1%, trade small amounts carefully. 1-5%, trade small amounts. Above 5%, trade freely.">?</span></div>
                     <div class="metric-value {'red-text' if vol_mkt_cap < 1 else 'yellow-text' if vol_mkt_cap <= 5 else 'green-text'}">{vol_mkt_cap:.2f}%</div>
                     <div class="metric-desc">{supply_volatility_note}</div>
                 </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("### Comparative Metrics")
+            # How Does This Compare? Section (Moved Inside Key Metrics Expander)
+            st.markdown("### How Does This Compare?")
+            asset_return = asset_values[-1] / initial_investment if initial_investment > 0 else 0
+            btc_return = 1.25  # 25% CAGR
+            stablecoin_return = 1 + (risk_free_rate / 100)
+
+            asset_vs_hurdle = growth_rate >= hurdle_rate
+            asset_vs_btc = asset_return >= btc_return
+            asset_vs_stablecoin = asset_return >= stablecoin_return
+
+            # Dynamically construct the tooltip message (removed "Stay in")
+            if asset_vs_btc and asset_vs_stablecoin:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_stablecoin:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+            else:
+                tooltip_text = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
+                    f"It also {'beats' if asset_vs_hurdle else 'does not beat'} the safe target. If risks are high, add stablecoins or switch to BTC."
+                )
+
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">📈 Hurdle<span class="tooltip" title="Growth vs. hurdle. Insight: {'Favor this asset.' if asset_vs_hurdle >= 20 else 'Balance with BTC.' if asset_vs_hurdle >= 0 else 'Increase BTC.'}">?</span></div>
-                    <div class="metric-value {hurdle_color}">{asset_vs_hurdle:.2f}%<br>({hurdle_label})</div>
-                    <div class="metric-desc">Vs. risk-free + 12%.</div>
+                    <div class="metric-title">📈 Asset vs Safe Target<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{growth_rate:.1f}% vs {hurdle_rate:.1f}% <span class="{'arrow-up' if asset_vs_hurdle else 'arrow-down'}">{'▲' if asset_vs_hurdle else '▼'}</span></div>
+                    <div class="metric-desc">Growth compared to safe target (risk-free rate + 12%).</div>
                 </div>
             """, unsafe_allow_html=True)
 
             st.markdown(f"""
                 <div class="metric-tile">
-                    <div class="metric-title">🎯 Risk-Adj<span class="tooltip" title="Risk-adjusted score. Insight: {'Diversify confidently.' if risk_adjusted_score >= 70 else 'Small position.' if risk_adjusted_score >= 40 else 'Explore safer assets.'}">?</span></div>
-                    <div class="metric-value {'green-text' if risk_adjusted_score >= 70 else 'yellow-text' if risk_adjusted_score >= 40 else 'red-text'}">{risk_adjusted_score:.1f}</div>
-                    <div class="metric-desc">Risk vs. return score.</div>
+                    <div class="metric-title">📈 Asset vs BTC<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{asset_return:.2f}x vs {btc_return:.2f}x <span class="{'arrow-up' if asset_vs_btc else 'arrow-down'}">{'▲' if asset_vs_btc else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to BTC (25% CAGR).</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Asset vs Stablecoin<span class="tooltip" title="{tooltip_text}">?</span></div>
+                    <div class="metric-value">{asset_return:.2f}x vs {stablecoin_return:.2f}x <span class="{'arrow-up' if asset_vs_stablecoin else 'arrow-down'}">{'▲' if asset_vs_stablecoin else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to stablecoin ({risk_free_rate:.1f}%).</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -526,7 +608,7 @@ if calculate:
                 plt.figure(figsize=(10, 6))
                 sns.set_style("whitegrid")
                 sns.lineplot(data=df_proj, x='Month', y='Asset Value', label='Asset', color='#4B5EAA', linewidth=2.5, marker='o')
-                sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFC107', linewidth=2.5, marker='o')  # Updated yellow
+                sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFC107', linewidth=2.5, marker='o')
                 sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin', color='#A9A9A9', linewidth=2.5, marker='o')
                 plt.axhline(y=initial_investment, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
                 plt.fill_between(df_proj['Month'], initial_investment, df_proj['Asset Value'], where=(df_proj['Asset Value'] < initial_investment), color='#FF4D4D', alpha=0.1, label='Loss Zone')
@@ -539,8 +621,8 @@ if calculate:
 
         # Monte Carlo Analysis
         with st.expander("Simplified Monte Carlo Analysis", expanded=False):
-            st.markdown("Simulates 200 scenarios over 12 months using Fear and Greed volatility.")
-            st.markdown("- **Expected**: Average | **Best**: 90th percentile | **Worst**: 10th percentile")
+            st.markdown("Tests 200 possible outcomes over 12 months based on market mood.")
+            st.markdown("- **Expected**: Average | **Best**: One of the highest outcomes | **Worst**: One of the lowest outcomes")
             mc_data = {
                 "Scenario": ["Worst Case", "Expected Case", "Best Case"],
                 "Projected Value ($)": [worst_case, expected_case, best_case],
@@ -555,9 +637,9 @@ if calculate:
             with st.spinner("Generating chart..."):
                 plt.figure(figsize=(10, 6))
                 sns.histplot(simulations, bins=50, color='#A9A9A9')
-                plt.axvline(worst_case, color='#D32F2F', label='Worst Case', linewidth=2)  # Updated color
-                plt.axvline(expected_case, color='#FFB300', label='Expected Case', linewidth=2)  # Updated color
-                plt.axvline(best_case, color='#388E3C', label='Best Case', linewidth=2)  # Updated color
+                plt.axvline(worst_case, color='#D32F2F', label='Worst Case', linewidth=2)
+                plt.axvline(expected_case, color='#FFB300', label='Expected Case', linewidth=2)
+                plt.axvline(best_case, color='#388E3C', label='Best Case', linewidth=2)
                 plt.axvline(initial_investment, color='#1E2A44', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
                 plt.title("Simplified Monte Carlo Analysis - 12 Month Investment Value")
                 plt.xlabel("Value ($)")
@@ -577,7 +659,7 @@ if calculate:
             }
             labels = list(portfolios[investor_profile].keys())
             sizes = list(portfolios[investor_profile].values())
-            colors = ['#4B5EAA', '#FFC107', '#32CD32', '#FF4D4D']  # Updated yellow
+            colors = ['#4B5EAA', '#FFC107', '#32CD32', '#FF4D4D']
             explode = (0.05, 0, 0, 0)
             plt.figure(figsize=(8, 8))
             plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', shadow=True, startangle=140)
