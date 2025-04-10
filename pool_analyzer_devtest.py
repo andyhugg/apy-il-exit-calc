@@ -82,7 +82,7 @@ def calculate_break_even_months_with_price_changes(initial_investment: float, ap
                                                   value_if_held: float, is_new_pool: bool = False) -> float:
     if apy <= 0:
         return float('inf')
-    monthly_price_change_asset1 = (expected.windowsprice_change_asset1 / 100) / 12
+    monthly_price_change_asset1 = (expected_price_change_asset1 / 100) / 12  # Fixed typo
     monthly_price_change_asset2 = (expected_price_change_asset2 / 100) / 12
     months = 0
     current_value = pool_value
@@ -169,7 +169,7 @@ def parse_tvl_input(tvl_str: str) -> float:
     except ValueError:
         return 1.00  # Default on invalid input
 
-# CSS (Updated for Tooltip Lag)
+# CSS
 st.markdown("""
     <style>
     .metric-tile {
@@ -455,7 +455,7 @@ if st.sidebar.button("Calculate"):
             'Net Return': 1.2,
             'TVL': 1.0,
             'APY vs Hurdle': 1.0,
-            'Platform Trust': 2.5,  # Increased from 1.3
+            'Platform Trust': 2.5,
             'Fear and Greed': 2.0
         }
         weighted_sum = sum(scores[metric] * weights[metric] for metric in scores)
