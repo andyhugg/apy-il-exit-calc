@@ -483,7 +483,7 @@ if calculate:
 
         summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
 
-        # Swap Analysis (Updated Logic - Compare only Asset A vs. Asset B, exclude BTC)
+        # Swap Analysis (Updated Logic - Compare only Asset A vs. Asset B, exclude BTC, add realized loss penalty)
         swap_analysis = None
         if entry_price > 0 and quantity_purchased > 0 and alt_growth_rate > 0:
             # Performance from entry price
@@ -549,23 +549,39 @@ if calculate:
             alt_composite_score = alt_weighted_sum / alt_total_weight if alt_total_weight > 0 else 0
             alt_risk_score = alt_composite_score
 
-            # Risk-adjusted scores
-            primary_risk_adjusted = primary_asset_value * ((primary_risk_score / 100) ** 2) * (1 + primary_sortino_ratio)
-            alt_risk_adjusted = alt_value * ((alt_risk_score / 100) ** 2) * (1 + alt_sortino_ratio)
+            # Calculate base risk-adjusted scores based on investor profile
+            if investor_profile == "Aggressive Crypto Investor":
+                # Prioritize growth
+                primary_risk_adjusted = primary_asset_value * (primary_risk_score / 100) * (1 + primary_sortino_ratio * 0.5)
+                alt_risk_adjusted = alt_value * (alt_risk_score / 100) * (1 + alt_sortino_ratio * 0.5)
+            elif investor_profile == "Conservative Investor":
+                # Prioritize safety
+                primary_risk_adjusted = primary_asset_value * ((primary_risk_score / 100) ** 2) * (1 + primary_sortino_ratio)
+                alt_risk_adjusted = alt_value * ((alt_risk_score / 100) ** 2) * (1 + alt_sortino_ratio)
+            else:
+                # Balanced approach for Growth Crypto Investor and Bitcoin Strategist
+                primary_risk_adjusted = primary_asset_value * ((primary_risk_score / 100) ** 1.5) * (1 + primary_sortino_ratio * 0.75)
+                alt_risk_adjusted = alt_value * ((alt_risk_score / 100) ** 1.5) * (1 + alt_sortino_ratio * 0.75)
+
+            # Apply realized loss penalty if swapping realizes a significant loss (>50%)
+            realized_loss_percentage = abs(percentage_change) if percentage_change < 0 else 0
+            apply_loss_penalty = realized_loss_percentage > 50
+            if apply_loss_penalty:
+                alt_risk_adjusted *= 0.8  # Penalty for realizing a significant loss
 
             # Adjust for investor profile
             safest_risk_score = max(primary_risk_score, alt_risk_score)
             if investor_profile == "Conservative Investor":
                 if primary_risk_score < safest_risk_score:
-                    primary_risk_adjusted *= 0.6  # Stricter penalty
+                    primary_risk_adjusted *= 0.6  # Stricter penalty for riskier asset
                 if alt_risk_score < safest_risk_score:
                     alt_risk_adjusted *= 0.6
             elif investor_profile == "Aggressive Crypto Investor":
                 max_value = max(primary_asset_value, alt_value)
                 if primary_asset_value == max_value and primary_risk_adjusted < alt_risk_adjusted:
-                    primary_risk_adjusted *= 1.2  # Bonus for highest growth
+                    primary_risk_adjusted *= 1.5  # Bonus for highest growth
                 if alt_value == max_value and alt_risk_adjusted < primary_risk_adjusted:
-                    alt_risk_adjusted *= 1.2
+                    alt_risk_adjusted *= 1.5
 
             # Determine recommendation (only between Asset A and Asset B)
             options = [
@@ -598,6 +614,8 @@ if calculate:
                 recommendation_text = (f"Hold {primary_label}, which offers the best risk-reward balance with a 12-month value of ${recommended_option[1]:,.2f} "
                                        f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
                                        f"outweighing the benefits of swapping to {alt_label} (score: {alt_risk_score:.1f}, value: ${alt_value:,.2f}).")
+                if apply_loss_penalty:
+                    recommendation_text += f" Additionally, swapping would realize a {realized_loss_percentage:.1f}% loss, which may have tax implications and impact your overall returns."
 
             swap_analysis = {
                 "performance_summary": performance_summary,
