@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Custom CSS (Updated to Remove Custom Tooltip and Add Emojis for Insights)
+# Custom CSS
 st.markdown("""
     <style>
     .metric-tile {
@@ -175,6 +175,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Help and Explanations Expander (Unchanged, at the top)
+with st.expander("Help and Explanations", expanded=False):
+    st.markdown("""
+    New to crypto analysis? Expand this section to learn about the key concepts used in this tool.
+
+    - **Max Drawdown**: The largest potential loss you might face in a worst-case scenario over 12 months, based on Monte Carlo simulations.
+    - **Sharpe Ratio**: A measure of return per unit of risk. Higher values indicate better risk-adjusted returns.
+    - **Sortino Ratio**: A measure of return per unit of downside risk (bad losses). Higher values indicate better returns for the risk of losses.
+    - **Dilution**: The risk from unreleased tokens that could flood the market, reducing your asset’s value.
+    - **Supply**: The percentage of tokens currently in circulation. Low ratios may indicate risk from large holders (whales).
+    - **MCap**: Market capitalization, showing the asset’s projected size compared to BTC’s market cap.
+    - **Liquidity**: How easy it is to trade the asset, measured as 24-hour trading volume divided by market cap.
+    - **Fear and Greed Index**: A market sentiment indicator (0-100). Lower values (fear) suggest higher volatility; higher values (greed) suggest overconfidence.
+    - **CertiK Score**: A security score (0-100) from CertiK, assessing the asset’s smart contract and project security. Higher scores indicate better security.
+    - **Risk-Free Rate**: The expected return from a stablecoin pool, used as a baseline for comparisons.
+    - **Composite Risk Score**: A weighted score (0-100) combining multiple risk metrics, adjusted for your investor profile. Higher scores indicate lower risk.
+    - **Safe Target**: A benchmark for your asset’s growth (risk-free rate you set + 6% inflation premium, doubled to set a higher bar in order to reward you for the risk you're taking in not holding BTC).
+    """)
+
 # Sidebar
 st.sidebar.markdown("""
 **Looking to analyze a Liquidity Pool?**  
@@ -187,6 +206,7 @@ st.sidebar.markdown("""
 """, unsafe_allow_html=True)
 
 st.sidebar.header("Configure your Crypto Asset")
+asset_name = st.sidebar.text_input("Asset Name", value="", placeholder="e.g., SEI")
 investor_profile = st.sidebar.selectbox(
     "Investor Profile",
     ["Conservative Investor", "Growth Crypto Investor", "Aggressive Crypto Investor", "Bitcoin Strategist"],
@@ -228,6 +248,14 @@ initial_investment = st.sidebar.number_input("Initial Investment Amount ($)", mi
 risk_free_rate = st.sidebar.number_input("Risk-Free Rate % (Stablecoin Pool)", min_value=0.0, value=0.0)
 st.sidebar.markdown("**Note**: BTC growth is assumed at a 25% CAGR, based on Michael Saylor’s growth forecasts for BTC over the next 15 years.")
 
+# Advanced: Swap Analysis Section
+st.sidebar.header("Advanced: Swap Analysis for Existing Holders")
+st.sidebar.markdown("**Note**: This section is for users who already hold the asset and want to evaluate swap options based on their entry price.")
+entry_price = st.sidebar.number_input("Your Entry Price ($)", min_value=0.0, value=0.0, step=0.0001, format="%.4f")
+quantity_purchased = st.sidebar.number_input("Quantity Purchased", min_value=0.0, value=0.0, step=1.0)
+alt_asset_name = st.sidebar.text_input("Alternative Asset Name", value="", placeholder="e.g., ETH")
+alt_growth_rate = st.sidebar.number_input("Expected Growth Rate of Alternative Asset % (Annual)", min_value=0.0, value=0.0, step=0.1, help="Enter 0 to skip this comparison.")
+
 calculate = st.sidebar.button("Calculate")
 
 # Main content
@@ -243,10 +271,14 @@ if calculate:
         months = 12
         asset_monthly_rate = (1 + growth_rate/100) ** (1/12) - 1
         rf_monthly_rate = (1 + risk_free_rate/100) ** (1/12) - 1
+        btc_monthly_rate = (1 + 0.25) ** (1/12) - 1  # 25% CAGR for BTC
+        sp500_monthly_rate = (1 + 0.075) ** (1/12) - 1  # 7.5% CAGR for S&P 500 (inflation-adjusted)
+        alt_monthly_rate = (1 + alt_growth_rate/100) ** (1/12) - 1 if alt_growth_rate > 0 else 0
         
         asset_projections = [asset_price * (1 + asset_monthly_rate) ** i for i in range(months + 1)]
-        btc_values = [initial_investment * (1 + 0.25) ** (i / 12) for i in range(months + 1)]  # Hardcoded 25% CAGR
+        btc_values = [initial_investment * (1 + btc_monthly_rate) ** i for i in range(months + 1)]
         rf_projections = [initial_investment * (1 + rf_monthly_rate) ** i for i in range(months + 1)]
+        sp500_values = [initial_investment * (1 + sp500_monthly_rate) ** i for i in range(months + 1)]  # S&P 500 projection
         
         asset_values = [initial_investment * p / asset_price for p in asset_projections]
         
@@ -286,6 +318,7 @@ if calculate:
                 all_monthly_returns.extend(monthly_returns)
             return simulations, sim_paths, all_monthly_returns
 
+        # Run Monte Carlo for the primary asset
         simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months)
         worst_case = np.percentile(simulations, 10)
         expected_case = np.mean(simulations)
@@ -295,6 +328,17 @@ if calculate:
         drawdowns = (peak - worst_path) / peak
         max_drawdown = max(drawdowns) * 100
         break_even_percentage = (max_drawdown / (100 - max_drawdown)) * 100
+
+        # Run simplified Monte Carlo for BTC (assume 40% volatility, similar to neutral Fear and Greed)
+        btc_simulations, _, _ = run_monte_carlo(initial_investment, 25, 50, months)  # 25% CAGR, neutral Fear and Greed (50)
+        btc_expected_value = np.mean(btc_simulations)
+
+        # Run simplified Monte Carlo for the alternative asset (if provided)
+        alt_expected_value = 0
+        alt_monthly_returns = []
+        if alt_growth_rate > 0:
+            alt_simulations, _, alt_monthly_returns = run_monte_carlo(initial_investment, alt_growth_rate, fear_and_greed, months)
+            alt_expected_value = np.mean(alt_simulations)
 
         if total_supply > 0 and market_cap > 0 and asset_price > 0:
             circulating_supply = market_cap / asset_price
@@ -345,12 +389,23 @@ if calculate:
         downside_std = np.std(negative_returns) if negative_returns else 0
         sortino_ratio = (annual_return - rf_annual) / downside_std if downside_std > 0 else 0
 
+        # Sortino Ratio for BTC (assumed)
+        btc_sortino_ratio = 1.2
+
+        # Sortino Ratio for alternative asset (if provided)
+        alt_sortino_ratio = 0
+        if alt_growth_rate > 0:
+            alt_annual_return = alt_growth_rate / 100
+            alt_negative_returns = [r for r in alt_monthly_returns if r < 0]
+            alt_downside_std = np.std(alt_negative_returns) if alt_negative_returns else 0
+            alt_sortino_ratio = (alt_annual_return - rf_annual) / alt_downside_std if alt_downside_std > 0 else 0
+
         hurdle_rate = (risk_free_rate + 6) * 2
         asset_vs_hurdle = growth_rate - hurdle_rate
 
         # Define individual scores
         scores = {
-            'Max Drawdown': 100 if max_drawdown < 20 else 50 if max_drawdown < 40 else 0,  # Adjusted thresholds
+            'Max Drawdown': 100 if max_drawdown < 20 else 50 if max_drawdown < 40 else 0,
             'Dilution Risk': 100 if dilution_ratio < 20 else 50 if dilution_ratio < 50 else 0,
             'Supply Concentration': 0 if supply_ratio < 20 else 50 if supply_ratio < 50 else 100,
             'MCap Growth': 100 if mcap_vs_btc < 1 else 50 if mcap_vs_btc < 5 else 0,
@@ -360,7 +415,7 @@ if calculate:
             'Market Cap': 100 if market_cap >= 1_000_000_000 else 50 if market_cap >= 10_000_000 else 0,
             'Fear and Greed': 100 if fear_and_greed <= 24 else 75 if fear_and_greed <= 49 else 50 if fear_and_greed == 50 else 25 if fear_and_greed <= 74 else 0,
             'Liquidity': 0 if vol_mkt_cap < 1 else 50 if vol_mkt_cap <= 5 else 100,
-            'Fear and Greed Penalty': 100 - abs(50 - fear_and_greed) * 2  # Added parabolic penalty
+            'Fear and Greed Penalty': 100 - abs(50 - fear_and_greed) * 2
         }
 
         # Define weights based on investor profile
@@ -387,7 +442,7 @@ if calculate:
             }
         }
 
-        # Calculate weighted composite score
+        # Calculate weighted composite score for the primary asset
         weighted_sum = sum(scores[metric] * weights[investor_profile][metric] for metric in scores)
         total_weight = sum(weights[investor_profile].values())
         composite_score = weighted_sum / total_weight if total_weight > 0 else 0
@@ -402,6 +457,23 @@ if calculate:
         return_to_hurdle_ratio = min((growth_rate / hurdle_rate) if hurdle_rate > 0 else 1, 3)
         risk_adjusted_score = min(composite_score * return_to_hurdle_ratio, 100)
 
+        # Estimated composite score for the alternative asset (simplified)
+        alt_composite_score = 0
+        if alt_growth_rate > 0:
+            alt_scores = {
+                'Sortino Ratio': 100 if alt_sortino_ratio > 1 else 50 if alt_sortino_ratio > 0 else 0,
+                'Fear and Greed': scores['Fear and Greed'],  # Use same Fear and Greed as primary asset
+                'Fear and Greed Penalty': scores['Fear and Greed Penalty']
+            }
+            alt_weights = {
+                "Sortino Ratio": weights[investor_profile]["Sortino Ratio"],
+                "Fear and Greed": weights[investor_profile]["Fear and Greed"],
+                "Fear and Greed Penalty": weights[investor_profile]["Fear and Greed Penalty"]
+            }
+            alt_weighted_sum = sum(alt_scores[metric] * alt_weights[metric] for metric in alt_scores)
+            alt_total_weight = sum(alt_weights.values())
+            alt_composite_score = alt_weighted_sum / alt_total_weight if alt_total_weight > 0 else 0
+
         fear_greed_classification = "Extreme Fear" if fear_and_greed <= 24 else "Fear" if fear_and_greed <= 49 else "Neutral" if fear_and_greed == 50 else "Greed" if fear_and_greed <= 74 else "Extreme Greed"
         bg_class = "risk-green" if composite_score >= 70 else "risk-yellow" if composite_score >= 40 else "risk-red"
         
@@ -412,7 +484,7 @@ if calculate:
             if investor_profile == "Conservative Investor":
                 insight += " As a Conservative Investor, mix with stablecoins for extra safety."
             if composite_score > 80 and investor_profile == "Aggressive Crypto Investor":
-                insight += " Note: This asset’s low risk may not match your Aggressive Investor profile’s growth goals."
+                insight += " Note: This asset’s low risk may not match your Aggressive Investor profile’s focus on high growth."
         elif composite_score >= 40:
             insight = "⚠️ Moderate risk—invest a small amount. Watch for high drawdown or dilution."
             if certik_low:
@@ -431,7 +503,97 @@ if calculate:
 
         summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
 
-        # Risk Assessment with Progress Bar
+        # Swap Analysis (if entry price and quantity are provided)
+        swap_analysis = None
+        if entry_price > 0 and quantity_purchased > 0:
+            # Performance from entry price
+            initial_cost = quantity_purchased * entry_price
+            current_value = quantity_purchased * asset_price
+            percentage_change = ((asset_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
+            performance_summary = f"Your {asset_name if asset_name else 'asset'} investment is down {abs(percentage_change):.1f}%." if percentage_change < 0 else f"Your {asset_name if asset_name else 'asset'} investment is up {percentage_change:.1f}%."
+
+            # Adjust current value for transaction fee (1%)
+            transaction_fee = 0.01
+            net_proceeds = current_value * (1 - transaction_fee)
+
+            # Project 12-month values (already calculated via Monte Carlo)
+            primary_asset_value = expected_case  # From Monte Carlo
+            btc_value = btc_expected_value * (net_proceeds / initial_investment)  # Adjust for net proceeds
+            alt_value = alt_expected_value * (net_proceeds / initial_investment) if alt_growth_rate > 0 else 0
+
+            # Risk scores
+            primary_risk_score = composite_score
+            btc_risk_score = 80  # Assumed for BTC
+            alt_risk_score = alt_composite_score if alt_growth_rate > 0 else 0
+
+            # Risk-adjusted scores
+            primary_risk_adjusted = primary_asset_value * (sortino_ratio * (primary_risk_score / 100))
+            btc_risk_adjusted = btc_value * (btc_sortino_ratio * (btc_risk_score / 100))
+            alt_risk_adjusted = alt_value * (alt_sortino_ratio * (alt_risk_score / 100)) if alt_growth_rate > 0 else 0
+
+            # Adjust for investor profile
+            if investor_profile == "Conservative Investor":
+                if primary_risk_score < btc_risk_score:
+                    primary_risk_adjusted *= 0.8  # Penalty for higher risk
+                if alt_growth_rate > 0 and alt_risk_score < btc_risk_score:
+                    alt_risk_adjusted *= 0.8
+            elif investor_profile == "Aggressive Crypto Investor":
+                if primary_asset_value > btc_value and primary_risk_adjusted < btc_risk_adjusted:
+                    primary_risk_adjusted *= 1.2  # Bonus for higher growth
+                if alt_growth_rate > 0 and alt_value > btc_value and alt_risk_adjusted < btc_risk_adjusted:
+                    alt_risk_adjusted *= 1.2
+
+            # Determine recommendation
+            options = [
+                ("Hold", primary_asset_value, sortino_ratio, primary_risk_score, primary_risk_adjusted, f"Hold if risk is acceptable."),
+                ("Swap to BTC", btc_value, btc_sortino_ratio, btc_risk_score, btc_risk_adjusted, f"Swap to BTC for lower risk.")
+            ]
+            if alt_growth_rate > 0:
+                options.append((f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'}", alt_value, alt_sortino_ratio, alt_risk_score, alt_risk_adjusted, f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'} if growth outweighs risk."))
+
+            # Sort options by risk-adjusted score
+            options.sort(key=lambda x: x[4], reverse=True)
+            recommended_option = options[0]
+
+            # Build swap analysis table
+            swap_data = {
+                "Scenario": [opt[0] for opt in options],
+                "Expected 12-Month Value": [f"${opt[1]:,.2f}" for opt in options],
+                "Sortino Ratio": [f"{opt[2]:.2f}" for opt in options],
+                "Risk Score": [f"{opt[3]:.1f}" for opt in options],
+                "Recommendation": [opt[5] for opt in options]
+            }
+            swap_df = pd.DataFrame(swap_data)
+
+            # Recommendation text
+            primary_label = asset_name if asset_name else "the asset"
+            alt_label = alt_asset_name if alt_asset_name else "the alternative asset"
+            if recommended_option[0] == "Swap to BTC":
+                recommendation_text = (f"Swap to BTC to reduce your risk exposure, with a 12-month value of ${recommended_option[1]:,.2f} "
+                                      f"and a lower risk (score: {recommended_option[3]:.1f}) compared to {primary_label} "
+                                      f"(score: {primary_risk_score:.1f}). This aligns with your {investor_profile} profile’s focus on safety, "
+                                      f"even though holding {primary_label} offers higher potential returns.")
+                if alt_growth_rate > 0:
+                    recommendation_text += (f" Swapping to {alt_label} is riskier (score: {alt_risk_score:.1f}) and less suitable for your risk preferences.")
+            elif recommended_option[0].startswith("Swap to") and alt_growth_rate > 0:
+                recommendation_text = (f"Swap to {alt_label} for a better risk-reward balance, with a 12-month value of ${recommended_option[1]:,.2f} "
+                                       f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
+                                       f"offering higher potential returns than holding {primary_label} (score: {primary_risk_score:.1f}) while managing risk.")
+                recommendation_text += f" Swapping to BTC (score: {btc_risk_score:.1f}) is safer but offers lower returns."
+            else:
+                recommendation_text = (f"Hold {primary_label}, which offers the best risk-reward balance with a 12-month value of ${recommended_option[1]:,.2f} "
+                                       f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, balancing growth and risk.")
+                recommendation_text += f" Swapping to BTC (score: {btc_risk_score:.1f}) reduces risk but offers lower returns."
+                if alt_growth_rate > 0:
+                    recommendation_text += f" Swapping to {alt_label} is riskier (score: {alt_risk_score:.1f}) and less suitable for your risk preferences."
+
+            swap_analysis = {
+                "performance_summary": performance_summary,
+                "table": swap_df,
+                "recommendation": recommendation_text
+            }
+
+        # Composite Risk Assessment (Unchanged Layout, Add Swap Analysis)
         with st.expander("Composite Risk Assessment", expanded=True):
             progress_color = "#32CD32" if composite_score >= 70 else "#FFC107" if composite_score >= 40 else "#FF4D4D"
             st.markdown(f"""
@@ -445,7 +607,14 @@ if calculate:
                 </div>
             """, unsafe_allow_html=True)
 
-        # Key Metrics with Updated Tooltips
+            # Add Swap Analysis Subsection
+            if swap_analysis:
+                st.markdown("### Swap Analysis Based on Your Entry Price")
+                st.markdown(swap_analysis["performance_summary"])
+                st.table(swap_analysis["table"])
+                st.markdown(swap_analysis["recommendation"])
+
+        # Key Metrics (Unchanged)
         with st.expander("Key Metrics", expanded=False):
             roi = ((asset_values[-1] / initial_investment) - 1) * 100
             investment_multiple = asset_values[-1] / initial_investment if initial_investment > 0 else 0
@@ -519,63 +688,147 @@ if calculate:
                 </div>
             """, unsafe_allow_html=True)
 
-            # How Does This Compare? Section (Inside Key Metrics Expander)
+            # How Does This Compare? Section (Unchanged)
             st.markdown("### How Does This Compare?")
             asset_return = asset_values[-1] / initial_investment if initial_investment > 0 else 0
             btc_return = 1.25  # 25% CAGR
             stablecoin_return = 1 + (risk_free_rate / 100)
+            sp500_return = 1 + 0.075  # 7.5% CAGR for S&P 500
 
             asset_vs_hurdle = growth_rate >= hurdle_rate
             asset_vs_btc = asset_return >= btc_return
             asset_vs_stablecoin = asset_return >= stablecoin_return
+            asset_vs_sp500 = asset_return >= sp500_return
 
-            # Tooltip for "Asset vs Safe Target" (keep "safe target" reference and clarify description)
+            # Tooltip for "Asset vs Safe Target"
             tooltip_safe_target = (
                 f"Your asset’s growth ({growth_rate:.1f}%) {'beats' if asset_vs_hurdle else 'does not beat'} the safe target ({hurdle_rate:.1f}%). "
                 f"If risks are high, add stablecoins or switch to BTC."
             )
 
-            # Tooltip for "Asset vs BTC" (no "safe target" reference)
-            if asset_vs_btc and asset_vs_stablecoin:
+            # Tooltip for "Asset vs BTC"
+            if asset_vs_btc and asset_vs_stablecoin and asset_vs_sp500:
                 tooltip_btc = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x), stablecoins ({stablecoin_return:.2f}x), and S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc and asset_vs_stablecoin:
+                tooltip_btc = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x) but not S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc and asset_vs_sp500:
+                tooltip_btc = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and S&P 500 ({sp500_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_stablecoin and asset_vs_sp500:
+                tooltip_btc = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) and S&P 500 ({sp500_return:.2f}x) but not BTC ({btc_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
             elif asset_vs_btc:
                 tooltip_btc = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x) or S&P 500 ({sp500_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
             elif asset_vs_stablecoin:
                 tooltip_btc = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x) or S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_sp500:
+                tooltip_btc = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than S&P 500 ({sp500_return:.2f}x) but not BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
             else:
                 tooltip_btc = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x), stablecoins ({stablecoin_return:.2f}x), or S&P 500 ({sp500_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
 
-            # Tooltip for "Asset vs Stablecoin" (no "safe target" reference)
-            if asset_vs_btc and asset_vs_stablecoin:
+            # Tooltip for "Asset vs Stablecoin"
+            if asset_vs_btc and asset_vs_stablecoin and asset_vs_sp500:
                 tooltip_stablecoin = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x), stablecoins ({stablecoin_return:.2f}x), and S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc and asset_vs_stablecoin:
+                tooltip_stablecoin = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x) but not S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc and asset_vs_sp500:
+                tooltip_stablecoin = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and S&P 500 ({sp500_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_stablecoin and asset_vs_sp500:
+                tooltip_stablecoin = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) and S&P 500 ({sp500_return:.2f}x) but not BTC ({btc_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
             elif asset_vs_btc:
                 tooltip_stablecoin = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x) or S&P 500 ({sp500_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
             elif asset_vs_stablecoin:
                 tooltip_stablecoin = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x) or S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_sp500:
+                tooltip_stablecoin = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than S&P 500 ({sp500_return:.2f}x) but not BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
             else:
                 tooltip_stablecoin = (
-                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
+                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x), stablecoins ({stablecoin_return:.2f}x), or S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+
+            # Tooltip for "Asset vs S&P 500"
+            if asset_vs_btc and asset_vs_stablecoin and asset_vs_sp500:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x), stablecoins ({stablecoin_return:.2f}x), and S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc and asset_vs_stablecoin:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and stablecoins ({stablecoin_return:.2f}x) but not S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc and asset_vs_sp500:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) and S&P 500 ({sp500_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_stablecoin and asset_vs_sp500:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) and S&P 500 ({sp500_return:.2f}x) but not BTC ({btc_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_btc:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than BTC ({btc_return:.2f}x) but not stablecoins ({stablecoin_return:.2f}x) or S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_stablecoin:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than stablecoins ({stablecoin_return:.2f}x) but not BTC ({btc_return:.2f}x) or S&P 500 ({sp500_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            elif asset_vs_sp500:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is better than S&P 500 ({sp500_return:.2f}x) but not BTC ({btc_return:.2f}x) or stablecoins ({stablecoin_return:.2f}x). "
+                    f"If risks are high, add stablecoins or switch to BTC."
+                )
+            else:
+                tooltip_sp500 = (
+                    f"Your asset’s growth ({asset_return:.2f}x) is not better than BTC ({btc_return:.2f}x), stablecoins ({stablecoin_return:.2f}x), or S&P 500 ({sp500_return:.2f}x). "
                     f"If risks are high, add stablecoins or switch to BTC."
                 )
 
@@ -603,15 +856,23 @@ if calculate:
                 </div>
             """, unsafe_allow_html=True)
 
-        # Projections
+            st.markdown(f"""
+                <div class="metric-tile">
+                    <div class="metric-title">📈 Asset vs S&P 500<span class="tooltip" title="{tooltip_sp500}">?</span></div>
+                    <div class="metric-value">{asset_return:.2f}x vs {sp500_return:.2f}x <span class="{'arrow-up' if asset_vs_sp500 else 'arrow-down'}">{'▲' if asset_vs_sp500 else '▼'}</span></div>
+                    <div class="metric-desc">12-month growth compared to S&P 500 (7.5% inflation-adjusted CAGR).</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Projected Investment Value Over Time (Unchanged)
         with st.expander("Projected Investment Value Over Time", expanded=False):
-            st.markdown("**Note**: Projected values reflect growth of your initial investment.")
+            st.markdown("**Note**: Projected values reflect growth of your initial investment. S&P 500 projection assumes a 7.5% inflation-adjusted CAGR, based on long-term historical averages. Short-term performance may vary (e.g., SPY returned 3.57% from April 2024 to April 2025).")
             proj_data = {
-                "Metric": ["Asset Value ($)", "Asset ROI (%)", "BTC Value ($)", "BTC ROI (%)", "Stablecoin Value ($)", "Stablecoin ROI (%)"],
-                "Month 0": [asset_values[0], ((asset_values[0] / initial_investment) - 1) * 100, btc_values[0], ((btc_values[0] / initial_investment) - 1) * 100, rf_projections[0], ((rf_projections[0] / initial_investment) - 1) * 100],
-                "Month 3": [asset_values[3], ((asset_values[3] / initial_investment) - 1) * 100, btc_values[3], ((btc_values[3] / initial_investment) - 1) * 100, rf_projections[3], ((rf_projections[3] / initial_investment) - 1) * 100],
-                "Month 6": [asset_values[6], ((asset_values[6] / initial_investment) - 1) * 100, btc_values[6], ((btc_values[6] / initial_investment) - 1) * 100, rf_projections[6], ((rf_projections[6] / initial_investment) - 1) * 100],
-                "Month 12": [asset_values[12], ((asset_values[12] / initial_investment) - 1) * 100, btc_values[12], ((btc_values[12] / initial_investment) - 1) * 100, rf_projections[12], ((rf_projections[12] / initial_investment) - 1) * 100]
+                "Metric": ["Asset Value ($)", "Asset ROI (%)", "BTC Value ($)", "BTC ROI (%)", "Stablecoin Value ($)", "Stablecoin ROI (%)", "S&P 500 Value ($)", "S&P 500 ROI (%)"],
+                "Month 0": [asset_values[0], ((asset_values[0] / initial_investment) - 1) * 100, btc_values[0], ((btc_values[0] / initial_investment) - 1) * 100, rf_projections[0], ((rf_projections[0] / initial_investment) - 1) * 100, sp500_values[0], ((sp500_values[0] / initial_investment) - 1) * 100],
+                "Month 3": [asset_values[3], ((asset_values[3] / initial_investment) - 1) * 100, btc_values[3], ((btc_values[3] / initial_investment) - 1) * 100, rf_projections[3], ((rf_projections[3] / initial_investment) - 1) * 100, sp500_values[3], ((sp500_values[3] / initial_investment) - 1) * 100],
+                "Month 6": [asset_values[6], ((asset_values[6] / initial_investment) - 1) * 100, btc_values[6], ((btc_values[6] / initial_investment) - 1) * 100, rf_projections[6], ((rf_projections[6] / initial_investment) - 1) * 100, sp500_values[6], ((sp500_values[6] / initial_investment) - 1) * 100],
+                "Month 12": [asset_values[12], ((asset_values[12] / initial_investment) - 1) * 100, btc_values[12], ((btc_values[12] / initial_investment) - 1) * 100, rf_projections[12], ((rf_projections[12] / initial_investment) - 1) * 100, sp500_values[12], ((sp500_values[12] / initial_investment) - 1) * 100]
             }
             proj_df = pd.DataFrame(proj_data)
 
@@ -632,12 +893,19 @@ if calculate:
             st.markdown('</div>', unsafe_allow_html=True)
 
             with st.spinner("Generating chart..."):
-                df_proj = pd.DataFrame({'Month': range(months + 1), 'Asset Value': asset_values, 'Bitcoin Value': btc_values, 'Stablecoin Value': rf_projections})
+                df_proj = pd.DataFrame({
+                    'Month': range(months + 1),
+                    'Asset Value': asset_values,
+                    'Bitcoin Value': btc_values,
+                    'Stablecoin Value': rf_projections,
+                    'S&P 500 Value': sp500_values
+                })
                 plt.figure(figsize=(10, 6))
                 sns.set_style("whitegrid")
-                sns.lineplot(data=df_proj, x='Month', y='Asset Value', label='Asset', color='#4B5EAA', linewidth=2.5, marker='o')
-                sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFC107', linewidth=2.5, marker='o')
-                sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin', color='#A9A9A9', linewidth=2.5, marker='o')
+                sns.lineplot(data=df_proj, x='Month', y='Asset Value', label='Asset', color='#4B5EAA', linewidth=2.5, marker='o')  # Blue
+                sns.lineplot(data=df_proj, x='Month', y='Bitcoin Value', label='Bitcoin', color='#FFC107', linewidth=2.5, marker='o')  # Yellow
+                sns.lineplot(data=df_proj, x='Month', y='Stablecoin Value', label='Stablecoin', color='#A9A9A9', linewidth=2.5, marker='o')  # Gray
+                sns.lineplot(data=df_proj, x='Month', y='S&P 500 Value', label='S&P 500', color='#32CD32', linewidth=2.5, marker='o')  # Green
                 plt.axhline(y=initial_investment, color='#FF4D4D', linestyle='--', label=f'Initial Investment (${initial_investment:,.2f})')
                 plt.fill_between(df_proj['Month'], initial_investment, df_proj['Asset Value'], where=(df_proj['Asset Value'] < initial_investment), color='#FF4D4D', alpha=0.1, label='Loss Zone')
                 plt.title('Projected Investment Value Over 12 Months')
@@ -647,7 +915,7 @@ if calculate:
                 st.pyplot(plt)
                 plt.clf()
 
-        # Monte Carlo Analysis
+        # Simplified Monte Carlo Analysis (Unchanged)
         with st.expander("Simplified Monte Carlo Analysis", expanded=False):
             st.markdown("Tests 200 possible outcomes over 12 months based on market mood.")
             st.markdown("- **Expected**: Average | **Best**: One of the highest outcomes | **Worst**: One of the lowest outcomes")
@@ -676,7 +944,7 @@ if calculate:
                 st.pyplot(plt)
                 plt.clf()
 
-        # Portfolio Structure
+        # Suggested Portfolio Structure (Unchanged)
         with st.expander("Suggested Portfolio Structure", expanded=False):
             st.markdown(f"Based on your profile: **{investor_profile}**")
             portfolios = {
