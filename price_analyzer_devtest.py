@@ -318,7 +318,7 @@ if calculate:
                 all_monthly_returns.extend(monthly_returns)
             return simulations, sim_paths, all_monthly_returns
 
-        # Run Monte Carlo for the primary asset (for general projections)
+        # Run Monte Carlo for the primary asset (for general projections and Monte Carlo Analysis section)
         simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months)
         worst_case = np.percentile(simulations, 10)
         expected_case = np.mean(simulations)
@@ -483,9 +483,9 @@ if calculate:
 
         summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
 
-        # Swap Analysis (if entry price and quantity are provided)
+        # Swap Analysis (Updated Logic - Compare only Asset A vs. Asset B, exclude BTC)
         swap_analysis = None
-        if entry_price > 0 and quantity_purchased > 0:
+        if entry_price > 0 and quantity_purchased > 0 and alt_growth_rate > 0:
             # Performance from entry price
             initial_cost = quantity_purchased * entry_price
             current_value = quantity_purchased * asset_price
@@ -496,81 +496,82 @@ if calculate:
             transaction_fee = 0.01
             net_proceeds = current_value * (1 - transaction_fee)
 
-            # Project 12-month values using Monte Carlo with correct starting values
-            # For "Hold" scenario, use current value
-            primary_simulations, _, primary_monthly_returns = run_monte_carlo(current_value, growth_rate, fear_and_greed, months)
-            primary_asset_value = np.mean(primary_simulations)
+            # Project 12-month values using deterministic growth
+            # For "Hold" scenario (Asset A), use current value
+            primary_asset_value = current_value * (1 + growth_rate / 100)
 
-            # For "Swap to BTC", use net proceeds after fee
-            btc_simulations, _, btc_monthly_returns = run_monte_carlo(net_proceeds, 25, 50, months)  # 25% CAGR, neutral Fear and Greed (50)
-            btc_value = np.mean(btc_simulations)
+            # For "Swap to Alternative" (Asset B), use net proceeds after fee
+            alt_value = net_proceeds * (1 + alt_growth_rate / 100)
 
-            # For "Swap to Alternative", use net proceeds after fee
-            alt_value = 0
-            alt_monthly_returns = []
-            if alt_growth_rate > 0:
-                alt_simulations, _, alt_monthly_returns = run_monte_carlo(net_proceeds, alt_growth_rate, fear_and_greed, months)
-                alt_value = np.mean(alt_simulations)
+            # Simplified Sortino Ratio calculation (without Monte Carlo)
+            # Use growth rate as the return, estimate downside volatility based on Fear and Greed and risk score
+            if fear_and_greed <= 24:
+                volatility_value = 0.75
+            elif fear_and_greed <= 49:
+                volatility_value = 0.60
+            elif fear_and_greed == 50:
+                volatility_value = 0.40
+            elif fear_and_greed <= 74:
+                volatility_value = 0.50
+            else:
+                volatility_value = 0.70
+            volatility_adjustment = 1.2 if fear_and_greed <= 49 else 1.1 if fear_and_greed > 50 else 1.0
+            adjusted_volatility = volatility_value * volatility_adjustment
+            base_downside_volatility = adjusted_volatility * 0.5
 
-            # Recalculate Sortino Ratios with updated monthly returns
-            primary_negative_returns = [r for r in primary_monthly_returns if r < 0]
-            primary_downside_std = np.std(primary_negative_returns) if primary_negative_returns else 0
-            primary_sortino_ratio = (annual_return - rf_annual) / primary_downside_std if primary_downside_std > 0 else 0
+            # Scale downside volatility by risk score (lower risk score = higher downside volatility)
+            primary_risk_score = composite_score
+            alt_risk_score = alt_composite_score
 
-            btc_sortino_ratio = 1.2  # Assumed for BTC
+            primary_downside_volatility = base_downside_volatility * (100 / primary_risk_score)
+            alt_downside_volatility = base_downside_volatility * (100 / alt_risk_score)
 
-            alt_sortino_ratio = 0
-            if alt_growth_rate > 0:
-                alt_annual_return = alt_growth_rate / 100
-                alt_negative_returns = [r for r in alt_monthly_returns if r < 0]
-                alt_downside_std = np.std(alt_negative_returns) if alt_negative_returns else 0
-                alt_sortino_ratio = (alt_annual_return - rf_annual) / alt_downside_std if alt_downside_std > 0 else 0
+            # Sortino Ratios
+            primary_annual_return = growth_rate / 100
+            alt_annual_return = alt_growth_rate / 100
+
+            primary_sortino_ratio = (primary_annual_return - rf_annual) / primary_downside_volatility if primary_downside_volatility > 0 else 0
+            alt_sortino_ratio = (alt_annual_return - rf_annual) / alt_downside_volatility if alt_downside_volatility > 0 else 0
 
             # Update the alternative asset's composite score with the correct Sortino Ratio
-            if alt_growth_rate > 0:
-                alt_scores = {
-                    'Sortino Ratio': 100 if alt_sortino_ratio > 1 else 50 if alt_sortino_ratio > 0 else 0,
-                    'Fear and Greed': scores['Fear and Greed'],  # Use same Fear and Greed as primary asset
-                    'Fear and Greed Penalty': scores['Fear and Greed Penalty']
-                }
-                alt_weights = {
-                    "Sortino Ratio": weights[investor_profile]["Sortino Ratio"],
-                    "Fear and Greed": weights[investor_profile]["Fear and Greed"],
-                    "Fear and Greed Penalty": weights[investor_profile]["Fear and Greed Penalty"]
-                }
-                alt_weighted_sum = sum(alt_scores[metric] * alt_weights[metric] for metric in alt_scores)
-                alt_total_weight = sum(alt_weights.values())
-                alt_composite_score = alt_weighted_sum / alt_total_weight if alt_total_weight > 0 else 0
-
-            # Risk scores
-            primary_risk_score = composite_score
-            btc_risk_score = 80  # Assumed for BTC
-            alt_risk_score = alt_composite_score if alt_growth_rate > 0 else 0
+            alt_scores = {
+                'Sortino Ratio': 100 if alt_sortino_ratio > 1 else 50 if alt_sortino_ratio > 0 else 0,
+                'Fear and Greed': scores['Fear and Greed'],
+                'Fear and Greed Penalty': scores['Fear and Greed Penalty']
+            }
+            alt_weights = {
+                "Sortino Ratio": weights[investor_profile]["Sortino Ratio"],
+                "Fear and Greed": weights[investor_profile]["Fear and Greed"],
+                "Fear and Greed Penalty": weights[investor_profile]["Fear and Greed Penalty"]
+            }
+            alt_weighted_sum = sum(alt_scores[metric] * alt_weights[metric] for metric in alt_scores)
+            alt_total_weight = sum(alt_weights.values())
+            alt_composite_score = alt_weighted_sum / alt_total_weight if alt_total_weight > 0 else 0
+            alt_risk_score = alt_composite_score
 
             # Risk-adjusted scores
-            primary_risk_adjusted = primary_asset_value * (primary_sortino_ratio * (primary_risk_score / 100))
-            btc_risk_adjusted = btc_value * (btc_sortino_ratio * (btc_risk_score / 100))
-            alt_risk_adjusted = alt_value * (alt_sortino_ratio * (alt_risk_score / 100)) if alt_growth_rate > 0 else 0
+            primary_risk_adjusted = primary_asset_value * ((primary_risk_score / 100) ** 2) * (1 + primary_sortino_ratio)
+            alt_risk_adjusted = alt_value * ((alt_risk_score / 100) ** 2) * (1 + alt_sortino_ratio)
 
             # Adjust for investor profile
+            safest_risk_score = max(primary_risk_score, alt_risk_score)
             if investor_profile == "Conservative Investor":
-                if primary_risk_score < btc_risk_score:
-                    primary_risk_adjusted *= 0.8  # Penalty for higher risk
-                if alt_growth_rate > 0 and alt_risk_score < btc_risk_score:
-                    alt_risk_adjusted *= 0.8
+                if primary_risk_score < safest_risk_score:
+                    primary_risk_adjusted *= 0.6  # Stricter penalty
+                if alt_risk_score < safest_risk_score:
+                    alt_risk_adjusted *= 0.6
             elif investor_profile == "Aggressive Crypto Investor":
-                if primary_asset_value > btc_value and primary_risk_adjusted < btc_risk_adjusted:
-                    primary_risk_adjusted *= 1.2  # Bonus for higher growth
-                if alt_growth_rate > 0 and alt_value > btc_value and alt_risk_adjusted < btc_risk_adjusted:
+                max_value = max(primary_asset_value, alt_value)
+                if primary_asset_value == max_value and primary_risk_adjusted < alt_risk_adjusted:
+                    primary_risk_adjusted *= 1.2  # Bonus for highest growth
+                if alt_value == max_value and alt_risk_adjusted < primary_risk_adjusted:
                     alt_risk_adjusted *= 1.2
 
             # Determine recommendation
             options = [
                 ("Hold", primary_asset_value, primary_sortino_ratio, primary_risk_score, primary_risk_adjusted, f"Hold if risk is acceptable."),
-                ("Swap to BTC", btc_value, btc_sortino_ratio, btc_risk_score, btc_risk_adjusted, f"Swap to BTC for lower risk.")
+                (f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'}", alt_value, alt_sortino_ratio, alt_risk_score, alt_risk_adjusted, f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'} if growth outweighs risk.")
             ]
-            if alt_growth_rate > 0:
-                options.append((f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'}", alt_value, alt_sortino_ratio, alt_risk_score, alt_risk_adjusted, f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'} if growth outweighs risk."))
 
             # Sort options by risk-adjusted score
             options.sort(key=lambda x: x[4], reverse=True)
@@ -589,24 +590,14 @@ if calculate:
             # Recommendation text
             primary_label = asset_name if asset_name else "the asset"
             alt_label = alt_asset_name if alt_asset_name else "the alternative asset"
-            if recommended_option[0] == "Swap to BTC":
-                recommendation_text = (f"Swap to BTC to reduce your risk exposure, with a 12-month value of ${recommended_option[1]:,.2f} "
-                                      f"and a lower risk (score: {recommended_option[3]:.1f}) compared to {primary_label} "
-                                      f"(score: {primary_risk_score:.1f}). This aligns with your {investor_profile} profile’s focus on safety, "
-                                      f"even though holding {primary_label} offers higher potential returns.")
-                if alt_growth_rate > 0:
-                    recommendation_text += (f" Swapping to {alt_label} is riskier (score: {alt_risk_score:.1f}) and less suitable for your risk preferences.")
-            elif recommended_option[0].startswith("Swap to") and alt_growth_rate > 0:
+            if recommended_option[0].startswith("Swap to"):
                 recommendation_text = (f"Swap to {alt_label} for a better risk-reward balance, with a 12-month value of ${recommended_option[1]:,.2f} "
                                        f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
-                                       f"offering higher potential returns than holding {primary_label} (score: {primary_risk_score:.1f}) while managing risk.")
-                recommendation_text += f" Swapping to BTC (score: {btc_risk_score:.1f}) is safer but offers lower returns."
+                                       f"offering a better risk-reward balance than holding {primary_label} (score: {primary_risk_score:.1f}, value: ${primary_asset_value:,.2f}).")
             else:
                 recommendation_text = (f"Hold {primary_label}, which offers the best risk-reward balance with a 12-month value of ${recommended_option[1]:,.2f} "
-                                       f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, balancing growth and risk.")
-                recommendation_text += f" Swapping to BTC (score: {btc_risk_score:.1f}) reduces risk but offers lower returns."
-                if alt_growth_rate > 0:
-                    recommendation_text += f" Swapping to {alt_label} is riskier (score: {alt_risk_score:.1f}) and less suitable for your risk preferences."
+                                       f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
+                                       f"outweighing the benefits of swapping to {alt_label} (score: {alt_risk_score:.1f}, value: ${alt_value:,.2f}).")
 
             swap_analysis = {
                 "performance_summary": performance_summary,
@@ -936,7 +927,7 @@ if calculate:
                 st.pyplot(plt)
                 plt.clf()
 
-        # Simplified Monte Carlo Analysis (Unchanged)
+        # Simplified Monte Carlo Analysis (Reintroduced)
         with st.expander("Simplified Monte Carlo Analysis", expanded=False):
             st.markdown("Tests 200 possible outcomes over 12 months based on market mood.")
             st.markdown("- **Expected**: Average | **Best**: One of the highest outcomes | **Worst**: One of the lowest outcomes")
