@@ -318,7 +318,7 @@ if calculate:
                 all_monthly_returns.extend(monthly_returns)
             return simulations, sim_paths, all_monthly_returns
 
-        # Run Monte Carlo for the primary asset (for general projections and Monte Carlo Analysis section)
+        # Run Monte Carlo for the primary asset (for general projections)
         simulations, sim_paths, all_monthly_returns = run_monte_carlo(initial_investment, growth_rate, fear_and_greed, months)
         worst_case = np.percentile(simulations, 10)
         expected_case = np.mean(simulations)
@@ -567,7 +567,7 @@ if calculate:
                 if alt_value == max_value and alt_risk_adjusted < primary_risk_adjusted:
                     alt_risk_adjusted *= 1.2
 
-            # Determine recommendation
+            # Determine recommendation (only between Asset A and Asset B)
             options = [
                 ("Hold", primary_asset_value, primary_sortino_ratio, primary_risk_score, primary_risk_adjusted, f"Hold if risk is acceptable."),
                 (f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'}", alt_value, alt_sortino_ratio, alt_risk_score, alt_risk_adjusted, f"Swap to {alt_asset_name if alt_asset_name else 'the alternative asset'} if growth outweighs risk.")
@@ -927,7 +927,7 @@ if calculate:
                 st.pyplot(plt)
                 plt.clf()
 
-        # Simplified Monte Carlo Analysis (Reintroduced)
+        # Simplified Monte Carlo Analysis (Unchanged)
         with st.expander("Simplified Monte Carlo Analysis", expanded=False):
             st.markdown("Tests 200 possible outcomes over 12 months based on market mood.")
             st.markdown("- **Expected**: Average | **Best**: One of the highest outcomes | **Worst**: One of the lowest outcomes")
