@@ -603,19 +603,26 @@ if calculate:
             }
             swap_df = pd.DataFrame(swap_data)
 
-            # Recommendation text
-            primary_label = asset_name if asset_name else "the asset"
-            alt_label = alt_asset_name if alt_asset_name else "the alternative asset"
+            # Recommendation text with proper formatting
+            primary_label = asset_name.upper() if asset_name else "the asset"
+            alt_label = alt_asset_name.upper() if alt_asset_name else "the alternative asset"
             if recommended_option[0].startswith("Swap to"):
-                recommendation_text = (f"Swap to {alt_label} for a better risk-reward balance, with a 12-month value of ${recommended_option[1]:,.2f} "
-                                       f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
-                                       f"offering a better risk-reward balance than holding {primary_label} (score: {primary_risk_score:.1f}, value: ${primary_asset_value:,.2f}).")
+                recommendation_text = (
+                    f"Swap to {alt_label} for a better risk-reward balance, with a 12-month value of ${recommended_option[1]:,.2f} "
+                    f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
+                    f"offering a better risk-reward balance than holding {primary_label} (score: {primary_risk_score:.1f}, value: ${primary_asset_value:,.2f})."
+                )
             else:
-                recommendation_text = (f"Hold {primary_label}, which offers the best risk-reward balance with a 12-month value of ${recommended_option[1]:,.2f} "
-                                       f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
-                                       f"outweighing the benefits of swapping to {alt_label} (score: {alt_risk_score:.1f}, value: ${alt_value:,.2f}).")
+                recommendation_text = (
+                    f"Hold {primary_label}, which offers the best risk-reward balance with a 12-month value of ${recommended_option[1]:,.2f} "
+                    f"and a risk score of {recommended_option[3]:.1f}. This aligns with your {investor_profile} profile’s goals, "
+                    f"outweighing the benefits of swapping to {alt_label} (score: {alt_risk_score:.1f}, value: ${alt_value:,.2f})."
+                )
                 if apply_loss_penalty:
-                    recommendation_text += f" Additionally, swapping would realize a {realized_loss_percentage:.1f}% loss, which may have tax implications and impact your overall returns."
+                    recommendation_text += (
+                        f" Additionally, swapping would realize a {realized_loss_percentage:.1f}% loss, "
+                        f"which may have tax implications and impact your overall returns."
+                    )
 
             swap_analysis = {
                 "performance_summary": performance_summary,
