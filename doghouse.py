@@ -258,6 +258,34 @@ alt_growth_rate = st.sidebar.number_input("Expected Growth Rate of Alternative A
 
 calculate = st.sidebar.button("Calculate")
 
+# Initialize variables with default values to avoid NameError
+composite_score = 0
+summary = "Not Calculated"
+insight = "Please click 'Calculate' to see the risk assessment."
+profile_adjustment_text = "Profile Adjustment: Not Calculated"
+fear_greed_classification = "Not Calculated"
+bg_class = "risk-red"
+swap_recommendation = None
+swap_analysis = None
+asset_values = [0] * 13  # Default for 12 months + initial
+initial_investment = initial_investment if initial_investment > 0 else 1  # Avoid division by zero
+simulations = [0]  # Default for Monte Carlo
+worst_case = 0
+expected_case = 0
+best_case = 0
+max_drawdown = 0
+dilution_ratio = 0
+supply_ratio = 0
+mcap_vs_btc = 0
+sharpe_ratio = 0
+sortino_ratio = 0
+vol_mkt_cap = vol_mkt_cap if 'vol_mkt_cap' in locals() else 0
+max_supply_display = "N/A"
+risk_free_rate = risk_free_rate if 'risk_free_rate' in locals() else 0
+hurdle_rate = (risk_free_rate + 6) * 2
+growth_rate = growth_rate if 'growth_rate' in locals() else 0
+fear_and_greed = fear_and_greed if 'fear_and_greed' in locals() else 50
+
 # Main content
 if calculate:
     if asset_price == 0 or initial_investment == 0:
@@ -483,6 +511,9 @@ if calculate:
 
         summary = "Low Risk" if composite_score >= 70 else "Moderate Risk" if composite_score >= 40 else "High Risk"
 
+### Section 2: Swap Analysis and Remaining Code
+
+```python
 # Swap Analysis (Simplified - Compare only Asset A vs. Asset B, exclude BTC, add realized loss penalty, remove detailed recommendation)
 swap_analysis = None
 swap_recommendation = None
@@ -1000,3 +1031,4 @@ with st.expander("Suggested Portfolio Structure", expanded=False):
     - **Blue Chips**: Lower volatility, established ecosystems.
     - **High Risk Assets**: High growth potential, high risk.
     """)
+```
